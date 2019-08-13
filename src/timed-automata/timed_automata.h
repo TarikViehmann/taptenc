@@ -72,12 +72,13 @@ struct automaton {
   ::std::string prefix;
 
   automaton(::std::vector<State> arg_states,
-            ::std::vector<Transition> arg_transitions,
-            ::std::string arg_prefix) {
+            ::std::vector<Transition> arg_transitions, ::std::string arg_prefix,
+            bool setTrap = true) {
     states = arg_states;
-    if (states.end() ==
-        find_if(states.begin(), states.end(),
-                [](const State &s) -> bool { return s.name == "trap"; })) {
+    if (setTrap == true && states.end() == find_if(states.begin(), states.end(),
+                                                   [](const State &s) -> bool {
+                                                     return s.name == "trap";
+                                                   })) {
       states.push_back(State("trap", ""));
     }
     transitions = arg_transitions;
