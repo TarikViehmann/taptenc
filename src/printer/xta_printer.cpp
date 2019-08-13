@@ -72,10 +72,10 @@ void XTAPrinter::printXTAstart(const AutomataSystem &s, std::string filename) {
 
   for (auto it = s.globals.channels.begin(); it != s.globals.channels.end();
        ++it) {
-    if (empty == false) {
-      myfile << ", ";
-    }
     if (it->type == ChanType::Broadcast) {
+      if (empty == false) {
+        myfile << ", ";
+      }
       if (empty == true) {
         std::cout
             << "XTAPrinter: Broadcast channels are not supported in XTA files"
@@ -92,10 +92,10 @@ void XTAPrinter::printXTAstart(const AutomataSystem &s, std::string filename) {
   empty = true;
   for (auto it = s.globals.channels.begin(); it != s.globals.channels.end();
        ++it) {
-    if (empty == false) {
-      myfile << ", ";
-    }
     if (it->type == ChanType::Binary) {
+      if (empty == false) {
+        myfile << ", ";
+      }
       if (empty == true) {
         myfile << "chan ";
       }
