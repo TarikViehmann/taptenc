@@ -82,10 +82,10 @@ void XMLPrinter::printXMLstart(const AutomataGlobals &g, std::string filename) {
   }
   bool empty = true;
   for (auto it = g.channels.begin(); it != g.channels.end(); ++it) {
-    if (empty == false) {
-      myfile << ", ";
-    }
     if (it->type == ChanType::Broadcast) {
+      if (empty == false) {
+        myfile << ", ";
+      }
       if (empty == true) {
         myfile << "broadcast chan ";
       }
@@ -98,10 +98,10 @@ void XMLPrinter::printXMLstart(const AutomataGlobals &g, std::string filename) {
   }
   empty = true;
   for (auto it = g.channels.begin(); it != g.channels.end(); ++it) {
-    if (empty == false) {
-      myfile << ", ";
-    }
     if (it->type == ChanType::Binary) {
+      if (empty == false) {
+        myfile << ", ";
+      }
       if (empty == true) {
         myfile << "chan ";
       }
