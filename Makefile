@@ -10,7 +10,7 @@ include $(BUILDSYS_DIR)/compiler_vars.mk
 exes := # Executables to build.
 
 exes += my_benchmark
-objects.my_benchmark = my_benchmark.o utils.o compact_encoder.o constraints.o vis_info.o xml_printer.o timed_automata.o
+objects.my_benchmark = my_benchmark.o utils.o compact_encoder.o modular_encoder.o constraints.o vis_info.o xta_printer.o xml_printer.o timed_automata.o
 
 all : $(SRC_DIRS) ${exes:%=${BUILD_DIR}/%} # Build all exectuables.
 
