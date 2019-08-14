@@ -21,3 +21,4 @@ public:
 };
 } // end namespace taptenc
 #include "compact_encoder.h"
+#include "modular_encoder.h"
