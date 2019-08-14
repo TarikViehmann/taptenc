@@ -46,14 +46,12 @@ Automaton generatePlanAutomaton(
   }
   full_plan.push_back("alphafin");
   vector<State> plan_states;
-  int x_offset = 0;
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
     bool urgent = false;
     if (it->substr(0, 5) != "alpha") {
       urgent = true;
     }
-    plan_states.push_back(State(*it, "", urgent));
-    x_offset += 200;
+    plan_states.push_back(State(*it + "X" + to_string(it-full_plan.begin()), "", urgent));
   }
   vector<Transition> plan_transitions;
   int i = 0;
@@ -64,6 +62,8 @@ Automaton generatePlanAutomaton(
     auto prev_state = (it - 1);
     if (prev_state->name.substr(0, 5) != "alpha") {
       sync_op = prev_state->name;
+      size_t x_pos = sync_op.find_first_of("X");
+      sync_op = sync_op.substr(0,x_pos);
     } else {
       guard = "cpa &gt; 30";
       update = "cpa = 0";
@@ -93,19 +93,19 @@ int main() {
                                    "pleft=0", "", true));
   transitions.push_back(Transition(states[1].id, states[2].id, "pleft &gt; 5",
                                    "bleft=0", "", true));
-  transitions.push_back(Transition(states[2].id, states[0].id, "pleft == 5",
+  transitions.push_back(Transition(states[2].id, states[0].id, "bleft == 5",
                                    "ileft=0", "", true));
   transitions.push_back(Transition(states[3].id, states[4].id, "iright &gt; 5",
                                    "pright=0", "", true));
   transitions.push_back(Transition(states[4].id, states[5].id, "pright &gt; 5",
                                    "bright=0", "", true));
-  transitions.push_back(Transition(states[5].id, states[3].id, "pright == 5",
+  transitions.push_back(Transition(states[5].id, states[3].id, "bright == 5",
                                    "iright=0", "", true));
   transitions.push_back(Transition(states[2].id, states[4].id, "bleft &lt; 5",
                                    "pright=0", "", true));
   transitions.push_back(Transition(states[5].id, states[1].id, "bright &lt; 5",
                                    "pleft=0", "", true));
-  Automaton test(states, transitions, "main");
+  Automaton test(states, transitions, "main", false);
   test.clocks.insert(test.clocks.end(),
                      {"ileft", "pleft", "bleft", "iright", "pright", "bright"});
   vector<State> right;
@@ -118,7 +118,6 @@ int main() {
   left.insert(left.end(), {test.states[0], test.states[1], test.states[2]});
   top.insert(top.end(), {test.states[1], test.states[3], test.states[4]});
   idles.insert(idles.end(), {test.states[0], test.states[3]});
-  CompactEncoder enc;
   Bounds b;
   b.l_op = "&lt;=";
   b.r_op = "&lt;=";
@@ -138,6 +137,7 @@ int main() {
   glob.channels.push_back(Channel(ChanType::Binary, "spast9"));
   glob.channels.push_back(Channel(ChanType::Binary, "spast10"));
   XMLPrinter printer;
+  XTAPrinter xta_printer;
   vector<pair<Automaton, string>> automata;
   automata.push_back(make_pair(test, ""));
   vector<int> plan{3, 1, 2, 3, 4, 3, 2, 5, 8, 7, 2, 4, 6};
@@ -154,18 +154,20 @@ int main() {
   AutomataSystem my_system;
   my_system.instances = automata;
   my_system.globals = glob;
-  //  enc.encodePast(my_system, bot, "spast1", b);
-  //  enc.encodePast(my_system, top, "spast2", b);
-  //  enc.encodePast(my_system, idles, "spast3", b);
-  //  enc.encodePast(my_system, left, "spast4", b);
-  //  enc.encodePast(my_system, right, "spast5", b);
-  //  enc.encodePast(my_system, bot, "spast6", b);
-  //  enc.encodePast(my_system, top, "spast7", b);
-  //  enc.encodePast(my_system, idles, "spast8", b);
-  //  enc.encodePast(my_system, left, "spast9", b);
-  //  enc.encodePast(my_system, right, "spast10", b);
+  ModularEncoder enc(my_system);
+  enc.encodePast(my_system, bot, "spast1", b);
+   enc.encodePast(my_system, top, "spast2", b);
+   enc.encodePast(my_system, idles, "spast3", b);
+   enc.encodePast(my_system, left, "spast4", b);
+   enc.encodePast(my_system, right, "spast5", b);
+   enc.encodePast(my_system, bot, "spast6", b);
+   enc.encodePast(my_system, top, "spast7", b);
+   enc.encodePast(my_system, idles, "spast8", b);
+   enc.encodePast(my_system, left, "spast9", b);
+   enc.encodePast(my_system, right, "spast10", b);
   enc.encodeNoOp(my_system, right, "snoop1");
-  //  enc.encodeFuture(my_system, left, "sfinally1", b);
+  enc.encodeFuture(my_system, left, "sfinally1", b);
   SystemVisInfo my_system_vis_info(my_system);
   printer.print(my_system, my_system_vis_info, "test.xml");
+  xta_printer.print(my_system, my_system_vis_info, "test.xta");
 }
