@@ -16,9 +16,10 @@ struct state {
   bool initial;
   state(::std::string arg_name, ::std::string arg_inv, bool arg_urgent = false,
         bool arg_initial = false) {
-    id = "id" + ::std::to_string(obj_count);
-    obj_count++;
     name = arg_name;
+    // name = "id" + ::std::to_string(obj_count);
+    obj_count++;
+    id = arg_name;
     inv = arg_inv;
     urgent = arg_urgent;
     initial = arg_initial;
