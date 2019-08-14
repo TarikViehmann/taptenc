@@ -51,7 +51,8 @@ Automaton generatePlanAutomaton(
     if (it->substr(0, 5) != "alpha") {
       urgent = true;
     }
-    plan_states.push_back(State(*it + "X" + to_string(it-full_plan.begin()), "", urgent));
+    plan_states.push_back(
+        State(*it + "X" + to_string(it - full_plan.begin()), "", urgent));
   }
   vector<Transition> plan_transitions;
   int i = 0;
@@ -63,7 +64,7 @@ Automaton generatePlanAutomaton(
     if (prev_state->name.substr(0, 5) != "alpha") {
       sync_op = prev_state->name;
       size_t x_pos = sync_op.find_first_of("X");
-      sync_op = sync_op.substr(0,x_pos);
+      sync_op = sync_op.substr(0, x_pos);
     } else {
       guard = "cpa &gt; 30";
       update = "cpa = 0";
@@ -156,15 +157,15 @@ int main() {
   my_system.globals = glob;
   ModularEncoder enc(my_system);
   enc.encodePast(my_system, bot, "spast1", b);
-   enc.encodePast(my_system, top, "spast2", b);
-   enc.encodePast(my_system, idles, "spast3", b);
-   enc.encodePast(my_system, left, "spast4", b);
-   enc.encodePast(my_system, right, "spast5", b);
-   enc.encodePast(my_system, bot, "spast6", b);
-   enc.encodePast(my_system, top, "spast7", b);
-   enc.encodePast(my_system, idles, "spast8", b);
-   enc.encodePast(my_system, left, "spast9", b);
-   enc.encodePast(my_system, right, "spast10", b);
+  enc.encodePast(my_system, top, "spast2", b);
+  enc.encodePast(my_system, idles, "spast3", b);
+  enc.encodePast(my_system, left, "spast4", b);
+  enc.encodePast(my_system, right, "spast5", b);
+  enc.encodePast(my_system, bot, "spast6", b);
+  enc.encodePast(my_system, top, "spast7", b);
+  enc.encodePast(my_system, idles, "spast8", b);
+  enc.encodePast(my_system, left, "spast9", b);
+  enc.encodePast(my_system, right, "spast10", b);
   enc.encodeNoOp(my_system, right, "snoop1");
   enc.encodeFuture(my_system, left, "sfinally1", b);
   SystemVisInfo my_system_vis_info(my_system);

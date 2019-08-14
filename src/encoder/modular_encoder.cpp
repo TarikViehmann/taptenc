@@ -289,7 +289,8 @@ void ModularEncoder::encodeFuture(AutomataSystem &s,
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
       (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
   if (upper_bounded) {
-    addInvariants(sat, sat.states, clock + bounds.r_op + std::to_string(bounds.y));
+    addInvariants(sat, sat.states,
+                  clock + bounds.r_op + std::to_string(bounds.y));
   }
   std::vector<Transition> base_to_sat = createCopyTransitionsBetweenTAs(
       base_copy, sat, base_copy.states, "", clock + " = 0", opsync);
@@ -337,8 +338,9 @@ void ModularEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
       (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
 
   if (upper_bounded) {
-    addInvariants(sat,sat.states, clock + " &lt;= 0");
-    addInvariants(remainder,remainder.states, clock + bounds.r_op + std::to_string(bounds.y));
+    addInvariants(sat, sat.states, clock + " &lt;= 0");
+    addInvariants(remainder, remainder.states,
+                  clock + bounds.r_op + std::to_string(bounds.y));
   }
   std::vector<Transition> base_to_sat = createCopyTransitionsBetweenTAs(
       base_copy, sat, bc_filter, "", clock + " = 0", "");
