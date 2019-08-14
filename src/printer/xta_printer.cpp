@@ -21,14 +21,14 @@ std::string XTAPrinter::toStringXTA(const State &s) {
 std::string XTAPrinter::toStringXTA(const Transition &t) {
   std::stringstream res;
   res << t.source_id << " -> " << t.dest_id << " { ";
+  if (t.guard != "")
+    res << "guard " << t.guard << "; ";
   if (t.sync != "" && t.passive)
     res << "sync " << t.sync << "?"
         << "; ";
   if (t.sync != "" && t.passive == false)
     res << "sync " << t.sync << "!"
         << "; ";
-  if (t.guard != "")
-    res << "guard " << t.guard << "; ";
   if (t.update != "")
     res << "assign " << t.update << "; ";
   res << "}";
