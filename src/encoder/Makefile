@@ -1,2 +1,2 @@
-SRCS := compact_encoder.cpp modular_encoder.cpp
+SRCS := compact_encoder.cpp modular_encoder.cpp encoder.cpp
 include ../../buildsys/rules.mk

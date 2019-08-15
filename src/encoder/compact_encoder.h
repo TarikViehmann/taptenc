@@ -1,7 +1,9 @@
 #pragma once
+#include "encoder.h"
 #include "timed_automata.h"
 #include <string>
 #include <vector>
+
 namespace taptenc {
 class CompactEncoder : Encoder {
 public:
