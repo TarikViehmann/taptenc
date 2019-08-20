@@ -1,4 +1,5 @@
 #include "encoders.h"
+#include "filter.h"
 #include "printer.h"
 #include "timed_automata.h"
 #include "vis_info.h"
