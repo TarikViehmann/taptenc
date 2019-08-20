@@ -4,6 +4,7 @@
 #include "utils.h"
 #include <algorithm>
 #include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -13,21 +14,24 @@ using namespace taptenc;
 Automaton Encoder::mergeAutomata(const std::vector<Automaton> &automata,
                                  std::vector<Transition> &interconnections,
                                  std::string prefix) {
-  std::vector<State> res_states;
-  std::vector<Transition> res_transitions{interconnections};
-  std::vector<std::string> res_clocks;
-  std::vector<std::string> res_bool_vars;
+  std::set<State> res_states;
+  std::set<Transition> res_transitions(interconnections.begin(),
+                                       interconnections.end());
+  std::set<std::string> res_clocks;
+  std::set<std::string> res_bool_vars;
   for (const auto &ta : automata) {
-    res_states.insert(res_states.end(), ta.states.begin(), ta.states.end());
-    res_transitions.insert(res_transitions.end(), ta.transitions.begin(),
-                           ta.transitions.end());
-    res_clocks.insert(res_clocks.end(), ta.clocks.begin(), ta.clocks.end());
-    res_bool_vars.insert(res_bool_vars.end(), ta.bool_vars.begin(),
-                         ta.bool_vars.end());
+    res_states.insert(ta.states.begin(), ta.states.end());
+    res_transitions.insert(ta.transitions.begin(), ta.transitions.end());
+    res_clocks.insert(ta.clocks.begin(), ta.clocks.end());
+    res_bool_vars.insert(ta.bool_vars.begin(), ta.bool_vars.end());
   }
-  Automaton res(res_states, res_transitions, prefix, false);
-  res.clocks = res_clocks;
-  res.bool_vars = res_bool_vars;
+  Automaton res(
+      std::vector<State>(res_states.begin(), res_states.end()),
+      std::vector<Transition>(res_transitions.begin(), res_transitions.end()),
+      prefix, false);
+  res.clocks = std::vector<std::string>(res_clocks.begin(), res_clocks.end());
+  res.bool_vars =
+      std::vector<std::string>(res_bool_vars.begin(), res_bool_vars.end());
   return res;
 }
 

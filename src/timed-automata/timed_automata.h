@@ -24,6 +24,7 @@ struct state {
     urgent = arg_urgent;
     initial = arg_initial;
   }
+  bool operator<(const state &r) const;
 };
 typedef struct state State;
 
@@ -44,6 +45,8 @@ struct transition {
     sync = arg_sync;
     passive = arg_passive;
   }
+
+  bool operator<(const transition &r) const;
 };
 typedef struct transition Transition;
 
