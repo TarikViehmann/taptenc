@@ -17,6 +17,46 @@ systemVisInfo::systemVisInfo(AutomataSystem &s) {
   transition_counters.resize(s.instances.size());
 }
 
+systemVisInfo::systemVisInfo(
+    std::unordered_map<
+        std::string,
+        std::unordered_map<std::string,
+                           std::pair<Automaton, std::vector<Transition>>>>
+        &direct_encoding,
+    std::vector<State> &pa_order) {
+  int x_offset = 0;
+  int y_offset = 0;
+  int instances = 0;
+  state_info.resize(1);
+  transition_info.resize(1);
+  for (auto tl : pa_order) {
+    auto search = direct_encoding.find(tl.id);
+    if (search != direct_encoding.end()) {
+      for (const auto &entity : search->second) {
+        instances++;
+        auto si = this->generateStateInfo(entity.second.first.states, x_offset,
+                                          y_offset);
+        state_info[0].insert(si.begin(), si.end());
+        y_offset += 500;
+        std::cout << "systemVisInfo: " << state_info.back().size() << std::endl;
+        auto ti = this->generateTransitionInfo(entity.second.first.transitions,
+                                               state_info.back());
+        transition_info[0].insert(ti.begin(), ti.end());
+      }
+      y_offset = 0;
+      x_offset += 800;
+    }
+  }
+  for (const auto &tl : direct_encoding) {
+    for (const auto &entity : tl.second) {
+      auto iti =
+          this->generateTransitionInfo(entity.second.second, state_info.back());
+      transition_info[0].insert(iti.begin(), iti.end());
+    }
+  }
+  transition_counters.resize(instances);
+}
+
 std::pair<int, int> systemVisInfo::getStatePos(int component_index,
                                                std::string id) {
   auto s_info = state_info[component_index].find(id);
@@ -77,20 +117,22 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
 }
 
 std::unordered_map<std::string, StateVisInfo>
-systemVisInfo::generateStateInfo(const std::vector<State> &states) {
+systemVisInfo::generateStateInfo(const std::vector<State> &states, int x_offset,
+                                 int y_offset) {
   int row_length = sqrt(states.size());
   std::unordered_map<std::string, StateVisInfo> res;
-  int x = 0;
-  int y = 0;
+  int x = x_offset;
+  int y = y_offset;
   for (auto it = states.begin(); it != states.end(); ++it) {
     auto emplaced = res.emplace(it->id, StateVisInfo(std::make_pair(x, y)));
     x += ROW_DELIMITER;
     if (emplaced.second == false) {
-      std::cout << "generateStatePositions: two states have the same id!"
-                << std::endl;
+      std::cout << "systemVisInfo generateStatePositions: two states have the "
+                   "same id: "
+                << it->id << std::endl;
     }
-    if (x > row_length * ROW_DELIMITER) {
-      x = 0;
+    if (x > x_offset + (row_length * ROW_DELIMITER)) {
+      x = x_offset;
       y += COL_DELIMITER;
     }
   }
