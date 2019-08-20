@@ -149,10 +149,25 @@ void Encoder::addInvariants(Automaton &ta, const std::vector<State> filter,
 std::string Encoder::toPrefix(std::string op, std::string sub, std::string pa) {
   std::string res;
   res += pa;
-  res.push_back(SUB_CONSTRAINT_SEP);
+  res.push_back(TL_SEP);
   res += op;
   res.push_back(CONSTRAINT_SEP);
   res += sub;
   res.push_back(BASE_SEP);
+  return res;
+}
+
+std::string Encoder::addToPrefix(std::string prefix, std::string op,
+                                 std::string sub) {
+  std::string res;
+  std::string pa_prefix = Filter::getPrefix(prefix, TL_SEP);
+  pa_prefix.push_back(TL_SEP);
+  res += Filter::stripPrefix(prefix, pa_prefix);
+  std::string prefix_to_add;
+  prefix_to_add += op;
+  prefix_to_add.push_back(CONSTRAINT_SEP);
+  prefix_to_add += sub;
+  prefix_to_add.push_back(CONSTRAINT_SEP);
+  res = pa_prefix + prefix_to_add + res;
   return res;
 }

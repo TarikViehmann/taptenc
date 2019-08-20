@@ -22,6 +22,7 @@ float fDotProduct(const ::std::pair<float, float> &a,
 ::std::pair<float, float> iUnitNormalFromPoints(const ::std::pair<int, int> &a,
                                                 const ::std::pair<int, int> &b);
 ::std::string addConstraint(::std::string old_con, ::std::string to_add);
+::std::string addUpdate(::std::string old_con, ::std::string to_add);
 
 } // end namespace taptenc
 

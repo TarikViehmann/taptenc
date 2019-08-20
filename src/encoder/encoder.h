@@ -5,10 +5,6 @@
 #include <unordered_map>
 #include <vector>
 
-#define PA_SEP 'W'
-#define SUB_CONSTRAINT_SEP 'X'
-#define CONSTRAINT_SEP 'Y'
-#define BASE_SEP 'Z'
 
 namespace taptenc {
 class Encoder {
@@ -32,6 +28,8 @@ protected:
                      ::std::string inv);
   ::std::string toPrefix(::std::string op, ::std::string sub = "",
                          ::std::string pa = "");
+  ::std::string addToPrefix(::std::string prefix, ::std::string op,
+                            ::std::string sub = "");
 
 public:
   virtual void encodeNoOp(AutomataSystem &s, ::std::vector<State> &targets,
