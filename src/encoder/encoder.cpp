@@ -53,7 +53,6 @@ std::vector<Transition> Encoder::createCopyTransitionsBetweenTAs(
                                         Filter::getSuffix(f_state.id, BASE_SEP);
                                });
     if (c_source != source.states.end() && c_dest != dest.states.end()) {
-      std::cout << c_source->id << " -> " << c_dest->id << std::endl;
       res_transitions.push_back(
           Transition(c_source->id, c_dest->id, guard, update, sync, passive));
     }
@@ -135,8 +134,9 @@ void Encoder::addInvariants(Automaton &ta, const std::vector<State> filter,
                             std::string inv) {
   for (const auto &f_state : filter) {
     auto target = std::find_if(
-        ta.states.begin(), ta.states.end(),
-        [f_state](const State &s) bool { return f_state.id == s.id; });
+        ta.states.begin(), ta.states.end(), [f_state](const State &s) bool {
+          return Filter::matchesFilter(s.id, "", f_state.id);
+        });
     if (target != ta.states.end()) {
       target->inv = addConstraint(target->inv, inv);
     } else {
