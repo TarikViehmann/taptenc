@@ -22,7 +22,7 @@ std::pair<int, int> systemVisInfo::getStatePos(int component_index,
   auto s_info = state_info[component_index].find(id);
   std::pair<int, int> res;
   if (s_info == state_info[component_index].end()) {
-    std::cout << "getTransitionPos: Could not find TransitionVisInfo"
+    std::cout << "systemVisInfo getStatePos: Could not find StateVisInfo"
               << std::endl;
     res = std::make_pair(0, 0);
     return res;
@@ -46,8 +46,9 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
   auto t_info = transition_info[component_index].find(spair);
   std::vector<std::pair<int, int>> res;
   if (t_info == transition_info[component_index].end()) {
-    std::cout << "getTransitionPos: Could not find TransitionVisInfo"
-              << std::endl;
+    std::cout
+        << "systemVisInfo getTransitionPos: Could not find TransitionVisInfo"
+        << std::endl;
     res.push_back(std::make_pair(0, 0));
     return res;
   } else {
@@ -107,7 +108,8 @@ systemVisInfo::generateTransitionInfo(
       auto curr_source = state_info.find(it->source_id);
       auto curr_dest = state_info.find(it->dest_id);
       if (curr_source == state_info.end() || curr_dest == state_info.end()) {
-        std::cout << "generateTransitionInfo: state info not found";
+        std::cout << "generateTransitionInfo: state info not found, source "
+                  << it->source_id << " dest " << it->dest_id << std::endl;
         continue;
       }
       TransitionVisInfo curr_info(curr_source->second.pos,
