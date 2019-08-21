@@ -8,6 +8,7 @@
 namespace taptenc {
 class DirectEncoder : Encoder {
 private:
+  size_t encode_counter = 0;
   ::std::unordered_map<
       ::std::string,
       ::std::unordered_map<::std::string,

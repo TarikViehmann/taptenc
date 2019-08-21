@@ -139,9 +139,6 @@ void Encoder::addInvariants(Automaton &ta, const std::vector<State> filter,
         });
     if (target != ta.states.end()) {
       target->inv = addConstraint(target->inv, inv);
-    } else {
-      std::cout << "Encoder addInvariants: filter state not found (id "
-                << f_state.id << ")" << std::endl;
     }
   }
 }
