@@ -136,10 +136,11 @@ void DirectEncoder::encodeNoOp(AutomataSystem &, std::vector<State> &targets,
                                                false);
       }
     }
-    for (auto &tl_entry : search_tl->second) {
-      target_filter.filterAutomatonInPlace(tl_entry.second.first, "");
-      target_filter.filterTransitionsInPlace(tl_entry.second.second, pa, true);
-    }
+    // for (auto &tl_entry : search_tl->second) {
+    //  target_filter.filterAutomatonInPlace(tl_entry.second.first, "");
+    //  target_filter.filterTransitionsInPlace(tl_entry.second.second, pa,
+    //  true);
+    //}
   } else {
     std::cout << " DirectEncoder encodeNoOp: could not find timeline of pa "
               << pa << std::endl;
