@@ -38,7 +38,6 @@ systemVisInfo::systemVisInfo(
                                           y_offset);
         state_info[0].insert(si.begin(), si.end());
         y_offset += 500;
-        std::cout << "systemVisInfo: " << state_info.back().size() << std::endl;
         auto ti = this->generateTransitionInfo(entity.second.first.transitions,
                                                state_info.back());
         transition_info[0].insert(ti.begin(), ti.end());

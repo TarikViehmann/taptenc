@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 namespace taptenc {
 class Encoder {
 protected:

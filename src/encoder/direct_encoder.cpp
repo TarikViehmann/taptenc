@@ -98,9 +98,8 @@ DirectEncoder::addToPrefixOnTransitions(const std::vector<Transition> &trans,
                                         bool only_inner_trans) {
   std::vector<Transition> res;
   for (const auto &tr : trans) {
-    if (only_inner_trans == false ||
-        (Filter::getPrefix(tr.source_id, TL_SEP) ==
-         Filter::getPrefix(tr.dest_id, TL_SEP))) {
+    if (only_inner_trans == false || (Filter::getPrefix(tr.source_id, TL_SEP) ==
+                                      Filter::getPrefix(tr.dest_id, TL_SEP))) {
       res.push_back(Transition(addToPrefix(tr.source_id, to_add),
                                addToPrefix(tr.dest_id, to_add), tr.guard,
                                tr.update, tr.sync));
@@ -113,8 +112,7 @@ void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
                                               std::string curr_pa) {
   trans.erase(std::remove_if(trans.begin(), trans.end(),
                              [curr_pa](Transition &t) bool {
-                               return Filter::getPrefix(t.dest_id,
-                                                        TL_SEP) !=
+                               return Filter::getPrefix(t.dest_id, TL_SEP) !=
                                       curr_pa;
                              }),
               trans.end());
@@ -192,11 +190,13 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
         new_tls;
     std::size_t tls_copied = 0;
     auto curr_future_tl = search_tl;
+    encode_counter++;
     // create copies for each tl within the context
     while (Filter::getPrefix(curr_future_tl->first, TL_SEP) !=
            pa_order[context_past_end]) {
       for (auto &tl_entry : curr_future_tl->second) {
-        std::string new_prefix = addToPrefix(tl_entry.first, pa);
+        std::string op_name = pa + "F" + std::to_string(encode_counter);
+        std::string new_prefix = addToPrefix(tl_entry.first, op_name);
         Automaton cp_automaton =
             Filter::copyAutomaton(tl_entry.second.first, new_prefix);
         if (upper_bounded) {
@@ -212,10 +212,11 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
         std::vector<Transition> cp_to_orig;
         // check if next tl also gets copied
         if (tls_copied + context_start + 1 < context_past_end) {
-          cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.second, pa);
+          cp_to_other_cp =
+              addToPrefixOnTransitions(tl_entry.second.second, op_name);
         } else {
           cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.second, pa, true);
+              addToPrefixOnTransitions(tl_entry.second.second, op_name, true);
           cp_to_orig = createTransitionsBackToOrigTL(
               tl_entry.second.second, new_prefix, tl_entry.first);
           removeTransitionsToNextTl(tl_entry.second.second, tl_entry.first);
@@ -240,8 +241,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
               << std::endl;
     for (const auto &new_tl : new_tls) {
       auto emplaced =
-          pa_tls[Filter::getPrefix(new_tl.first, TL_SEP)].emplace(
-              new_tl);
+          pa_tls[Filter::getPrefix(new_tl.first, TL_SEP)].emplace(new_tl);
       if (emplaced.second == false) {
         std::cout
             << "DirectEncoder encodeFuture: final merge failed with automaton "
@@ -294,10 +294,12 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
                 << std::endl;
     }
     // create copies for each tl within the context
+    encode_counter++;
     while (Filter::getPrefix(curr_past_tl->first, TL_SEP) !=
            pa_order[context_prior_start]) {
       for (auto &tl_entry : curr_past_tl->second) {
-        std::string new_prefix = addToPrefix(tl_entry.first, pa);
+        std::string op_name = pa + "P" + std::to_string(encode_counter);
+        std::string new_prefix = addToPrefix(tl_entry.first, op_name);
         Automaton cp_automaton =
             Filter::copyAutomaton(tl_entry.second.first, new_prefix);
         if (upper_bounded) {
@@ -322,10 +324,11 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
         std::vector<Transition> cp_to_orig;
         // check if this is the latest tl
         if (tls_copied > 0) {
-          cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.second, pa);
+          cp_to_other_cp =
+              addToPrefixOnTransitions(tl_entry.second.second, op_name);
         } else {
           cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.second, pa, true);
+              addToPrefixOnTransitions(tl_entry.second.second, op_name, true);
           cp_to_orig = createTransitionsBackToOrigTL(
               tl_entry.second.second, new_prefix, tl_entry.first);
           // add constraints that ensure a target state was indeed visited
@@ -354,8 +357,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
               << std::endl;
     for (const auto &new_tl : new_tls) {
       auto emplaced =
-          pa_tls[Filter::getPrefix(new_tl.first, TL_SEP)].emplace(
-              new_tl);
+          pa_tls[Filter::getPrefix(new_tl.first, TL_SEP)].emplace(new_tl);
       if (emplaced.second == false) {
         std::cout
             << "DirectEncoder encodePast: final merge failed with automaton "

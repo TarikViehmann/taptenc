@@ -23,8 +23,39 @@ void append_prefix_to_states(vector<State> &arg_states, string prefix) {
     it->name += prefix;
   }
 }
+Automaton generatePlanAutomaton(const vector<int> &arg_plan, string arg_name) {
+  vector<string> full_plan;
+  transform(arg_plan.begin(), arg_plan.end(), back_inserter(full_plan),
+            [](const int pa) -> string { return "alpha" + to_string(pa); });
+  full_plan.push_back("alphafin");
+  full_plan.insert(full_plan.begin(), "alphastart");
+  vector<State> plan_states;
+  for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
+    plan_states.push_back(
+        State(*it + PA_SEP + to_string(it - full_plan.begin()),
+              (*it == "fin" || *it == "start") ? "" : "cpa &lt; 60"));
+  }
+  vector<Transition> plan_transitions;
+  int i = 0;
+  for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
+    string sync_op = "";
+    string guard = "";
+    string update = "";
+    auto prev_state = (it - 1);
+    if (prev_state->id != "alphafin" && prev_state->id != "alphastart") {
+      guard = "cpa &gt; 30";
+      update = "cpa = 0";
+    }
+    plan_transitions.push_back(
+        Transition(prev_state->id, it->id, guard, update, sync_op, false));
+    i++;
+  }
+  Automaton res = Automaton(plan_states, plan_transitions, arg_name, false);
+  res.clocks.push_back("cpa");
+  return res;
+}
 
-Automaton generatePlanAutomaton(
+Automaton generateSyncPlanAutomaton(
     const vector<int> &arg_plan,
     const unordered_map<int, vector<string>> &arg_constraint_activations,
     string arg_name) {
@@ -46,6 +77,7 @@ Automaton generatePlanAutomaton(
     offset += it->second.size();
   }
   full_plan.push_back("alphafin");
+  full_plan.insert(full_plan.begin(), "alphastart");
   vector<State> plan_states;
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
     bool urgent = false;
@@ -53,7 +85,9 @@ Automaton generatePlanAutomaton(
       urgent = true;
     }
     plan_states.push_back(
-        State(*it + "X" + to_string(it - full_plan.begin()), "", urgent));
+        State(*it + PA_SEP + to_string(it - full_plan.begin()),
+              ((*it == "alphafin" || *it == "alphastart") ? "" : "cpa &lt; 60"),
+              urgent));
   }
   vector<Transition> plan_transitions;
   int i = 0;
@@ -63,22 +97,93 @@ Automaton generatePlanAutomaton(
     string update = "";
     auto prev_state = (it - 1);
     if (prev_state->name.substr(0, 5) != "alpha") {
-      sync_op = prev_state->name;
-      size_t x_pos = sync_op.find_first_of("X");
-      sync_op = sync_op.substr(0, x_pos);
+      sync_op = Filter::getPrefix(prev_state->name, PA_SEP);
     } else {
       guard = "cpa &gt; 30";
       update = "cpa = 0";
     }
     plan_transitions.push_back(
         Transition(prev_state->id, it->id, guard, update, sync_op, false));
-
-    prev_state->name += "pa" + to_string(i);
     i++;
   }
-  Automaton res = Automaton(plan_states, plan_transitions, arg_name);
+  Automaton res = Automaton(plan_states, plan_transitions, arg_name, false);
   res.clocks.push_back("cpa");
   return res;
+}
+
+DirectEncoder
+createDirectEncoding(AutomataSystem &direct_system,
+                     const unordered_map<int, vector<string>> &activations,
+                     unordered_map<string, vector<State>> &targets, Bounds b,
+                     int plan_index = 1) {
+  DirectEncoder enc(direct_system);
+  for (const auto &pa : direct_system.instances[plan_index].first.states) {
+    string pa_op = Filter::getPrefix(pa.id, PA_SEP);
+    if (pa_op.substr(5) == "start" || pa_op.substr(5) == "fin") {
+      continue;
+    }
+    int pa_id = stoi(pa_op.substr(5));
+    auto search = activations.find(pa_id);
+    if (search != activations.end()) {
+      for (const auto &ac : search->second) {
+        auto search = targets.find(ac);
+        if (search != targets.end()) {
+          if (ac.substr(0, 5) == "snoop") {
+            enc.encodeNoOp(direct_system, search->second, pa.id);
+          }
+          if (ac.substr(0, 5) == "spast") {
+            enc.encodePast(direct_system, search->second, pa.id, b);
+          }
+          if (ac.substr(0, 8) == "sfinally") {
+            enc.encodeFuture(direct_system, search->second, pa.id, b);
+          }
+        }
+      }
+    }
+  }
+  return enc;
+}
+
+ModularEncoder
+createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
+                      unordered_map<string, vector<State>> &targets, Bounds b) {
+  ModularEncoder enc(system);
+  for (const auto chan : g.channels) {
+    auto search = targets.find(chan.name);
+    if (search != targets.end()) {
+      if (chan.name.substr(0, 5) == "snoop") {
+        enc.encodeNoOp(system, search->second, chan.name);
+      }
+      if (chan.name.substr(0, 5) == "spast") {
+        enc.encodePast(system, search->second, chan.name, b);
+      }
+      if (chan.name.substr(0, 8) == "sfinally") {
+        enc.encodeFuture(system, search->second, chan.name, b);
+      }
+    }
+  }
+  return enc;
+}
+
+CompactEncoder
+createCompactEncoding(AutomataSystem &system, const AutomataGlobals g,
+                      unordered_map<string, vector<State>> &targets, Bounds b) {
+  CompactEncoder enc;
+  for (const auto chan : g.channels) {
+    auto search = targets.find(chan.name);
+    if (search != targets.end()) {
+      if (chan.name.substr(0, 5) == "snoop") {
+        enc.encodeNoOp(system, search->second, chan.name);
+      }
+      if (chan.name.substr(0, 5) == "spast") {
+        enc.encodePast(system, search->second, chan.name, b);
+      }
+      if (chan.name.substr(0, 8) == "sfinally") {
+        enc.encodeFuture(system, search->second, chan.name, b);
+      }
+    }
+  }
+  return enc;
 }
 
 int main() {
@@ -140,9 +245,12 @@ int main() {
   glob.channels.push_back(Channel(ChanType::Binary, "spast10"));
   XMLPrinter printer;
   XTAPrinter xta_printer;
-  vector<pair<Automaton, string>> automata;
-  automata.push_back(make_pair(test, ""));
-  vector<int> plan{3, 1, 2, 3, 4, 3, 2, 5, 8, 7, 2, 4, 6};
+  vector<pair<Automaton, string>> automata_direct;
+  vector<pair<Automaton, string>> automata_sync;
+  automata_direct.push_back(make_pair(test, ""));
+  automata_sync.push_back(make_pair(test, ""));
+  automata_sync[0].first.states.push_back(State("trap", ""));
+  vector<int> plan{3, 1, 2, 3, 4, 3, 2, 5, 8, 4, 6};
   unordered_map<int, vector<string>> activations;
   activations[1] = vector<string>{"snoop1"};
   activations[4] = vector<string>{"snoop1", "sfinally1"};
@@ -151,25 +259,43 @@ int main() {
   activations[6] = vector<string>{"spast3", "spast9"};
   activations[7] = vector<string>{"spast4", "spast10"};
   activations[8] = vector<string>{"spast5", "spast6"};
-  automata.push_back(
-      make_pair(generatePlanAutomaton(plan, activations, "plan"), ""));
-  AutomataSystem my_system;
-  my_system.instances = automata;
-  my_system.globals = glob;
-  ModularEncoder enc(my_system);
-  enc.encodePast(my_system, bot, "spast1", b);
-  enc.encodePast(my_system, top, "spast2", b);
-  enc.encodePast(my_system, idles, "spast3", b);
-  enc.encodePast(my_system, left, "spast4", b);
-  enc.encodePast(my_system, right, "spast5", b);
-  enc.encodePast(my_system, bot, "spast6", b);
-  enc.encodePast(my_system, top, "spast7", b);
-  enc.encodePast(my_system, idles, "spast8", b);
-  enc.encodePast(my_system, left, "spast9", b);
-  enc.encodePast(my_system, right, "spast10", b);
-  enc.encodeNoOp(my_system, right, "snoop1");
-  enc.encodeFuture(my_system, left, "sfinally1", b);
-  SystemVisInfo my_system_vis_info(my_system);
-  printer.print(my_system, my_system_vis_info, "test.xml");
-  xta_printer.print(my_system, my_system_vis_info, "test.xta");
+  unordered_map<string, vector<State>> targets;
+  targets["spast1"] = bot;
+  targets["spast2"] = top;
+  targets["spast3"] = idles;
+  targets["spast4"] = left;
+  targets["spast5"] = right;
+  targets["spast6"] = bot;
+  targets["spast7"] = top;
+  targets["spast8"] = idles;
+  targets["spast9"] = left;
+  targets["spast10"] = right;
+  targets["snoop1"] = right;
+  targets["sfinally1"] = left;
+  Automaton plan_ta = generatePlanAutomaton(plan, "plan");
+  Automaton plan_sync_ta = generateSyncPlanAutomaton(plan, activations, "plan");
+  automata_direct.push_back(make_pair(plan_ta, ""));
+  automata_sync.push_back(make_pair(plan_sync_ta, ""));
+  AutomataSystem direct_system;
+  AutomataSystem sync_system;
+  direct_system.instances = automata_direct;
+  sync_system.instances = automata_sync;
+  sync_system.globals = glob;
+  DirectEncoder enc1 =
+      createDirectEncoding(direct_system, activations, targets, b);
+  enc1.createFinalSystem(direct_system);
+  auto internal = enc1.getInternalTAs();
+  SystemVisInfo direct_system_vis_info(internal, plan_ta.states);
+  printer.print(direct_system, direct_system_vis_info, "direct.xml");
+  xta_printer.print(direct_system, direct_system_vis_info, "direct.xta");
+  AutomataSystem modular_system = sync_system;
+  createModularEncoding(modular_system, glob, targets, b);
+  SystemVisInfo modular_system_vis_info(modular_system);
+  printer.print(modular_system, modular_system_vis_info, "modular.xml");
+  xta_printer.print(modular_system, modular_system_vis_info, "modular.xta");
+  AutomataSystem compact_system = sync_system;
+  createCompactEncoding(compact_system, glob, targets, b);
+  SystemVisInfo compact_system_vis_info(compact_system);
+  printer.print(compact_system, compact_system_vis_info, "compact.xml");
+  xta_printer.print(compact_system, compact_system_vis_info, "compact.xta");
 }
