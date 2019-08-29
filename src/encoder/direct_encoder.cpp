@@ -199,7 +199,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
         std::string op_name = pa + "F" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
         Automaton cp_automaton =
-            Filter::copyAutomaton(tl_entry.second.first, new_prefix);
+            Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
         if (upper_bounded) {
           addInvariants(tl_entry.second.first, base_filter.getFilter(),
                         clock + bounds.r_op + std::to_string(bounds.y));
@@ -207,7 +207,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
         cp_automaton.clocks.push_back(clock);
         std::vector<Transition> trans_orig_to_cp =
             createCopyTransitionsBetweenTAs(tl_entry.second.first, cp_automaton,
-                                            base_filter.getFilter(),
+                                            target_filter.getFilter(),
                                             guard_constraint_sat, "", "");
         std::vector<Transition> cp_to_other_cp;
         std::vector<Transition> cp_to_orig;
@@ -220,7 +220,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
               addToPrefixOnTransitions(tl_entry.second.second, op_name, true);
           cp_to_orig = createTransitionsBackToOrigTL(
               tl_entry.second.second, new_prefix, tl_entry.first);
-          removeTransitionsToNextTl(tl_entry.second.second, tl_entry.first);
+          removeTransitionsToNextTl(tl_entry.second.second,
+                                    Filter::getPrefix(tl_entry.first, TL_SEP));
         }
 
         cp_to_other_cp.insert(cp_to_other_cp.end(), trans_orig_to_cp.begin(),
