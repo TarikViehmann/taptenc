@@ -53,19 +53,20 @@ std::string Filter::getPrefix(std::string name, char marker) {
 
 void Filter::filterTransitionsInPlace(std::vector<Transition> &trans,
                                       std::string prefix, bool filter_source) {
-  trans.erase(std::remove_if(
-                  trans.begin(), trans.end(),
-                  [filter_source, prefix, this](Transition &t) bool {
-                    bool res = std::find_if(filter.begin(), filter.end(),
-                                            [t, filter_source, prefix,
-                                             this](const State &s) bool {
-                                              return Filter::matchesFilter(
-                                                  ((filter_source) ? t.source_id
-                                                                   : t.dest_id),
-                                                  prefix, s.id);
-                                            }) == filter.end();
-                    return res;
-                  }),
+  trans.erase(std::remove_if(trans.begin(), trans.end(),
+                             [filter_source, prefix, this](Transition &t) bool {
+                               std::string id =
+                                   ((filter_source) ? t.source_id : t.dest_id);
+                               bool res =
+                                   hasPrefix(id, prefix) &&
+                                   std::find_if(filter.begin(), filter.end(),
+                                                [id, filter_source, prefix,
+                                                 this](const State &s) bool {
+                                                  return Filter::matchesFilter(
+                                                      id, prefix, s.id);
+                                                }) == filter.end();
+                               return res;
+                             }),
               trans.end());
 }
 
