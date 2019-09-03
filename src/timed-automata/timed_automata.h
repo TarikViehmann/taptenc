@@ -31,15 +31,18 @@ typedef struct state State;
 struct transition {
   ::std::string source_id;
   ::std::string dest_id;
+  ::std::string action;
   ::std::string guard;
   ::std::string update;
   ::std::string sync;
   bool passive;
   transition(::std::string arg_source_id, ::std::string arg_dest_id,
-             ::std::string arg_guard, ::std::string arg_update,
-             ::std::string arg_sync, bool arg_passive = false) {
+             std::string arg_action, ::std::string arg_guard,
+             ::std::string arg_update, ::std::string arg_sync,
+             bool arg_passive = false) {
     source_id = arg_source_id;
     dest_id = arg_dest_id;
+    action = arg_action;
     guard = arg_guard;
     update = arg_update;
     sync = arg_sync;

@@ -32,10 +32,10 @@ void CompactEncoder::encodeNoOp(AutomataSystem &s, std::vector<State> &target,
                      [key](const State &s) -> bool { return s.name == key; });
     if (its != target.end()) {
       s.instances[base_pos].first.transitions.push_back(
-          Transition(it->id, it->id, "", "", opsync, true));
+          Transition(it->id, it->id, "", "", "", opsync, true));
     } else if (it->id != trap->id) {
       s.instances[base_pos].first.transitions.push_back(
-          Transition(it->id, trap->id, "", "", opsync, true));
+          Transition(it->id, trap->id, "", "", "", opsync, true));
     }
   }
 }
@@ -86,18 +86,18 @@ void CompactEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &target,
     }
     // self loop that triggers upon constraint activation
     s.instances[base_pos].first.transitions.push_back(
-        Transition(it->id, it->id, "", update_on_activation, opsync, true));
+        Transition(it->id, it->id, "", "", update_on_activation, opsync, true));
     // transitions to trap once above y
     if (upper_bounded) {
       s.instances[base_pos].first.transitions.push_back(Transition(
-          it->id, trap->id, guard_upper_bound_crossed, "", "", true));
+          it->id, trap->id, "", guard_upper_bound_crossed, "", "", true));
     }
     it->inv = addConstraint(it->inv, invariant);
     if (its != target.end()) {
       // transitions when constraint is satisfied
       s.instances[base_pos].first.transitions.push_back(
-          Transition(it->id, it->id, guard_constraint_sat, boolvar + " = false",
-                     "", true));
+          Transition(it->id, it->id, "", guard_constraint_sat,
+                     boolvar + " = false", "", true));
     }
   }
 }
@@ -152,19 +152,20 @@ void CompactEncoder::encodePast(AutomataSystem &s, std::vector<State> &target,
     // or below x
     if (upper_bounded) {
       s.instances[base_pos].first.transitions.push_back(Transition(
-          it->id, trap->id, guard_upper_bound_crossed, "", "", true));
-      s.instances[base_pos].first.transitions.push_back(Transition(
-          it->id, trap->id, guard_lower_bound_not_reached, "", opsync, true));
+          it->id, trap->id, "", guard_upper_bound_crossed, "", "", true));
+      s.instances[base_pos].first.transitions.push_back(
+          Transition(it->id, trap->id, "", guard_lower_bound_not_reached, "",
+                     opsync, true));
     }
     it->inv = addConstraint(it->inv, invariant);
     if (its != target.end()) {
       // transitions when constraint is satisfied
       s.instances[base_pos].first.transitions.push_back(
-          Transition(it->id, it->id, guard_constraint_sat, boolvar + " = false",
-                     opsync, true));
+          Transition(it->id, it->id, "", guard_constraint_sat,
+                     boolvar + " = false", opsync, true));
     }
     // self loop that triggers upon constraint activation
     s.instances[base_pos].first.transitions.push_back(
-        Transition(it->id, it->id, "", update_on_activation, "", true));
+        Transition(it->id, it->id, "", "", update_on_activation, "", true));
   }
 }

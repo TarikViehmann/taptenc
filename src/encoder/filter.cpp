@@ -109,11 +109,12 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
                              });
     if (source != res_states.end() && dest != res_states.end()) {
       if (strip_constraints) {
-        res_transitions.push_back(
-            Transition(source->id, dest->id, "", "", trans.sync, true));
+        res_transitions.push_back(Transition(source->id, dest->id, trans.action,
+                                             "", "", trans.sync, true));
       } else {
-        res_transitions.push_back(Transition(source->id, dest->id, trans.guard,
-                                             trans.update, trans.sync, true));
+        res_transitions.push_back(Transition(source->id, dest->id, trans.action,
+                                             trans.guard, trans.update,
+                                             trans.sync, true));
       }
     }
   }
@@ -162,11 +163,12 @@ Automaton Filter::filterAutomaton(const Automaton &source,
         });
     if (source != res_states.end() && dest != res_states.end()) {
       if (strip_constraints) {
-        res_transitions.push_back(
-            Transition(source->id, dest->id, "", "", trans.sync, true));
+        res_transitions.push_back(Transition(source->id, dest->id, trans.action,
+                                             "", "", trans.sync, true));
       } else {
-        res_transitions.push_back(Transition(source->id, dest->id, trans.guard,
-                                             trans.update, trans.sync, true));
+        res_transitions.push_back(Transition(source->id, dest->id, trans.action,
+                                             trans.guard, trans.update,
+                                             trans.sync, true));
       }
     }
   }

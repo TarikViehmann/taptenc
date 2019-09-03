@@ -53,8 +53,8 @@ std::vector<Transition> Encoder::createCopyTransitionsBetweenTAs(
                                         Filter::getSuffix(f_state.id, BASE_SEP);
                                });
     if (c_source != source.states.end() && c_dest != dest.states.end()) {
-      res_transitions.push_back(
-          Transition(c_source->id, c_dest->id, guard, update, sync, passive));
+      res_transitions.push_back(Transition(c_source->id, c_dest->id, "", guard,
+                                           update, sync, passive));
     }
   }
   return res_transitions;
@@ -83,7 +83,8 @@ std::vector<Transition> Encoder::createSuccessorTransitionsBetweenTAs(
       if (source_state != source.states.end() &&
           dest_state != dest.states.end()) {
         res_transitions.push_back(Transition(source_state->id, dest_state->id,
-                                             guard, update, trans.sync, true));
+                                             trans.action, guard, update,
+                                             trans.sync, true));
       }
     }
   }
@@ -108,7 +109,7 @@ void Encoder::addTrapTransitions(Automaton &ta,
         [source](const State &s) bool { return source.id == s.id; });
     if (search != ta.states.end()) {
       ta.transitions.push_back(
-          Transition(search->id, trap->id, guard, update, sync, passive));
+          Transition(search->id, trap->id, "", guard, update, sync, passive));
     } else {
       std::cout << "Encoder addTrapTransitions: id of source not "
                    "found in TA (id "
