@@ -86,7 +86,7 @@ std::vector<Transition> DirectEncoder::createTransitionsBackToOrigTL(
         pa + Filter::getSuffix(tr.dest_id, BASE_SEP) != pa) {
       res.push_back(
           Transition(prefix + Filter::getSuffix(tr.source_id, BASE_SEP),
-                     tr.dest_id, tr.guard, tr.update, tr.sync));
+                     tr.dest_id, tr.action, tr.guard, tr.update, tr.sync));
     }
   }
   return res;
@@ -101,8 +101,8 @@ DirectEncoder::addToPrefixOnTransitions(const std::vector<Transition> &trans,
     if (only_inner_trans == false || (Filter::getPrefix(tr.source_id, TL_SEP) ==
                                       Filter::getPrefix(tr.dest_id, TL_SEP))) {
       res.push_back(Transition(addToPrefix(tr.source_id, to_add),
-                               addToPrefix(tr.dest_id, to_add), tr.guard,
-                               tr.update, tr.sync));
+                               addToPrefix(tr.dest_id, to_add), tr.action,
+                               tr.guard, tr.update, tr.sync));
     }
   }
   return res;
