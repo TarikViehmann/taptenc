@@ -29,18 +29,5 @@ protected:
                          ::std::string pa = "");
   ::std::string addToPrefix(::std::string prefix, ::std::string op,
                             ::std::string sub = "");
-
-public:
-  virtual void encodeNoOp(AutomataSystem &s, ::std::vector<State> &targets,
-                          const ::std::string opsync, int base_index = 0) = 0;
-  virtual void encodeFuture(AutomataSystem &s, ::std::vector<State> &targets,
-                            const ::std::string opsync, const Bounds bounds,
-                            int base_index = 0) = 0;
-  virtual void encodePast(AutomataSystem &s, ::std::vector<State> &targets,
-                          const ::std::string opsync, const Bounds bounds,
-                          int base_index = 0) = 0;
-  // virtual void encodeUntil(AutomataSystem &s, ::std::vector<State> targets,
-  // int base_index = 0) = 0; virtual void encodeSince(AutomataSystem &s,
-  // ::std::vector<State> targets, int base_index = 0) = 0;
 };
 } // end namespace taptenc

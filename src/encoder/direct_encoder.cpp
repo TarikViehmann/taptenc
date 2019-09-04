@@ -186,7 +186,9 @@ void DirectEncoder::encodeNoOp(AutomataSystem &, std::vector<State> &targets,
 }
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
-                                 const std::string pa, const Bounds bounds,
+                                 const std::string pa,
+                                 const std::string constraint_name,
+                                 const Bounds bounds, int context,
                                  int base_index) {
   Filter target_filter = Filter(targets);
   Filter base_filter = Filter(s.instances[base_index].first.states);
@@ -199,7 +201,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
       return;
     }
     // formulate clock constraints
-    std::string clock = "clX" + pa;
+    std::string clock = "clX" + constraint_name;
     bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
     bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
     std::string guard_upper_bound_crossed =
@@ -222,7 +224,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
     // determine context (mockup)
     std::size_t context_start = search_pa - pa_order.begin();
     std::size_t context_past_end =
-        std::min(search_pa - pa_order.begin() + CONTEXT + 1,
+        std::min(search_pa - pa_order.begin() + context + 1,
                  (long int)pa_order.size() - 1);
     std::unordered_map<std::string,
                        std::pair<Automaton, std::vector<Transition>>>
@@ -234,7 +236,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
     while (Filter::getPrefix(curr_future_tl->first, TL_SEP) !=
            pa_order[context_past_end]) {
       for (auto &tl_entry : curr_future_tl->second) {
-        std::string op_name = pa + "F" + std::to_string(encode_counter);
+        std::string op_name =
+            constraint_name + "F" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
         Automaton cp_automaton =
             Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
@@ -266,8 +269,12 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
                               trans_orig_to_cp.end());
         cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
                               cp_to_orig.end());
-        new_tls.emplace(std::make_pair(
+        auto emp = new_tls.emplace(std::make_pair(
             new_prefix, make_pair(cp_automaton, cp_to_other_cp)));
+        if (emp.second == false) {
+          std::cout << "DirectEncoder encodeFuture: failed to add prefix: "
+                    << new_prefix << std::endl;
+        }
       }
       tls_copied++;
       curr_future_tl = pa_tls.find(pa_order[context_start + tls_copied]);
