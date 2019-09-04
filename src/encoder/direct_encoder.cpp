@@ -67,6 +67,29 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                 << pa.id << ")" << std::endl;
     }
   }
+  // generate query state
+  std::unordered_map<std::string, std::pair<Automaton, std::vector<Transition>>>
+      query_tl;
+  Automaton query_ta(std::vector<State>(), std::vector<Transition>(), "query",
+                     false);
+  query_ta.states.push_back(State("query", ""));
+  query_tl.emplace(std::make_pair(
+      "query", std::make_pair(query_ta, std::vector<Transition>())));
+  auto emp_tl = pa_tls.emplace(std::make_pair("query", query_tl));
+  if (emp_tl.second == false) {
+    std::cout << "DirectEncoder generateBaseTimeLine: query timeline "
+                 "already present (no plan action can be named query) "
+              << std::endl;
+  }
+  // make transitions from last plan actions to query
+  for (auto &last_tl :
+       pa_tls.find(s.instances[plan_index].first.states.back().id)->second) {
+    for (auto &s : last_tl.second.first.states) {
+      last_tl.second.second.push_back(
+          Transition(s.id, "query", "", "", "", ""));
+    }
+  }
+  // generate connections between TLs according to plan TA transitions
   for (const auto &pa_trans : s.instances[plan_index].first.transitions) {
     auto source_ta = pa_tls.find(pa_trans.source_id);
     auto dest_ta = pa_tls.find(pa_trans.dest_id);
