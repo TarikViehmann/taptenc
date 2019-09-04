@@ -5,6 +5,7 @@ BASE_DIR_TRAILING_SLASH := $(dir $(MAKEFILE_PATH))
 export BASE_DIR := $(BASE_DIR_TRAILING_SLASH:%/=%)
 BUILDSYS_DIR := $(BASE_DIR)/buildsys
 export SRC_DIRS := $(wildcard src/*/.) src/.
+WITH_UTAP := 1
 include $(BUILDSYS_DIR)/path.mk
 include $(BUILDSYS_DIR)/compiler_vars.mk
 exes := # Executables to build.

@@ -38,6 +38,9 @@ LDFLAGS.debug :=
 LDFLAGS.release :=
 LDFLAGS := -fuse-ld=gold -pthread -g ${LDFLAGS.${BUILD}}
 LDLIBS := -ldl
+ifeq ($(WITH_UTAP),1)
+LDLIBS := $(LDLIBS) -L/usr/local/lib -lutap -lxml2
+endif
 
 COMPILE.CXX = ${CXX} -c -o $@ ${CPPFLAGS} ${CXXFLAGS} $(DEPFLAGS) $(abspath $<) $(SRC_DIRS:%.=-I$(BASE_DIR)/%)
 PREPROCESS.CXX = ${CXX} -E -o $@ ${CPPFLAGS} ${CXXFLAGS} $(abspath $<)
