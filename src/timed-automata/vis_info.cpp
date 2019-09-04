@@ -46,6 +46,18 @@ systemVisInfo::systemVisInfo(
       x_offset += 800;
     }
   }
+  auto search = direct_encoding.find("query");
+  if (search != direct_encoding.end()) {
+    for (const auto &entity : search->second) {
+      instances++;
+      auto si = this->generateStateInfo(entity.second.first.states, x_offset,
+                                        y_offset);
+      state_info[0].insert(si.begin(), si.end());
+      auto ti = this->generateTransitionInfo(entity.second.first.transitions,
+                                             state_info.back());
+      transition_info[0].insert(ti.begin(), ti.end());
+    }
+  }
   for (const auto &tl : direct_encoding) {
     for (const auto &entity : tl.second) {
       auto iti =
