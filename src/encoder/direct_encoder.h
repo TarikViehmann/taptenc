@@ -35,8 +35,8 @@ public:
   void encodeNoOp(AutomataSystem &s, ::std::vector<State> &targets,
                   const ::std::string pa, int base_index = 0);
   void encodeFuture(AutomataSystem &s, ::std::vector<State> &targets,
-                    const ::std::string pa, const Bounds bounds,
-                    int base_index = 0);
+                    const ::std::string pa, const ::std::string constraint_name,
+                    const Bounds bounds, int context, int base_index = 0);
   void encodePast(AutomataSystem &s, ::std::vector<State> &targets,
                   const ::std::string pa, const Bounds bounds,
                   int base_index = 0);
