@@ -1,4 +1,5 @@
 #include "encoder.h"
+#include "constants.h"
 #include "filter.h"
 #include "timed_automata.h"
 #include "utils.h"
@@ -41,17 +42,18 @@ std::vector<Transition> Encoder::createCopyTransitionsBetweenTAs(
     std::string sync, bool passive) {
   std::vector<Transition> res_transitions;
   for (const auto &f_state : filter) {
-    auto c_source =
-        std::find_if(source.states.begin(), source.states.end(),
-                     [f_state, this](const State &s) bool {
-                       return Filter::getSuffix(s.id, BASE_SEP) ==
-                              Filter::getSuffix(f_state.id, BASE_SEP);
-                     });
-    auto c_dest = std::find_if(dest.states.begin(), dest.states.end(),
-                               [f_state, this](const State &s) bool {
-                                 return Filter::getSuffix(s.id, BASE_SEP) ==
-                                        Filter::getSuffix(f_state.id, BASE_SEP);
-                               });
+    auto c_source = std::find_if(
+        source.states.begin(), source.states.end(),
+        [f_state, this](const State &s) bool {
+          return Filter::getSuffix(s.id, constants::BASE_SEP) ==
+                 Filter::getSuffix(f_state.id, constants::BASE_SEP);
+        });
+    auto c_dest = std::find_if(
+        dest.states.begin(), dest.states.end(),
+        [f_state, this](const State &s) bool {
+          return Filter::getSuffix(s.id, constants::BASE_SEP) ==
+                 Filter::getSuffix(f_state.id, constants::BASE_SEP);
+        });
     if (c_source != source.states.end() && c_dest != dest.states.end()) {
       res_transitions.push_back(Transition(c_source->id, c_dest->id, "", guard,
                                            update, sync, passive));
@@ -67,19 +69,19 @@ std::vector<Transition> Encoder::createSuccessorTransitionsBetweenTAs(
   for (const auto &trans : base.transitions) {
     auto search = std::find_if(
         filter.begin(), filter.end(), [trans, this](const State &s) bool {
-          return Filter::getSuffix(s.id, BASE_SEP) ==
-                 Filter::getSuffix(trans.source_id, BASE_SEP);
+          return Filter::getSuffix(s.id, constants::BASE_SEP) ==
+                 Filter::getSuffix(trans.source_id, constants::BASE_SEP);
         });
     if (search != filter.end()) {
       auto source_state = std::find_if(
           source.states.begin(), source.states.end(),
           [search](const State &s) bool { return s.id == search->id; });
-      auto dest_state =
-          std::find_if(dest.states.begin(), dest.states.end(),
-                       [trans, this](const State &s) bool {
-                         return Filter::getSuffix(s.id, BASE_SEP) ==
-                                Filter::getSuffix(trans.dest_id, BASE_SEP);
-                       });
+      auto dest_state = std::find_if(
+          dest.states.begin(), dest.states.end(),
+          [trans, this](const State &s) bool {
+            return Filter::getSuffix(s.id, constants::BASE_SEP) ==
+                   Filter::getSuffix(trans.dest_id, constants::BASE_SEP);
+          });
       if (source_state != source.states.end() &&
           dest_state != dest.states.end()) {
         res_transitions.push_back(Transition(source_state->id, dest_state->id,
@@ -147,25 +149,25 @@ void Encoder::addInvariants(Automaton &ta, const std::vector<State> filter,
 std::string Encoder::toPrefix(std::string op, std::string sub, std::string pa) {
   std::string res;
   res += pa;
-  res.push_back(TL_SEP);
+  res.push_back(constants::TL_SEP);
   res += op;
-  res.push_back(CONSTRAINT_SEP);
+  res.push_back(constants::CONSTRAINT_SEP);
   res += sub;
-  res.push_back(BASE_SEP);
+  res.push_back(constants::BASE_SEP);
   return res;
 }
 
 std::string Encoder::addToPrefix(std::string prefix, std::string op,
                                  std::string sub) {
   std::string res;
-  std::string pa_prefix = Filter::getPrefix(prefix, TL_SEP);
-  pa_prefix.push_back(TL_SEP);
+  std::string pa_prefix = Filter::getPrefix(prefix, constants::TL_SEP);
+  pa_prefix.push_back(constants::TL_SEP);
   res += Filter::stripPrefix(prefix, pa_prefix);
   std::string prefix_to_add;
   prefix_to_add += op;
-  prefix_to_add.push_back(CONSTRAINT_SEP);
+  prefix_to_add.push_back(constants::CONSTRAINT_SEP);
   prefix_to_add += sub;
-  prefix_to_add.push_back(CONSTRAINT_SEP);
+  prefix_to_add.push_back(constants::CONSTRAINT_SEP);
   res = pa_prefix + prefix_to_add + res;
   return res;
 }

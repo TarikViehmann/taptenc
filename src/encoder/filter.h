@@ -1,11 +1,6 @@
 #pragma once
 #include "timed_automata.h"
 
-#define PA_SEP 'W'
-#define TL_SEP 'X'
-#define CONSTRAINT_SEP 'Y'
-#define BASE_SEP 'Z'
-
 namespace taptenc {
 class Filter {
 private:
