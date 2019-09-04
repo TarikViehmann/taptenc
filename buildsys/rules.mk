@@ -14,7 +14,6 @@ DEP_FILES := $(SRCS:%.cpp=$(DEP_DIR)/%.d)
 all: $(OBJ_FILES)
 
 $(OBJ_FILES) : ${LIB_DIR}/%.o: %.cpp $(DEP_DIR)/%.d | $(DEP_DIR)
-	$(info $(OBJ_FILES))
 	$(COMPILE.CXX)
 	$(POSTCOMPILE)
 

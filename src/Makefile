@@ -1,2 +1,2 @@
-SRCS := utils.cpp my_benchmark.cpp
+SRCS := utils.cpp rcll_perception.cpp
 include ../buildsys/rules.mk
