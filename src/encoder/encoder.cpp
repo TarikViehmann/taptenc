@@ -12,6 +12,57 @@
 #define BASE_SYNC_CONNECTIVE "XtoX"
 
 using namespace taptenc;
+
+Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
+                                         std::string name) {
+  std::vector<PlanAction> full_plan = plan;
+  full_plan.push_back(PlanAction(constants::END_PA,
+                                 Bounds(0, std::numeric_limits<int>::max())));
+  full_plan.insert(full_plan.begin(),
+                   PlanAction(constants::START_PA,
+                              Bounds(0, std::numeric_limits<int>::max())));
+  std::vector<State> plan_states;
+  for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
+    plan_states.push_back(
+        State((it->name == constants::END_PA || it->name == constants::START_PA)
+                  ? it->name
+                  : it->name + constants::PA_SEP +
+                        std::to_string(it - full_plan.begin()),
+              (it->name == constants::END_PA || it->name == constants::START_PA)
+                  ? ""
+                  : "cpa &lt; 60",
+              false, (it->name == constants::START_PA) ? true : false));
+  }
+  auto find_initial =
+      std::find_if(plan_states.begin(), plan_states.end(),
+                   [](const State &s) bool { return s.initial; });
+  if (find_initial == plan_states.end()) {
+    std::cout << "generatePlanAutomaton: no initial state found" << std::endl;
+  } else {
+    std::cout << "generatePlanAutomaton: initial state: " << find_initial->id
+              << std::endl;
+  }
+  std::vector<Transition> plan_transitions;
+  int i = 0;
+  for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
+    std::string sync_op = "";
+    std::string guard = "";
+    std::string update = "";
+    auto prev_state = (it - 1);
+    if (prev_state->id != constants::END_PA &&
+        prev_state->id != constants::START_PA) {
+      guard = "cpa &gt; 30";
+      update = "cpa = 0";
+    }
+    plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
+                                          update, sync_op, false));
+    i++;
+  }
+  Automaton res = Automaton(plan_states, plan_transitions, name, false);
+  res.clocks.push_back("cpa");
+  return res;
+}
+
 Automaton Encoder::mergeAutomata(const std::vector<Automaton> &automata,
                                  std::vector<Transition> &interconnections,
                                  std::string prefix) {

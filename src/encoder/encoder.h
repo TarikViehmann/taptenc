@@ -29,5 +29,9 @@ protected:
                          ::std::string pa = "");
   ::std::string addToPrefix(::std::string prefix, ::std::string op,
                             ::std::string sub = "");
+
+public:
+  static Automaton generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
+                                         ::std::string name);
 };
 } // end namespace taptenc
