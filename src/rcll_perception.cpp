@@ -26,52 +26,6 @@ void append_prefix_to_states(vector<State> &arg_states, string prefix) {
     it->name += prefix;
   }
 }
-Automaton generatePlanAutomaton(const vector<string> &arg_plan,
-                                string arg_name) {
-  vector<string> full_plan;
-  transform(arg_plan.begin(), arg_plan.end(), back_inserter(full_plan),
-            [](const string pa) -> string { return "alpha" + pa; });
-  full_plan.push_back(constants::END_PA);
-  full_plan.insert(full_plan.begin(), constants::START_PA);
-  vector<State> plan_states;
-  for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
-    plan_states.push_back(
-        State((*it == constants::END_PA || *it == constants::START_PA)
-                  ? *it
-                  : *it + constants::PA_SEP + to_string(it - full_plan.begin()),
-              (*it == constants::END_PA || *it == constants::START_PA)
-                  ? ""
-                  : "cpa &lt; 60",
-              false, (*it == constants::START_PA) ? true : false));
-  }
-  auto find_initial = find_if(plan_states.begin(), plan_states.end(),
-                              [](const State &s) bool { return s.initial; });
-  if (find_initial == plan_states.end()) {
-    cout << "generatePlanAutomaton: no initial state found" << endl;
-  } else {
-    cout << "generatePlanAutomaton: initial state: " << find_initial->id
-         << endl;
-  }
-  vector<Transition> plan_transitions;
-  int i = 0;
-  for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
-    string sync_op = "";
-    string guard = "";
-    string update = "";
-    auto prev_state = (it - 1);
-    if (prev_state->id != constants::END_PA &&
-        prev_state->id != constants::START_PA) {
-      guard = "cpa &gt; 30";
-      update = "cpa = 0";
-    }
-    plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
-                                          update, sync_op, false));
-    i++;
-  }
-  Automaton res = Automaton(plan_states, plan_transitions, arg_name, false);
-  res.clocks.push_back("cpa");
-  return res;
-}
 
 Automaton generateSyncPlanAutomaton(
     const vector<string> &arg_plan,
@@ -139,11 +93,10 @@ DirectEncoder createDirectEncoding(
   DirectEncoder enc(direct_system);
   for (const auto &pa : direct_system.instances[plan_index].first.states) {
     string pa_op = Filter::getPrefix(pa.id, constants::PA_SEP);
-    if (pa_op.substr(5) == "start" || pa_op.substr(5) == "fin") {
+    if (pa_op == constants::START_PA || pa_op == constants::END_PA) {
       continue;
     }
-    string pa_id = pa_op.substr(5);
-    auto search = activations.find(pa_id);
+    auto search = activations.find(pa_op);
     if (search != activations.end()) {
       for (const auto &ac : search->second) {
         auto search = targets.find(ac);
@@ -315,13 +268,17 @@ int main() {
   Bounds vision_bounds(0, numeric_limits<int>::max());
   Bounds cam_off_bounds(0, numeric_limits<int>::max());
   Bounds puck_sense_bounds(0, 15, "&lt;=", "&lt;");
+  Bounds goto_bounds(15, 45);
+  Bounds pick_bounds(13, 18);
   AutomataGlobals glob;
   XMLPrinter printer;
   vector<pair<Automaton, string>> automata_direct;
   automata_direct.push_back(make_pair(test, ""));
-  vector<string> plan{"goto", "pick",
-                      "goto"}; //, "put", "goto", "pick", "discard", "goto",
-                               //"pick", "goto", "put"};
+  vector<PlanAction> plan{PlanAction("goto", goto_bounds),
+                          PlanAction("pick", pick_bounds),
+                          PlanAction("goto", goto_bounds)};
+  //, "put", "goto", "pick", "discard", "goto",
+  //"pick", "goto", "put"};
   unordered_map<string, vector<string>> activations;
   activations.insert(make_pair("goto", vector<string>{"cam_off"}));
   activations.insert(make_pair("pick", vector<string>{"vision", "puck_sense"}));
@@ -334,7 +291,7 @@ int main() {
   targets.insert(make_pair("vision", make_pair(vision_filter, vision_bounds)));
   targets.insert(
       make_pair("puck_sense", make_pair(puck_sense_filter, puck_sense_bounds)));
-  Automaton plan_ta = generatePlanAutomaton(plan, "plan");
+  Automaton plan_ta = Encoder::generatePlanAutomaton(plan, "plan");
   automata_direct.push_back(make_pair(plan_ta, ""));
   AutomataSystem direct_system;
   direct_system.instances = automata_direct;
