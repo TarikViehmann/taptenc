@@ -1,4 +1,5 @@
 #include "direct_encoder.h"
+#include "constants.h"
 #include "encoder.h"
 #include "filter.h"
 #include "timed_automata.h"
@@ -120,11 +121,12 @@ std::vector<Transition> DirectEncoder::createTransitionsBackToOrigTL(
     std::vector<Transition> &trans, std::string prefix, std::string pa) {
   std::vector<Transition> res;
   for (const auto &tr : trans) {
-    if (pa + Filter::getSuffix(tr.source_id, BASE_SEP) == tr.source_id &&
-        pa + Filter::getSuffix(tr.dest_id, BASE_SEP) != pa) {
-      res.push_back(
-          Transition(prefix + Filter::getSuffix(tr.source_id, BASE_SEP),
-                     tr.dest_id, tr.action, tr.guard, tr.update, tr.sync));
+    if (pa + Filter::getSuffix(tr.source_id, constants::BASE_SEP) ==
+            tr.source_id &&
+        pa + Filter::getSuffix(tr.dest_id, constants::BASE_SEP) != pa) {
+      res.push_back(Transition(
+          prefix + Filter::getSuffix(tr.source_id, constants::BASE_SEP),
+          tr.dest_id, tr.action, tr.guard, tr.update, tr.sync));
     }
   }
   return res;
@@ -136,8 +138,9 @@ DirectEncoder::addToPrefixOnTransitions(const std::vector<Transition> &trans,
                                         bool only_inner_trans) {
   std::vector<Transition> res;
   for (const auto &tr : trans) {
-    if (only_inner_trans == false || (Filter::getPrefix(tr.source_id, TL_SEP) ==
-                                      Filter::getPrefix(tr.dest_id, TL_SEP))) {
+    if (only_inner_trans == false ||
+        (Filter::getPrefix(tr.source_id, constants::TL_SEP) ==
+         Filter::getPrefix(tr.dest_id, constants::TL_SEP))) {
       res.push_back(Transition(addToPrefix(tr.source_id, to_add),
                                addToPrefix(tr.dest_id, to_add), tr.action,
                                tr.guard, tr.update, tr.sync));
@@ -150,7 +153,8 @@ void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
                                               std::string curr_pa) {
   trans.erase(std::remove_if(trans.begin(), trans.end(),
                              [curr_pa](Transition &t) bool {
-                               return Filter::getPrefix(t.dest_id, TL_SEP) !=
+                               return Filter::getPrefix(t.dest_id,
+                                                        constants::TL_SEP) !=
                                       curr_pa;
                              }),
               trans.end());
@@ -233,7 +237,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
     auto curr_future_tl = search_tl;
     encode_counter++;
     // create copies for each tl within the context
-    while (Filter::getPrefix(curr_future_tl->first, TL_SEP) !=
+    while (Filter::getPrefix(curr_future_tl->first, constants::TL_SEP) !=
            pa_order[context_past_end]) {
       for (auto &tl_entry : curr_future_tl->second) {
         std::string op_name =
@@ -261,8 +265,9 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
               addToPrefixOnTransitions(tl_entry.second.second, op_name, true);
           cp_to_orig = createTransitionsBackToOrigTL(
               tl_entry.second.second, new_prefix, tl_entry.first);
-          removeTransitionsToNextTl(tl_entry.second.second,
-                                    Filter::getPrefix(tl_entry.first, TL_SEP));
+          removeTransitionsToNextTl(
+              tl_entry.second.second,
+              Filter::getPrefix(tl_entry.first, constants::TL_SEP));
         }
 
         cp_to_other_cp.insert(cp_to_other_cp.end(), trans_orig_to_cp.begin(),
@@ -288,7 +293,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
               << std::endl;
     for (const auto &new_tl : new_tls) {
       auto emplaced =
-          pa_tls[Filter::getPrefix(new_tl.first, TL_SEP)].emplace(new_tl);
+          pa_tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)].emplace(
+              new_tl);
       if (emplaced.second == false) {
         std::cout
             << "DirectEncoder encodeFuture: final merge failed with automaton "
@@ -342,7 +348,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
     }
     // create copies for each tl within the context
     encode_counter++;
-    while (Filter::getPrefix(curr_past_tl->first, TL_SEP) !=
+    while (Filter::getPrefix(curr_past_tl->first, constants::TL_SEP) !=
            pa_order[context_prior_start]) {
       for (auto &tl_entry : curr_past_tl->second) {
         std::string op_name = pa + "P" + std::to_string(encode_counter);
@@ -404,7 +410,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
               << std::endl;
     for (const auto &new_tl : new_tls) {
       auto emplaced =
-          pa_tls[Filter::getPrefix(new_tl.first, TL_SEP)].emplace(new_tl);
+          pa_tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)].emplace(
+              new_tl);
       if (emplaced.second == false) {
         std::cout
             << "DirectEncoder encodePast: final merge failed with automaton "

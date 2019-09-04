@@ -1,4 +1,5 @@
 #include "filter.h"
+#include "constants.h"
 #include "timed_automata.h"
 #include <algorithm>
 #include <iostream>
@@ -91,9 +92,9 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
   std::vector<State> res_states;
   std::vector<Transition> res_transitions;
   for (const auto &s : source.states) {
-    res_states.push_back(State(ta_prefix + Filter::getSuffix(s.id, BASE_SEP),
-                               strip_constraints ? s.inv : "", s.urgent,
-                               s.initial));
+    res_states.push_back(
+        State(ta_prefix + Filter::getSuffix(s.id, constants::BASE_SEP),
+              strip_constraints ? s.inv : "", s.urgent, s.initial));
   }
   for (const auto &trans : source.transitions) {
     auto source = std::find_if(res_states.begin(), res_states.end(),

@@ -1,3 +1,4 @@
+#include "constants.h"
 #include "encoders.h"
 #include "filter.h"
 #include "printer.h"
@@ -30,16 +31,18 @@ Automaton generatePlanAutomaton(const vector<string> &arg_plan,
   vector<string> full_plan;
   transform(arg_plan.begin(), arg_plan.end(), back_inserter(full_plan),
             [](const string pa) -> string { return "alpha" + pa; });
-  full_plan.push_back("alphafin");
-  full_plan.insert(full_plan.begin(), "alphastart");
+  full_plan.push_back(constants::END_PA);
+  full_plan.insert(full_plan.begin(), constants::START_PA);
   vector<State> plan_states;
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
     plan_states.push_back(
-        State((*it == "alphafin" || *it == "alphastart")
+        State((*it == constants::END_PA || *it == constants::START_PA)
                   ? *it
-                  : *it + PA_SEP + to_string(it - full_plan.begin()),
-              (*it == "alphafin" || *it == "alphastart") ? "" : "cpa &lt; 60",
-              false, (*it == "alphastart") ? true : false));
+                  : *it + constants::PA_SEP + to_string(it - full_plan.begin()),
+              (*it == constants::END_PA || *it == constants::START_PA)
+                  ? ""
+                  : "cpa &lt; 60",
+              false, (*it == constants::START_PA) ? true : false));
   }
   auto find_initial = find_if(plan_states.begin(), plan_states.end(),
                               [](const State &s) bool { return s.initial; });
@@ -56,7 +59,8 @@ Automaton generatePlanAutomaton(const vector<string> &arg_plan,
     string guard = "";
     string update = "";
     auto prev_state = (it - 1);
-    if (prev_state->id != "alphafin" && prev_state->id != "alphastart") {
+    if (prev_state->id != constants::END_PA &&
+        prev_state->id != constants::START_PA) {
       guard = "cpa &gt; 30";
       update = "cpa = 0";
     }
@@ -90,8 +94,8 @@ Automaton generateSyncPlanAutomaton(
                      it->second.end());
     offset += it->second.size();
   }
-  full_plan.push_back("alphafin");
-  full_plan.insert(full_plan.begin(), "alphastart");
+  full_plan.push_back(constants::END_PA);
+  full_plan.insert(full_plan.begin(), constants::START_PA);
   vector<State> plan_states;
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
     bool urgent = false;
@@ -99,8 +103,10 @@ Automaton generateSyncPlanAutomaton(
       urgent = true;
     }
     plan_states.push_back(
-        State(*it + PA_SEP + to_string(it - full_plan.begin()),
-              ((*it == "alphafin" || *it == "alphastart") ? "" : "cpa &lt; 60"),
+        State(*it + constants::PA_SEP + to_string(it - full_plan.begin()),
+              ((*it == constants::END_PA || *it == constants::START_PA)
+                   ? ""
+                   : "cpa &lt; 60"),
               urgent));
   }
   vector<Transition> plan_transitions;
@@ -111,7 +117,7 @@ Automaton generateSyncPlanAutomaton(
     string update = "";
     auto prev_state = (it - 1);
     if (prev_state->name.substr(0, 5) != "alpha") {
-      sync_op = Filter::getPrefix(prev_state->name, PA_SEP);
+      sync_op = Filter::getPrefix(prev_state->name, constants::PA_SEP);
     } else {
       guard = "cpa &gt; 30";
       update = "cpa = 0";
@@ -132,7 +138,7 @@ DirectEncoder createDirectEncoding(
     int plan_index = 1) {
   DirectEncoder enc(direct_system);
   for (const auto &pa : direct_system.instances[plan_index].first.states) {
-    string pa_op = Filter::getPrefix(pa.id, PA_SEP);
+    string pa_op = Filter::getPrefix(pa.id, constants::PA_SEP);
     if (pa_op.substr(5) == "start" || pa_op.substr(5) == "fin") {
       continue;
     }

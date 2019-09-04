@@ -1,4 +1,5 @@
 #include "utap_trace_parser.h"
+#include "constants.h"
 #include "filter.h"
 #include "timed_automata.h"
 #include <algorithm>
@@ -177,8 +178,8 @@ void parseTransition(std::string &currentReadLine, const Automaton &base_ta,
   sync = (sync == "0") ? "" : convertCharsToHTML(sync);
   update = (update == "1") ? "" : convertCharsToHTML(update);
   // obtain action name
-  string pa_source_id = Filter::getPrefix(source_id, TL_SEP);
-  string pa_dest_id = Filter::getPrefix(dest_id, TL_SEP);
+  string pa_source_id = Filter::getPrefix(source_id, constants::TL_SEP);
+  string pa_dest_id = Filter::getPrefix(dest_id, constants::TL_SEP);
   if (pa_dest_id == "query") {
     return;
   }
@@ -204,8 +205,8 @@ void parseTransition(std::string &currentReadLine, const Automaton &base_ta,
            << endl;
     }
   }
-  string base_source_id = Filter::getSuffix(source_id, BASE_SEP);
-  string base_dest_id = Filter::getSuffix(dest_id, BASE_SEP);
+  string base_source_id = Filter::getSuffix(source_id, constants::BASE_SEP);
+  string base_dest_id = Filter::getSuffix(dest_id, constants::BASE_SEP);
   if (base_source_id != base_dest_id) {
     auto base_trans =
         ::std::find_if(base_ta.transitions.begin(), base_ta.transitions.end(),
