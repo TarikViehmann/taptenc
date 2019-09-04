@@ -92,7 +92,8 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
   std::vector<Transition> res_transitions;
   for (const auto &s : source.states) {
     res_states.push_back(State(ta_prefix + Filter::getSuffix(s.id, BASE_SEP),
-                               strip_constraints ? s.inv : ""));
+                               strip_constraints ? s.inv : "", s.urgent,
+                               s.initial));
   }
   for (const auto &trans : source.transitions) {
     auto source = std::find_if(res_states.begin(), res_states.end(),
@@ -142,7 +143,8 @@ Automaton Filter::filterAutomaton(const Automaton &source,
         });
     if (search != source.states.end()) {
       res_states.push_back(State(ta_prefix + search->name,
-                                 strip_constraints ? "" : search->inv));
+                                 strip_constraints ? "" : search->inv,
+                                 search->urgent, search->initial));
     } else {
       std::cout << "Filter filterAutomaton: filter state not found (id "
                 << f_state.id << ")" << std::endl;

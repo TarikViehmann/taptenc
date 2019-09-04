@@ -21,16 +21,31 @@ DirectEncoder::getInternalTAs() {
 void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                                          const int base_index,
                                          const int plan_index) {
-  std::cout << "Assuming plan automaton states are sorted by plan order!"
+  std::cout << "DirectEncoder generateBaseTimeLine: Assuming plan automaton "
+               "states are sorted by plan order!"
             << std::endl;
   Filter base_filter = Filter(s.instances[base_index].first.states);
   for (const auto &pa : s.instances[plan_index].first.states) {
+    std::cout << pa.id << std::endl;
     std::unordered_map<std::string,
                        std::pair<Automaton, std::vector<Transition>>>
         tl;
     std::string ta_prefix = toPrefix("", "", pa.id);
     Automaton ta_copy = base_filter.filterAutomaton(
         s.instances[base_index].first, ta_prefix, "", false);
+    if (pa.initial) {
+      auto search = std::find_if(ta_copy.states.begin(), ta_copy.states.end(),
+                                 [](const State &s) bool { return s.initial; });
+      if (search != ta_copy.states.end()) {
+        search->initial = true;
+        std::cout << "DirectEncoder generateBaseTimeLine: Set initial state: "
+                  << search->id << std::endl;
+      }
+    } else {
+      for (auto &s : ta_copy.states) {
+        s.initial = false;
+      }
+    }
     ta_copy.clocks.insert(ta_copy.clocks.end(),
                           s.instances[plan_index].first.clocks.begin(),
                           s.instances[plan_index].first.clocks.end());
