@@ -206,16 +206,19 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
     }
     // formulate clock constraints
     std::string clock = "clX" + constraint_name;
-    bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
-    bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
+    bool upper_bounded =
+        (bounds.upper_bound != std::numeric_limits<int>::max());
+    bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
     std::string guard_upper_bound_crossed =
-        clock + inverse_op(bounds.r_op) + std::to_string(bounds.y);
+        clock + inverse_op(bounds.r_op) + std::to_string(bounds.upper_bound);
     std::string guard_constraint_sat =
-        (lower_bounded
-             ? clock + reverse_op(bounds.l_op) + std::to_string(bounds.x)
-             : "") +
+        (lower_bounded ? clock + reverse_op(bounds.l_op) +
+                             std::to_string(bounds.lower_bound)
+                       : "") +
         ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
+        (upper_bounded
+             ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
+             : "");
     // reset clock
     if (search_pa - pa_order.begin() > 0) {
       for (auto &prev_tl_entry :
@@ -247,7 +250,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
             Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
         if (upper_bounded) {
           addInvariants(tl_entry.second.first, base_filter.getFilter(),
-                        clock + bounds.r_op + std::to_string(bounds.y));
+                        clock + bounds.r_op +
+                            std::to_string(bounds.upper_bound));
         }
         cp_automaton.clocks.push_back(clock);
         std::vector<Transition> trans_orig_to_cp =
@@ -323,16 +327,19 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
     // formulate clock constraints
     std::string clock = "clX" + pa;
     std::string bvar = "bX" + pa;
-    bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
-    bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
+    bool upper_bounded =
+        (bounds.upper_bound != std::numeric_limits<int>::max());
+    bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
     std::string guard_upper_bound_crossed =
-        clock + inverse_op(bounds.r_op) + std::to_string(bounds.y);
+        clock + inverse_op(bounds.r_op) + std::to_string(bounds.upper_bound);
     std::string guard_constraint_sat =
-        (lower_bounded
-             ? clock + reverse_op(bounds.l_op) + std::to_string(bounds.x)
-             : "") +
+        (lower_bounded ? clock + reverse_op(bounds.l_op) +
+                             std::to_string(bounds.lower_bound)
+                       : "") +
         ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
+        (upper_bounded
+             ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
+             : "");
     // determine context (mockup)
     std::size_t context_end = search_pa - pa_order.begin() - 1;
     std::size_t context_prior_start =
@@ -357,7 +364,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
             Filter::copyAutomaton(tl_entry.second.first, new_prefix);
         if (upper_bounded) {
           addInvariants(cp_automaton, base_filter.getFilter(),
-                        clock + bounds.r_op + std::to_string(bounds.y));
+                        clock + bounds.r_op +
+                            std::to_string(bounds.upper_bound));
         }
         // target states reached in copy tls
         target_filter.addToTransitions(cp_automaton.transitions, "",

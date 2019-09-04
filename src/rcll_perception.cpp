@@ -312,17 +312,9 @@ int main() {
   vision_filter.insert(vision_filter.end(), {test.states[5]});
   cam_off_filter.insert(cam_off_filter.end(), {test.states[0], test.states[6]});
   puck_sense_filter.insert(puck_sense_filter.end(), {test.states[6]});
-  Bounds vision_bounds;
-  vision_bounds.l_op = "&lt;=";
-  vision_bounds.r_op = "&lt;";
-  vision_bounds.x = 0;
-  vision_bounds.y = numeric_limits<int>::max();
-  Bounds cam_off_bounds;
-  Bounds puck_sense_bounds;
-  puck_sense_bounds.l_op = "&lt;=";
-  puck_sense_bounds.r_op = "&lt;";
-  puck_sense_bounds.x = 0;
-  puck_sense_bounds.y = 15;
+  Bounds vision_bounds(0, numeric_limits<int>::max());
+  Bounds cam_off_bounds(0, numeric_limits<int>::max());
+  Bounds puck_sense_bounds(0, 15, "&lt;=", "&lt;");
   AutomataGlobals glob;
   XMLPrinter printer;
   vector<pair<Automaton, string>> automata_direct;
@@ -331,14 +323,17 @@ int main() {
                       "goto"}; //, "put", "goto", "pick", "discard", "goto",
                                //"pick", "goto", "put"};
   unordered_map<string, vector<string>> activations;
-  activations["goto"] = vector<string>{"cam_off"};
-  activations["pick"] = vector<string>{"vision", "puck_sense"};
-  activations["put"] = vector<string>{"vision", ""};
-  activations["discard"] = vector<string>{"cam_off", "puck_sense"};
+  activations.insert(make_pair("goto", vector<string>{"cam_off"}));
+  activations.insert(make_pair("pick", vector<string>{"vision", "puck_sense"}));
+  activations.insert(make_pair("put", vector<string>{"vision", ""}));
+  activations.insert(
+      make_pair("discard", vector<string>{"cam_off", "puck_sense"}));
   unordered_map<string, pair<vector<State>, Bounds>> targets;
-  targets["cam_off"] = make_pair(cam_off_filter, cam_off_bounds);
-  targets["vision"] = make_pair(vision_filter, vision_bounds);
-  targets["puck_sense"] = make_pair(puck_sense_filter, puck_sense_bounds);
+  targets.insert(
+      make_pair("cam_off", make_pair(cam_off_filter, cam_off_bounds)));
+  targets.insert(make_pair("vision", make_pair(vision_filter, vision_bounds)));
+  targets.insert(
+      make_pair("puck_sense", make_pair(puck_sense_filter, puck_sense_bounds)));
   Automaton plan_ta = generatePlanAutomaton(plan, "plan");
   automata_direct.push_back(make_pair(plan_ta, ""));
   AutomataSystem direct_system;
