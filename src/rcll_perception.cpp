@@ -224,6 +224,10 @@ std::string getEnvVar(std::string const &key) {
 }
 
 int main() {
+  if (getEnvVar("VERIFYTA_DIR") == "") {
+    cout << "ERROR: VERIFYTA_DIR not set!" << endl;
+    return -1;
+  }
   vector<State> states;
   vector<Transition> transitions;
   vector<string> whatever;
