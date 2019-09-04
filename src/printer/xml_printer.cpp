@@ -147,10 +147,17 @@ void XMLPrinter::printXMLtemplate(const AutomataSystem &s,
     myfile << toString(*toplevelit,
                        s_vis_info.getStatePos(index, toplevelit->id))
            << std::endl;
-    if (initial_state_set == false) {
+    if (initial_state_set == false && toplevelit->initial == true) {
       init_id = toplevelit->id;
       initial_state_set = true;
     }
+  }
+  if (initial_state_set == false) {
+    std::cout
+        << "XMLPrinter printXMLTemplate: no initial state found (template: "
+        << s.instances[index].first.prefix << ")" << std::endl;
+    init_id = s.instances[index].first.states.begin()->id;
+    initial_state_set = true;
   }
   myfile << "<init ref=\"" << init_id << "\"/>";
   for (auto toplevelit = s.instances[index].first.transitions.begin();
