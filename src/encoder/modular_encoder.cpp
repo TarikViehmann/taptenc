@@ -41,19 +41,20 @@ void ModularEncoder::encodeFuture(AutomataSystem &s,
   Filter rev_bc_filter =
       target_filter.updateFilter(base_copy).reverseFilter(base_copy);
   std::string clock = "clX" + opsync;
-  bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
-  bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
+  bool upper_bounded = (bounds.upper_bound != std::numeric_limits<int>::max());
+  bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
   std::string guard_upper_bound_crossed =
-      clock + inverse_op(bounds.r_op) + std::to_string(bounds.y);
+      clock + inverse_op(bounds.r_op) + std::to_string(bounds.upper_bound);
   std::string guard_constraint_sat =
-      (lower_bounded
-           ? clock + reverse_op(bounds.l_op) + std::to_string(bounds.x)
-           : "") +
+      (lower_bounded ? clock + reverse_op(bounds.l_op) +
+                           std::to_string(bounds.lower_bound)
+                     : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
+      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
+                     : "");
   if (upper_bounded) {
     addInvariants(sat, sat.states,
-                  clock + bounds.r_op + std::to_string(bounds.y));
+                  clock + bounds.r_op + std::to_string(bounds.upper_bound));
   }
   std::vector<Transition> base_to_sat = createCopyTransitionsBetweenTAs(
       base_copy, sat, base_copy.states, "", clock + " = 0", opsync);
@@ -87,23 +88,25 @@ void ModularEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
       s.instances[base_index].first, toPrefix(opsync, "rem"));
   Filter bc_filter = target_filter.updateFilter(base_copy);
   std::string clock = "clX" + opsync;
-  bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
-  bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
-  std::string guard_lower_bound_not_met =
-      clock + inverse_op(reverse_op(bounds.l_op)) + std::to_string(bounds.x);
+  bool upper_bounded = (bounds.upper_bound != std::numeric_limits<int>::max());
+  bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
+  std::string guard_lower_bound_not_met = clock +
+                                          inverse_op(reverse_op(bounds.l_op)) +
+                                          std::to_string(bounds.lower_bound);
   std::string guard_upper_bound_crossed =
-      clock + inverse_op(bounds.r_op) + std::to_string(bounds.y);
+      clock + inverse_op(bounds.r_op) + std::to_string(bounds.upper_bound);
   std::string guard_constraint_sat =
-      (lower_bounded
-           ? clock + reverse_op(bounds.l_op) + std::to_string(bounds.x)
-           : "") +
+      (lower_bounded ? clock + reverse_op(bounds.l_op) +
+                           std::to_string(bounds.lower_bound)
+                     : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
+      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
+                     : "");
 
   if (upper_bounded) {
     addInvariants(sat, sat.states, clock + " &lt;= 0");
     addInvariants(remainder, remainder.states,
-                  clock + bounds.r_op + std::to_string(bounds.y));
+                  clock + bounds.r_op + std::to_string(bounds.upper_bound));
   }
   std::vector<Transition> base_to_sat = createCopyTransitionsBetweenTAs(
       base_copy, sat, bc_filter.getFilter(), "", clock + " = 0", "");

@@ -57,21 +57,22 @@ void CompactEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &target,
     return;
   }
   std::string invariant = "";
-  if (bounds.y != std::numeric_limits<int>::max()) {
+  if (bounds.upper_bound != std::numeric_limits<int>::max()) {
     invariant += "(" + boolvar + " == false || " + clock + bounds.r_op +
-                 std::to_string(bounds.y) + ")";
+                 std::to_string(bounds.upper_bound) + ")";
   }
-  bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
-  bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
+  bool upper_bounded = (bounds.upper_bound != std::numeric_limits<int>::max());
+  bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
   std::string guard_upper_bound_crossed = clock + inverse_op(bounds.r_op) +
-                                          std::to_string(bounds.y) +
+                                          std::to_string(bounds.upper_bound) +
                                           " &amp;&amp; " + boolvar + "==true";
   std::string guard_constraint_sat =
-      (lower_bounded
-           ? clock + reverse_op(bounds.l_op) + std::to_string(bounds.x)
-           : "") +
+      (lower_bounded ? clock + reverse_op(bounds.l_op) +
+                           std::to_string(bounds.lower_bound)
+                     : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
+      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
+                     : "");
   for (auto it = s.instances[base_pos].first.states.begin();
        it != s.instances[base_pos].first.states.end(); ++it) {
     if (it->name == "trap") {
@@ -119,23 +120,25 @@ void CompactEncoder::encodePast(AutomataSystem &s, std::vector<State> &target,
     return;
   }
   std::string invariant = "";
-  if (bounds.y != std::numeric_limits<int>::max()) {
+  if (bounds.upper_bound != std::numeric_limits<int>::max()) {
     invariant += "(" + boolvar + " == false || " + clock + bounds.r_op +
-                 std::to_string(bounds.y) + ")";
+                 std::to_string(bounds.upper_bound) + ")";
   }
-  bool upper_bounded = (bounds.y != std::numeric_limits<int>::max());
-  bool lower_bounded = (bounds.x != 0 || bounds.l_op != "&lt;=");
+  bool upper_bounded = (bounds.upper_bound != std::numeric_limits<int>::max());
+  bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
   std::string guard_upper_bound_crossed = clock + inverse_op(bounds.r_op) +
-                                          std::to_string(bounds.y) +
+                                          std::to_string(bounds.upper_bound) +
                                           " &amp;&amp; " + boolvar + "==true";
   std::string guard_lower_bound_not_reached =
-      clock + inverse_op(reverse_op(bounds.l_op)) + std::to_string(bounds.x);
+      clock + inverse_op(reverse_op(bounds.l_op)) +
+      std::to_string(bounds.lower_bound);
   std::string guard_constraint_sat =
-      (lower_bounded
-           ? clock + reverse_op(bounds.l_op) + std::to_string(bounds.x)
-           : "") +
+      (lower_bounded ? clock + reverse_op(bounds.l_op) +
+                           std::to_string(bounds.lower_bound)
+                     : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.y) : "");
+      (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
+                     : "");
   for (auto it = s.instances[base_pos].first.states.begin();
        it != s.instances[base_pos].first.states.end(); ++it) {
     if (it->name == "trap") {
