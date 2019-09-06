@@ -7,6 +7,8 @@ constexpr char CONSTRAINT_SEP{'Y'};
 constexpr char BASE_SEP{'Z'};
 constexpr char START_PA[]{"AstartA"};
 constexpr char END_PA[]{"AendA"};
-constexpr char QUERY[]{"AQuery"};
+constexpr char QUERY[]{"AqueryA"};
+constexpr char PLAN_TA_NAME[]{"AplanA"};
+constexpr char STATE_CLOCK[]{"AstateClockA"};
 } // end namespace constants
 } // end namespace taptenc

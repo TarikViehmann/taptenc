@@ -6,6 +6,19 @@
 #include <vector>
 
 namespace taptenc {
+enum ICType { Future, NoOp, Past, Invariant };
+struct encICInfo {
+  ::std::vector<State> targets;
+  ::std::string name;
+  Bounds bounds;
+  ICType type;
+  encICInfo(::std::vector<State> arg_targets, ::std::string arg_name,
+            const Bounds &arg_bounds, ICType arg_type)
+      : targets(arg_targets), name(arg_name), bounds(arg_bounds),
+        type(arg_type) {}
+};
+typedef struct encICInfo EncICInfo;
+
 class Encoder {
 protected:
   Automaton mergeAutomata(const ::std::vector<Automaton> &automata,
@@ -29,9 +42,7 @@ protected:
                          ::std::string pa = "");
   ::std::string addToPrefix(::std::string prefix, ::std::string op,
                             ::std::string sub = "");
-
-public:
-  static Automaton generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
-                                         ::std::string name);
+  Automaton generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
+                                  ::std::string name);
 };
 } // end namespace taptenc

@@ -4,6 +4,7 @@
 #include "filter.h"
 #include "timed_automata.h"
 #include "utils.h"
+#include "vis_info.h"
 #include <algorithm>
 #include <iostream>
 #include <string>
@@ -12,13 +13,7 @@
 #define CONTEXT 2
 
 using namespace taptenc;
-std::unordered_map<
-    std::string,
-    std::unordered_map<std::string,
-                       std::pair<Automaton, std::vector<Transition>>>>
-DirectEncoder::getInternalTAs() {
-  return pa_tls;
-}
+
 void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                                          const int base_index,
                                          const int plan_index) {
@@ -171,6 +166,7 @@ void DirectEncoder::encodeNoOp(AutomataSystem &, std::vector<State> &targets,
                 << std::endl;
       return;
     }
+    // restrict transitions from prev tl to target states
     if (search_pa - pa_order.begin() > 0) {
       for (auto &prev_tl_entry :
            pa_tls[pa_order[search_pa - pa_order.begin() - 1]]) {
@@ -178,23 +174,17 @@ void DirectEncoder::encodeNoOp(AutomataSystem &, std::vector<State> &targets,
                                                false);
       }
     }
-    // for (auto &tl_entry : search_tl->second) {
-    //  target_filter.filterAutomatonInPlace(tl_entry.second.first, "");
-    //  target_filter.filterTransitionsInPlace(tl_entry.second.second, pa,
-    //  true);
-    //}
   } else {
     std::cout << " DirectEncoder encodeNoOp: could not find timeline of pa "
               << pa << std::endl;
   }
 }
 
-void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
-                                 const std::string pa,
-                                 const std::string constraint_name,
-                                 const Bounds bounds, int context,
+
+void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
+                                 const EncICInfo &info, int context,
                                  int base_index) {
-  Filter target_filter = Filter(targets);
+  Filter target_filter = Filter(info.targets);
   Filter base_filter = Filter(s.instances[base_index].first.states);
   auto search_tl = pa_tls.find(pa);
   if (search_tl != pa_tls.end()) {
@@ -205,20 +195,22 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
       return;
     }
     // formulate clock constraints
-    std::string clock = "clX" + constraint_name;
+    std::string clock = "clX" + info.name;
     bool upper_bounded =
-        (bounds.upper_bound != std::numeric_limits<int>::max());
-    bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
+        (info.bounds.upper_bound != std::numeric_limits<int>::max());
+    bool lower_bounded =
+        (info.bounds.lower_bound != 0 || info.bounds.l_op != "&lt;=");
     std::string guard_upper_bound_crossed =
-        clock + inverse_op(bounds.r_op) + std::to_string(bounds.upper_bound);
+        clock + inverse_op(info.bounds.r_op) +
+        std::to_string(info.bounds.upper_bound);
     std::string guard_constraint_sat =
-        (lower_bounded ? clock + reverse_op(bounds.l_op) +
-                             std::to_string(bounds.lower_bound)
+        (lower_bounded ? clock + reverse_op(info.bounds.l_op) +
+                             std::to_string(info.bounds.lower_bound)
                        : "") +
         ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded
-             ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
-             : "");
+        (upper_bounded ? clock + info.bounds.r_op +
+                             std::to_string(info.bounds.upper_bound)
+                       : "");
     // reset clock
     if (search_pa - pa_order.begin() > 0) {
       for (auto &prev_tl_entry :
@@ -243,15 +235,20 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &targets,
     while (Filter::getPrefix(curr_future_tl->first, constants::TL_SEP) !=
            pa_order[context_past_end]) {
       for (auto &tl_entry : curr_future_tl->second) {
-        std::string op_name =
-            constraint_name + "F" + std::to_string(encode_counter);
+        std::string op_name = info.name + "F" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
+        for (const auto &orig_s : tl_entry.second.first.states) {
+          if (orig_s.inv == "") {
+            std::cout << "WARNING: " << orig_s.name << "has no invariant!"
+                      << std::endl;
+          }
+        }
         Automaton cp_automaton =
             Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
         if (upper_bounded) {
           addInvariants(tl_entry.second.first, base_filter.getFilter(),
-                        clock + bounds.r_op +
-                            std::to_string(bounds.upper_bound));
+                        clock + info.bounds.r_op +
+                            std::to_string(info.bounds.upper_bound));
         }
         cp_automaton.clocks.push_back(clock);
         std::vector<Transition> trans_orig_to_cp =
@@ -432,8 +429,13 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
   }
 }
 
-void DirectEncoder::createFinalSystem(AutomataSystem &s) {
-  s.instances.clear();
+size_t DirectEncoder::getPlanTAIndex() { return plan_ta_index; }
+
+AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
+                                                SystemVisInfo &s_vis) {
+  s_vis = SystemVisInfo(pa_tls, s.instances[plan_ta_index].first.states);
+  AutomataSystem res = s;
+  res.instances.clear();
   std::vector<Automaton> automata;
   std::vector<Transition> interconnections;
   for (const auto &curr_tl : pa_tls) {
@@ -444,11 +446,17 @@ void DirectEncoder::createFinalSystem(AutomataSystem &s) {
                               curr_copy.second.second.end());
     }
   }
-  s.instances.push_back(
+  res.instances.push_back(
       std::make_pair(mergeAutomata(automata, interconnections, "direct"), ""));
+  return res;
 }
 
-DirectEncoder::DirectEncoder(AutomataSystem &s, const int base_pos,
-                             const int plan_pos) {
-  generateBaseTimeLine(s, base_pos, plan_pos);
+DirectEncoder::DirectEncoder(AutomataSystem &s,
+                             const std::vector<PlanAction> &plan,
+                             const int base_pos) {
+  Automaton plan_ta = generatePlanAutomaton(plan, constants::PLAN_TA_NAME);
+  this->plan = plan;
+  s.instances.push_back(std::make_pair(plan_ta, ""));
+  plan_ta_index = s.instances.size() - 1;
+  generateBaseTimeLine(s, base_pos, plan_ta_index);
 }
