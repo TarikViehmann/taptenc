@@ -18,12 +18,12 @@ systemVisInfo::systemVisInfo(AutomataSystem &s) {
 }
 
 systemVisInfo::systemVisInfo(
-    std::unordered_map<
+    const std::unordered_map<
         std::string,
         std::unordered_map<std::string,
                            std::pair<Automaton, std::vector<Transition>>>>
         &direct_encoding,
-    std::vector<State> &pa_order) {
+    const std::vector<State> &pa_order) {
   int x_offset = 0;
   int y_offset = 0;
   int instances = 0;

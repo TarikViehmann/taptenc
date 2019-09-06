@@ -60,14 +60,15 @@ private:
       const ::std::unordered_map<::std::string, StateVisInfo> &state_info);
 
 public:
+  systemVisInfo() = default;
   systemVisInfo(AutomataSystem &s);
   systemVisInfo(
-      ::std::unordered_map<
+      const ::std::unordered_map<
           ::std::string,
           ::std::unordered_map<
               ::std::string, ::std::pair<Automaton, ::std::vector<Transition>>>>
           &direct_encoding,
-      ::std::vector<State> &pa_order);
+      const ::std::vector<State> &pa_order);
   ::std::pair<int, int> getStatePos(int component_index, ::std::string id);
   ::std::vector<::std::pair<int, int>> getTransitionPos(int component_index,
                                                         ::std::string source_id,
