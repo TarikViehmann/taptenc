@@ -155,8 +155,40 @@ void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
               trans.end());
 }
 
-void DirectEncoder::encodeNoOp(AutomataSystem &, std::vector<State> &targets,
-                               const std::string pa, int) {
+void DirectEncoder::encodeInvariant(AutomataSystem &,
+                                    const std::vector<State> &targets,
+                                    const std::string pa) {
+  Filter target_filter = Filter(targets);
+  auto search_tl = pa_tls.find(pa);
+  if (search_tl != pa_tls.end()) {
+    auto search_pa = std::find(pa_order.begin(), pa_order.end(), pa);
+    if (search_pa == pa_order.end()) {
+      std::cout << "DirectEncoder encodeInvariant: could not find pa " << pa
+                << std::endl;
+      return;
+    }
+    // restrict transitions from prev tl to target states
+    if (search_pa - pa_order.begin() > 0) {
+      for (auto &prev_tl_entry :
+           pa_tls[pa_order[search_pa - pa_order.begin() - 1]]) {
+        target_filter.filterTransitionsInPlace(prev_tl_entry.second.second, pa,
+                                               false);
+      }
+    }
+    for (auto &tl_entry : search_tl->second) {
+      target_filter.filterAutomatonInPlace(tl_entry.second.first, "");
+      target_filter.filterTransitionsInPlace(tl_entry.second.second, pa, true);
+    }
+  } else {
+    std::cout
+        << " DirectEncoder encodeInvariant: could not find timeline of pa "
+        << pa << std::endl;
+  }
+}
+
+void DirectEncoder::encodeNoOp(AutomataSystem &,
+                               const std::vector<State> &targets,
+                               const std::string pa) {
   Filter target_filter = Filter(targets);
   auto search_tl = pa_tls.find(pa);
   if (search_tl != pa_tls.end()) {
