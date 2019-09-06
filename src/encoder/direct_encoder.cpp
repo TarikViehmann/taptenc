@@ -361,7 +361,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
         std::string op_name = pa + "P" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
         Automaton cp_automaton =
-            Filter::copyAutomaton(tl_entry.second.first, new_prefix);
+            Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
         if (upper_bounded) {
           addInvariants(cp_automaton, base_filter.getFilter(),
                         clock + bounds.r_op +

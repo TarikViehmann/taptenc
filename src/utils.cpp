@@ -36,7 +36,7 @@ std::string taptenc::addConstraint(std::string old_con, std::string to_add) {
   if (to_add.length() == 0) {
     return old_con;
   }
-  return old_con + "&amp;&amp; \n" + to_add;
+  return old_con + "&amp;&amp; " + to_add;
 }
 
 std::string taptenc::addUpdate(std::string old_con, std::string to_add) {
@@ -46,5 +46,5 @@ std::string taptenc::addUpdate(std::string old_con, std::string to_add) {
   if (to_add.length() == 0) {
     return old_con;
   }
-  return old_con + ", \n" + to_add;
+  return old_con + ", " + to_add;
 }

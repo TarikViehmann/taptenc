@@ -11,7 +11,7 @@ struct bounds {
   int upper_bound;
   bounds(int l, int u) {
     l_op = "&lt;=";
-    r_op = u == ::std::numeric_limits<int>::max() ? "&lt;" : "&tl;=";
+    r_op = u == ::std::numeric_limits<int>::max() ? "&lt;" : "&lt;=";
     lower_bound = l;
     upper_bound = u;
   }
