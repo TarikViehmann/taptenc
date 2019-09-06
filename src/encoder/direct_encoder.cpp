@@ -155,6 +155,51 @@ void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
               trans.end());
 }
 
+std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
+                                                    std::string starting_pa,
+                                                    std::string ending_pa,
+                                                    int offset) {
+  // start index needs to subtract one because of start action
+  int start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
+  int end_index =
+      (ending_pa == "")
+          ? plan.size() + 2
+          : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 1;
+  int offset_index = start_index;
+  if ((long unsigned int)start_index >= plan.size()) {
+    std::cout << "DirectEncoder calculateContext: starting pa " << starting_pa
+              << " is out of range" << std::endl;
+    return std::make_pair(0, 0);
+  }
+  if (info.type == ICType::Future) {
+    int lb_acc = 0;
+    int ub_acc = 0;
+    for (auto pa = plan.begin() + start_index; pa != plan.end(); ++pa) {
+      lb_acc += pa->duration.lower_bound;
+      if (ub_acc != std::numeric_limits<int>::max()) {
+        // Increase ub_acc only if it does not overflow
+        ub_acc = (pa->duration.upper_bound <
+                  std::numeric_limits<int>::max() - ub_acc)
+                     ? pa->duration.upper_bound + ub_acc
+                     : std::numeric_limits<int>::max();
+      }
+      if (ub_acc < offset) {
+        offset_index++;
+      }
+      if (lb_acc >= info.bounds.upper_bound + offset ||
+          pa - plan.begin() == end_index) {
+        return std::make_pair(offset_index, pa - plan.begin() - start_index);
+      }
+    }
+    // res needs to add one because of fin action
+    return std::make_pair(offset_index, plan.size() - start_index + 1);
+  } else {
+    std::cout << "DirectEncoder calculateContext: unsopported type "
+              << info.type << std::endl;
+    return std::make_pair(0, 0);
+  }
+}
+
 void DirectEncoder::encodeInvariant(AutomataSystem &,
                                     const std::vector<State> &targets,
                                     const std::string pa) {
@@ -214,8 +259,8 @@ void DirectEncoder::encodeNoOp(AutomataSystem &,
 
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
-                                 const EncICInfo &info, int context,
-                                 int base_index) {
+                                 const EncICInfo &info, int base_index) {
+  int context = calculateContext(info, pa).second;
   Filter target_filter = Filter(info.targets);
   Filter base_filter = Filter(s.instances[base_index].first.states);
   auto search_tl = pa_tls.find(pa);

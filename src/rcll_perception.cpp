@@ -85,39 +85,6 @@ Automaton generateSyncPlanAutomaton(
   return res;
 }
 
-int calculateContext(const vector<PlanAction> plan, string starting_pa,
-                     const EncICInfo &info) {
-  for (auto plana : plan) {
-    cout << plana.name << endl;
-  }
-  // start index needs to subtract one because of start action
-  int start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
-  if ((long unsigned int)start_index >= plan.size()) {
-    cout << "calculateContext: starting pa " << starting_pa
-         << " is out of range" << endl;
-    return 0;
-  }
-  cout << "calculate context of " << starting_pa << " with ic " << info.name
-       << endl;
-  if (info.type == ICType::Future) {
-    int lb_acc = 0;
-    for (auto pa = plan.begin() + start_index; pa != plan.end(); ++pa) {
-      lb_acc += pa->duration.lower_bound;
-      cout << "acc lb: " << lb_acc;
-      if (lb_acc >= info.bounds.upper_bound) {
-        cout << "acc lb crossed ub: " << info.bounds.upper_bound << endl;
-        return pa - plan.begin();
-      }
-    }
-    cout << "whole context required!" << plan.size() - start_index << endl;
-    // res needs to add one because of fin action
-    return plan.size() - start_index + 1;
-  } else {
-    cout << "calculateContext: unsopported type " << info.type << endl;
-    return 0;
-  }
-}
-
 DirectEncoder createDirectEncoding(
     AutomataSystem &direct_system, const vector<PlanAction> plan,
     const unordered_map<string, vector<EncICInfo>> &activations,
@@ -133,8 +100,7 @@ DirectEncoder createDirectEncoding(
       for (const auto &ac : search->second) {
         switch (ac.type) {
         case ICType::Future:
-          enc.encodeFuture(direct_system, pa.id, ac,
-                           calculateContext(plan, pa.id, ac));
+          enc.encodeFuture(direct_system, pa.id, ac);
           break;
         case ICType::NoOp:
           enc.encodeNoOp(direct_system, ac.targets, pa.id);
