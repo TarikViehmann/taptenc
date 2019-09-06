@@ -85,12 +85,44 @@ Automaton generateSyncPlanAutomaton(
   return res;
 }
 
+int calculateContext(const vector<PlanAction> plan, string starting_pa,
+                     const EncICInfo &info) {
+  for (auto plana : plan) {
+    cout << plana.name << endl;
+  }
+  // start index needs to subtract one because of start action
+  int start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
+  if ((long unsigned int)start_index >= plan.size()) {
+    cout << "calculateContext: starting pa " << starting_pa
+         << " is out of range" << endl;
+    return 0;
+  }
+  cout << "calculate context of " << starting_pa << " with ic " << info.name
+       << endl;
+  if (info.type == ICType::Future) {
+    int lb_acc = 0;
+    for (auto pa = plan.begin() + start_index; pa != plan.end(); ++pa) {
+      lb_acc += pa->duration.lower_bound;
+      cout << "acc lb: " << lb_acc;
+      if (lb_acc >= info.bounds.upper_bound) {
+        cout << "acc lb crossed ub: " << info.bounds.upper_bound << endl;
+        return pa - plan.begin();
+      }
+    }
+    cout << "whole context required!" << plan.size() - start_index << endl;
+    // res needs to add one because of fin action
+    return plan.size() - start_index + 1;
+  } else {
+    cout << "calculateContext: unsopported type " << info.type << endl;
+    return 0;
+  }
+}
+
 DirectEncoder createDirectEncoding(
-    AutomataSystem &direct_system,
-    const unordered_map<string, vector<string>> &activations,
-    unordered_map<string, pair<vector<State>, Bounds>> &targets,
+    AutomataSystem &direct_system, const vector<PlanAction> plan,
+    const unordered_map<string, vector<EncICInfo>> &activations,
     int plan_index = 1) {
-  DirectEncoder enc(direct_system);
+  DirectEncoder enc(direct_system, plan);
   for (const auto &pa : direct_system.instances[plan_index].first.states) {
     string pa_op = Filter::getPrefix(pa.id, constants::PA_SEP);
     if (pa_op == constants::START_PA || pa_op == constants::END_PA) {
@@ -99,19 +131,19 @@ DirectEncoder createDirectEncoding(
     auto search = activations.find(pa_op);
     if (search != activations.end()) {
       for (const auto &ac : search->second) {
-        auto search = targets.find(ac);
-        if (search != targets.end()) {
-          if (ac.substr(0, 6) == "vision") {
-            enc.encodeFuture(direct_system, search->second.first, pa.id,
-                             "vision", search->second.second, 0);
-          }
-          if (ac.substr(0, 7) == "cam_off") {
-            enc.encodeNoOp(direct_system, search->second.first, pa.id);
-          }
-          if (ac.substr(0, 10) == "puck_sense") {
-            enc.encodeFuture(direct_system, search->second.first, pa.id,
-                             "puck_sense", search->second.second, 0);
-          }
+        switch (ac.type) {
+        case ICType::Future:
+          enc.encodeFuture(direct_system, pa.id, ac,
+                           calculateContext(plan, pa.id, ac));
+          break;
+        case ICType::NoOp:
+          enc.encodeNoOp(direct_system, ac.targets, pa.id);
+          break;
+        case ICType::Invariant:
+          enc.encodeInvariant(direct_system, ac.targets, pa.id);
+          break;
+        default:
+          cout << "error: no support yet for type " << ac.type << endl;
         }
       }
     }
@@ -222,6 +254,13 @@ std::string getEnvVar(std::string const &key) {
   }
   return std::string(val);
 }
+void addStateClock(vector<Transition> &trans) {
+  for (auto &t : trans) {
+    cout << "before " << t.update << endl;
+    t.update = addUpdate(t.update, string(constants::STATE_CLOCK) + " = 0");
+    cout << "after " << t.update << endl;
+  }
+}
 
 int main() {
   if (getEnvVar("VERIFYTA_DIR") == "") {
@@ -259,13 +298,15 @@ int main() {
                                    "cam &gt; 2", "sense = 0", "", true));
   transitions.push_back(
       Transition("puck_sense", "idle", "", "sense &gt; 1", "", "", true));
+  addStateClock(transitions);
   Automaton test(states, transitions, "main", false);
+
   test.clocks.insert(test.clocks.end(),
-                     {"icp", "cam", "pic", "sense", "globtime"});
+                     {"icp", "cam", "pic", "sense", "globtime", "statetime",
+                      constants::STATE_CLOCK});
   vector<State> vision_filter;
   vector<State> cam_off_filter;
   vector<State> puck_sense_filter;
-  ;
   vision_filter.insert(vision_filter.end(), {test.states[5]});
   cam_off_filter.insert(cam_off_filter.end(), {test.states[0], test.states[6]});
   puck_sense_filter.insert(puck_sense_filter.end(), {test.states[6]});
@@ -274,36 +315,41 @@ int main() {
   Bounds puck_sense_bounds(0, 15, "&lt;=", "&lt;");
   Bounds goto_bounds(15, 45);
   Bounds pick_bounds(13, 18);
+  Bounds end_bounds(0, 0);
   AutomataGlobals glob;
   XMLPrinter printer;
   vector<pair<Automaton, string>> automata_direct;
   automata_direct.push_back(make_pair(test, ""));
-  vector<PlanAction> plan{PlanAction("goto", goto_bounds),
-                          PlanAction("pick", pick_bounds),
-                          PlanAction("goto", goto_bounds)};
+  vector<PlanAction> plan{
+      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
+      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
+      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds)};
   //, "put", "goto", "pick", "discard", "goto",
   //"pick", "goto", "put"};
-  unordered_map<string, vector<string>> activations;
-  activations.insert(make_pair("goto", vector<string>{"cam_off"}));
-  activations.insert(make_pair("pick", vector<string>{"vision", "puck_sense"}));
-  activations.insert(make_pair("put", vector<string>{"vision", ""}));
-  activations.insert(
-      make_pair("discard", vector<string>{"cam_off", "puck_sense"}));
-  unordered_map<string, pair<vector<State>, Bounds>> targets;
-  targets.insert(
-      make_pair("cam_off", make_pair(cam_off_filter, cam_off_bounds)));
-  targets.insert(make_pair("vision", make_pair(vision_filter, vision_bounds)));
-  targets.insert(
-      make_pair("puck_sense", make_pair(puck_sense_filter, puck_sense_bounds)));
-  Automaton plan_ta = Encoder::generatePlanAutomaton(plan, "plan");
-  automata_direct.push_back(make_pair(plan_ta, ""));
-  AutomataSystem direct_system;
-  direct_system.instances = automata_direct;
-  DirectEncoder enc1 =
-      createDirectEncoding(direct_system, activations, targets);
-  enc1.createFinalSystem(direct_system);
-  auto internal = enc1.getInternalTAs();
-  SystemVisInfo direct_system_vis_info(internal, plan_ta.states);
+  unordered_map<string, vector<EncICInfo>> activations;
+  activations.insert(make_pair(
+      "goto", vector<EncICInfo>{EncICInfo(cam_off_filter, "cam_off",
+                                          cam_off_bounds, ICType::Invariant)}));
+  activations.insert(make_pair(
+      "pick", vector<EncICInfo>{EncICInfo(vision_filter, "vision",
+                                          vision_bounds, ICType::Future),
+                                EncICInfo(puck_sense_filter, "puck_sense",
+                                          puck_sense_bounds, ICType::Future)}));
+  activations.insert(make_pair(
+      "put", vector<EncICInfo>{EncICInfo(vision_filter, "vision", vision_bounds,
+                                         ICType::Future)}));
+  activations.insert(make_pair(
+      "discard",
+      vector<EncICInfo>{
+          EncICInfo(cam_off_filter, "cam_off", cam_off_bounds, ICType::NoOp),
+          EncICInfo(puck_sense_filter, "puck_sense", puck_sense_bounds,
+                    ICType::Future)}));
+  AutomataSystem base_system;
+  base_system.instances = automata_direct;
+  DirectEncoder enc1 = createDirectEncoding(base_system, plan, activations);
+  SystemVisInfo direct_system_vis_info;
+  AutomataSystem direct_system =
+      enc1.createFinalSystem(base_system, direct_system_vis_info);
   printer.print(direct_system, direct_system_vis_info, "perception_direct.xml");
   std::ofstream myfile;
   myfile.open("perception_direct.q", std::ios_base::trunc);
@@ -322,6 +368,8 @@ int main() {
       "tracer perception_direct.if perception_direct-1.xtr > "
       "perception_direct.trace";
   std::system(call_make_trace_readable.c_str());
-  UTAPTraceParser::parseTraceInfo("perception_direct.trace", test, plan_ta);
+  UTAPTraceParser::parseTraceInfo(
+      "perception_direct.trace", test,
+      base_system.instances[enc1.getPlanTAIndex()].first);
   return 0;
 }

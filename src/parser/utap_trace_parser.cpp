@@ -39,16 +39,21 @@ namespace taptenc {
 namespace UTAPTraceParser {
 // type for weight/distance on each edge
 
-pair<int, int>
-determineGlobTime(unordered_map<pair<string, string>, int> differences) {
+SpecialClocksInfo determineSpecialClockBounds(
+    unordered_map<pair<string, string>, int> differences) {
   Graph g;
   unordered_map<string, int> ids;
+  SpecialClocksInfo res;
   int x = 0;
   int t0 = 0;
   int glob = 0;
+  int state = 0;
   for (const auto &edge : differences) {
     auto ins_source = ids.insert(::std::make_pair(edge.first.first, x));
     if (ins_source.second) {
+      if (edge.first.first.find(constants::STATE_CLOCK) != string::npos) {
+        state = x;
+      }
       if (edge.first.first.find("globtime") != string::npos) {
         glob = x;
       }
@@ -59,6 +64,9 @@ determineGlobTime(unordered_map<pair<string, string>, int> differences) {
     }
     auto ins_dest = ids.insert(::std::make_pair(edge.first.second, x));
     if (ins_dest.second) {
+      if (edge.first.second.find(constants::STATE_CLOCK) != string::npos) {
+        state = x;
+      }
       if (edge.first.second.find("globtime") != string::npos) {
         glob = x;
       }
@@ -83,10 +91,13 @@ determineGlobTime(unordered_map<pair<string, string>, int> differences) {
   // check if there no negative cycles
   if (!valid) {
     std::cerr << "Error - Negative cycle in matrix" << std::endl;
-    return ::std::make_pair(-1, -1);
+    return res;
   }
-
-  return ::std::make_pair(-distances[t0][glob], distances[glob][t0]);
+  res.global_clock =
+      ::std::make_pair(-distances[t0][glob], distances[glob][t0]);
+  res.state_clock =
+      ::std::make_pair(-distances[t0][state], distances[state][t0]);
+  return res;
 }
 
 void replaceStringInPlace(std::string &subject, const std::string &search,
@@ -135,15 +146,20 @@ void parseState(std::string &currentReadLine) {
       cout << "ERROR: duplicate dbm entry" << endl;
     }
   }
-  pair<int, int> curr_time = determineGlobTime(closed_dbm);
-  cout << "total time: " << curr_time.first << " to "
-       << ((curr_time.second == ::std::numeric_limits<int>::max())
+  specialClocksInfo gci = determineSpecialClockBounds(closed_dbm);
+  cout << "total time: " << gci.global_clock.first << " to "
+       << ((gci.global_clock.second == ::std::numeric_limits<int>::max())
                ? "inf"
-               : ::std::to_string(curr_time.second))
+               : ::std::to_string(gci.global_clock.second))
+       << endl;
+  cout << "state time : " << gci.state_clock.first << " to "
+       << ((gci.state_clock.second == ::std::numeric_limits<int>::max())
+               ? "inf"
+               : ::std::to_string(gci.state_clock.second))
        << endl;
 }
 
-void parseTransition(std::string &currentReadLine, const Automaton &base_ta,
+bool parseTransition(std::string &currentReadLine, const Automaton &base_ta,
                      const Automaton &plan_ta) {
   size_t eow = currentReadLine.find_first_of(" \t");
   currentReadLine = currentReadLine.substr(eow + 1);
@@ -180,8 +196,10 @@ void parseTransition(std::string &currentReadLine, const Automaton &base_ta,
   // obtain action name
   string pa_source_id = Filter::getPrefix(source_id, constants::TL_SEP);
   string pa_dest_id = Filter::getPrefix(dest_id, constants::TL_SEP);
+  bool same_pa = false;
+  bool same_state = false;
   if (pa_dest_id == "query") {
-    return;
+    return false;
   }
   if (pa_source_id != pa_dest_id) {
     auto pa_trans =
@@ -204,6 +222,8 @@ void parseTransition(std::string &currentReadLine, const Automaton &base_ta,
       cout << "(" << pa_trans->source_id << " -> " << pa_trans->dest_id << ")"
            << endl;
     }
+  } else {
+    same_pa = true;
   }
   string base_source_id = Filter::getSuffix(source_id, constants::BASE_SEP);
   string base_dest_id = Filter::getSuffix(dest_id, constants::BASE_SEP);
@@ -228,7 +248,10 @@ void parseTransition(std::string &currentReadLine, const Automaton &base_ta,
       cout << "(" << base_trans->source_id << " -> " << base_trans->dest_id
            << ")" << endl;
     }
+  } else {
+    same_state = true;
   }
+  return same_state && same_pa;
 }
 
 // vector<pair<Transition,size_t>>
@@ -242,14 +265,19 @@ void parseTraceInfo(const std::string &file, const Automaton &base_ta,
   cout << "----------------------------------" << endl;
   cout << "---------Final Plan---------------" << endl;
   cout << "----------------------------------" << endl;
+  bool skip_state = false;
   while (getline(fileStream, currentReadLine)) {
     if (currentReadLine.size() > 5) {
       if (currentReadLine.substr(0, 5) == "State") {
-        parseState(currentReadLine);
+        if (skip_state) {
+          skip_state = false;
+        } else {
+          parseState(currentReadLine);
+        }
       }
       if (currentReadLine.size() > 10 &&
           currentReadLine.substr(0, 10) == "Transition") {
-        parseTransition(currentReadLine, base_ta, plan_ta);
+        skip_state = parseTransition(currentReadLine, base_ta, plan_ta);
       }
     }
   }

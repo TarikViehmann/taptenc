@@ -4,8 +4,13 @@
 
 namespace taptenc {
 namespace UTAPTraceParser {
+struct specialClocksInfo {
+  ::std::pair<int, int> global_clock;
+  ::std::pair<int, int> state_clock;
+};
+typedef specialClocksInfo SpecialClocksInfo;
 // type for weight/distance on each edge
-::std::pair<int, int> determineGlobTime(
+SpecialClocksInfo determineSpecialClockBounds(
     ::std::unordered_map<::std::pair<::std::string, ::std::string>, int>
         differences);
 
@@ -15,7 +20,7 @@ void replaceStringInPlace(::std::string &subject, const ::std::string &search,
 ::std::string convertCharsToHTML(::std::string str);
 void parseState(::std::string &currentReadLine);
 
-void parseTransition(::std::string &currentReadLine, const Automaton &base_ta,
+bool parseTransition(::std::string &currentReadLine, const Automaton &base_ta,
                      const Automaton &plan_ta);
 void parseTraceInfo(const ::std::string &file, const Automaton &base_ta,
                     const Automaton &plan_ta);

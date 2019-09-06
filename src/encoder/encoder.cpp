@@ -30,7 +30,8 @@ Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
                         std::to_string(it - full_plan.begin()),
               (it->name == constants::END_PA || it->name == constants::START_PA)
                   ? ""
-                  : "cpa &lt; 60",
+                  : ("cpa " + it->duration.r_op + " " +
+                     std::to_string(it->duration.upper_bound)),
               false, (it->name == constants::START_PA) ? true : false));
   }
   auto find_initial =
@@ -49,11 +50,12 @@ Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
     std::string guard = "";
     std::string update = "";
     auto prev_state = (it - 1);
-    if (prev_state->id != constants::END_PA &&
-        prev_state->id != constants::START_PA) {
-      guard = "cpa &gt; 30";
-      update = "cpa = 0";
-    }
+    int pa_index = prev_state - plan_states.begin();
+    std::cout << full_plan[pa_index].name << " l_op "
+              << full_plan[pa_index].duration.l_op << std::endl;
+    guard = "cpa " + reverse_op(full_plan[pa_index].duration.l_op) + " " +
+            std::to_string(full_plan[pa_index].duration.lower_bound);
+    update = "cpa = 0";
     plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
                                           update, sync_op, false));
     i++;
