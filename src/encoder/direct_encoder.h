@@ -28,6 +28,10 @@ private:
                            ::std::string prefix, bool only_inner_trans = false);
   void removeTransitionsToNextTl(::std::vector<Transition> &trans,
                                  ::std::string curr_pa);
+  ::std::pair<int, int> calculateContext(const EncICInfo &info,
+                                         ::std::string starting_pa,
+                                         ::std::string ending_pa = "",
+                                         int offset = 0);
 
 public:
   size_t getPlanTAIndex();
@@ -36,7 +40,7 @@ public:
   void encodeNoOp(AutomataSystem &s, const ::std::vector<State> &targets,
                   const ::std::string pa);
   void encodeFuture(AutomataSystem &s, const ::std::string pa,
-                    const EncICInfo &info, int context, int base_index = 0);
+                    const EncICInfo &info, int base_index = 0);
   void encodePast(AutomataSystem &s, ::std::vector<State> &targets,
                   const ::std::string pa, const Bounds bounds,
                   int base_index = 0);
