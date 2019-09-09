@@ -22,16 +22,20 @@ private:
                             const int plan_pos);
   ::std::vector<Transition>
   createTransitionsBackToOrigTL(::std::vector<Transition> &trans,
-                                ::std::string prefix, ::std::string pa);
+                                ::std::string prefix, ::std::string pa,
+                                ::std::string guard = "");
   ::std::vector<Transition>
   addToPrefixOnTransitions(const ::std::vector<Transition> &trans,
                            ::std::string prefix, bool only_inner_trans = false);
+  void modifyTransitionsToNextTl(::std::vector<Transition> &trans,
+                                 ::std::string curr_pa, ::std::string guard,
+                                 ::std::string update, ::std::string sync);
   void removeTransitionsToNextTl(::std::vector<Transition> &trans,
                                  ::std::string curr_pa);
   ::std::pair<int, int> calculateContext(const EncICInfo &info,
                                          ::std::string starting_pa,
                                          ::std::string ending_pa = "",
-                                         int offset = 0);
+                                         int lb_offset = 0, int ub_offset = 0);
 
 public:
   size_t getPlanTAIndex();

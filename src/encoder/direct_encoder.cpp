@@ -176,12 +176,14 @@ void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
 std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
                                                     std::string starting_pa,
                                                     std::string ending_pa,
-                                                    int offset) {
+                                                    int lb_offset,
+                                                    int ub_offset) {
   // start index needs to subtract one because of start action
+  // indices w.r.t. to the plan, not the plan automaton
   int start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
   int end_index =
       (ending_pa == "")
-          ? plan.size() + 2
+          ? plan.size() - 1
           : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 1;
   int offset_index = start_index;
   if ((long unsigned int)start_index >= plan.size()) {
@@ -196,21 +198,22 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
       lb_acc += pa->duration.lower_bound;
       if (ub_acc != std::numeric_limits<int>::max()) {
         // Increase ub_acc only if it does not overflow
-        ub_acc = (pa->duration.upper_bound <
-                  std::numeric_limits<int>::max() - ub_acc)
-                     ? pa->duration.upper_bound + ub_acc
-                     : std::numeric_limits<int>::max();
+        ub_acc = safeAddition(pa->duration.upper_bound, ub_acc);
       }
-      if (ub_acc < offset) {
+      if (ub_acc < lb_offset) {
         offset_index++;
       }
-      if (lb_acc >= info.bounds.upper_bound + offset ||
+      if (lb_acc >= safeAddition(info.bounds.upper_bound, ub_offset) ||
           pa - plan.begin() == end_index) {
-        return std::make_pair(offset_index, pa - plan.begin() - start_index);
+        return std::make_pair(offset_index + 1,
+                              pa - plan.begin() - offset_index);
+      }
+      if (pa - plan.begin() == end_index) {
+        break;
       }
     }
     // res needs to add one because of fin action
-    return std::make_pair(offset_index, plan.size() - start_index + 1);
+    return std::make_pair(offset_index + 1, end_index - start_index);
   } else {
     std::cout << "DirectEncoder calculateContext: unsopported type "
               << info.type << std::endl;
