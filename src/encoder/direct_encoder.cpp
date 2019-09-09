@@ -23,9 +23,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   Filter base_filter = Filter(s.instances[base_index].first.states);
   for (const auto &pa : s.instances[plan_index].first.states) {
     std::cout << pa.id << std::endl;
-    std::unordered_map<std::string,
-                       std::pair<Automaton, std::vector<Transition>>>
-        tl;
+    TimeLine tl;
     std::string ta_prefix = toPrefix("", "", pa.id);
     Automaton ta_copy = base_filter.filterAutomaton(
         s.instances[base_index].first, ta_prefix, "", false);
@@ -45,11 +43,11 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
     ta_copy.clocks.insert(ta_copy.clocks.end(),
                           s.instances[plan_index].first.clocks.begin(),
                           s.instances[plan_index].first.clocks.end());
-    auto emp_ta = tl.emplace(std::make_pair(
-        ta_prefix, std::make_pair(ta_copy, std::vector<Transition>())));
+    auto emp_ta = tl.emplace(
+        std::make_pair(ta_prefix, TlEntry(ta_copy, std::vector<Transition>())));
     if (emp_ta.second == true) {
-      addInvariants(emp_ta.first->second.first,
-                    emp_ta.first->second.first.states, pa.inv);
+      addInvariants(emp_ta.first->second.ta, emp_ta.first->second.ta.states,
+                    pa.inv);
     } else {
       std::cout << "DirectEncoder generateBaseTimeLine: plan automaton has non "
                    "unique id (id "
@@ -64,13 +62,12 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
     }
   }
   // generate query state
-  std::unordered_map<std::string, std::pair<Automaton, std::vector<Transition>>>
-      query_tl;
+  TimeLine query_tl;
   Automaton query_ta(std::vector<State>(), std::vector<Transition>(), "query",
                      false);
   query_ta.states.push_back(State("query", ""));
-  query_tl.emplace(std::make_pair(
-      "query", std::make_pair(query_ta, std::vector<Transition>())));
+  query_tl.emplace(
+      std::make_pair("query", TlEntry(query_ta, std::vector<Transition>())));
   auto emp_tl = pa_tls.emplace(std::make_pair("query", query_tl));
   if (emp_tl.second == false) {
     std::cout << "DirectEncoder generateBaseTimeLine: query timeline "
@@ -80,8 +77,8 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   // make transitions from last plan actions to query
   for (auto &last_tl :
        pa_tls.find(s.instances[plan_index].first.states.back().id)->second) {
-    for (auto &s : last_tl.second.first.states) {
-      last_tl.second.second.push_back(
+    for (auto &s : last_tl.second.ta.states) {
+      last_tl.second.trans_out.push_back(
           Transition(s.id, "query", "", "", "", ""));
     }
   }
@@ -93,17 +90,17 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
       std::string source_ta_prefix = toPrefix("", "", pa_trans.source_id);
       std::string dest_ta_prefix = toPrefix("", "", pa_trans.dest_id);
       std::vector<Transition> successor_trans = createCopyTransitionsBetweenTAs(
-          source_ta->second.find(source_ta_prefix)->second.first,
-          dest_ta->second.find(dest_ta_prefix)->second.first,
-          source_ta->second.find(source_ta_prefix)->second.first.states,
+          source_ta->second.find(source_ta_prefix)->second.ta,
+          dest_ta->second.find(dest_ta_prefix)->second.ta,
+          source_ta->second.find(source_ta_prefix)->second.ta.states,
           pa_trans.guard, pa_trans.update, "");
       pa_tls[pa_trans.source_id]
           .find(source_ta_prefix)
-          ->second.second.insert(pa_tls[pa_trans.source_id]
-                                     .find(source_ta_prefix)
-                                     ->second.second.end(),
-                                 successor_trans.begin(),
-                                 successor_trans.end());
+          ->second.trans_out.insert(pa_tls[pa_trans.source_id]
+                                        .find(source_ta_prefix)
+                                        ->second.trans_out.end(),
+                                    successor_trans.begin(),
+                                    successor_trans.end());
     } else {
       std::cout << "DirectEncoder generateBaseTimeLine: pa "
                 << pa_trans.source_id << " or " << pa_trans.dest_id
@@ -237,13 +234,14 @@ void DirectEncoder::encodeInvariant(AutomataSystem &,
     if (search_pa - pa_order.begin() > 0) {
       for (auto &prev_tl_entry :
            pa_tls[pa_order[search_pa - pa_order.begin() - 1]]) {
-        target_filter.filterTransitionsInPlace(prev_tl_entry.second.second, pa,
-                                               false);
+        target_filter.filterTransitionsInPlace(prev_tl_entry.second.trans_out,
+                                               pa, false);
       }
     }
     for (auto &tl_entry : search_tl->second) {
-      target_filter.filterAutomatonInPlace(tl_entry.second.first, "");
-      target_filter.filterTransitionsInPlace(tl_entry.second.second, pa, true);
+      target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
+      target_filter.filterTransitionsInPlace(tl_entry.second.trans_out, pa,
+                                             true);
     }
   } else {
     std::cout
@@ -268,8 +266,8 @@ void DirectEncoder::encodeNoOp(AutomataSystem &,
     if (search_pa - pa_order.begin() > 0) {
       for (auto &prev_tl_entry :
            pa_tls[pa_order[search_pa - pa_order.begin() - 1]]) {
-        target_filter.filterTransitionsInPlace(prev_tl_entry.second.second, pa,
-                                               false);
+        target_filter.filterTransitionsInPlace(prev_tl_entry.second.trans_out,
+                                               pa, false);
       }
     }
   } else {
@@ -321,23 +319,11 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
   int lb_acc = 0;
   int ub_acc = 0;
   // TLs before encoding the Until Chain
-  std::unordered_map<
-      std::string,
-      std::unordered_map<std::string,
-                         std::pair<Automaton, std::vector<Transition>>>>
-      orig_tls = pa_tls;
+  TimeLines orig_tls = pa_tls;
   // TLs of the current window
-  std::unordered_map<
-      std::string,
-      std::unordered_map<std::string,
-                         std::pair<Automaton, std::vector<Transition>>>>
-      curr_window = pa_tls;
+  TimeLines curr_window = pa_tls;
   // TL of the previous window
-  std::unordered_map<
-      std::string,
-      std::unordered_map<std::string,
-                         std::pair<Automaton, std::vector<Transition>>>>
-      prev_window;
+  TimeLines prev_window;
   // maps to obtain tl entry id of current/previous window given the original
   // prefix id
   std::unordered_map<std::string, std::string> orig_prefix_to_prev;
@@ -382,7 +368,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
       // delete outgoing transitions form pa_tls at context_end
       for (auto &last_ta_entry : pa_tls[*pa_last_context]) {
         removeTransitionsToNextTl(
-            last_ta_entry.second.second,
+            last_ta_entry.second.trans_out,
             Filter::getPrefix(last_ta_entry.first, constants::TL_SEP));
       }
     }
@@ -424,20 +410,16 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
             std::string prev_pa = *(pa_order.begin() + context_start - 1);
             for (auto &prev_pa_entry :
                  pa_tls[*(pa_order.begin() + context_start - 1)]) {
-              modifyTransitionsToNextTl(prev_pa_entry.second.second, prev_pa,
+              modifyTransitionsToNextTl(prev_pa_entry.second.trans_out, prev_pa,
                                         "", clock + " = 0", "");
             }
           }
         } else {
           // All following windows in the Until Chain have to create copies
           Filter target_filter = Filter(info->targets);
-          std::unordered_map<std::string,
-                             std::pair<Automaton, std::vector<Transition>>>
-              copy_tls;
+          TimeLine copy_tls;
           // formulate clock constraints
-          std::unordered_map<std::string,
-                             std::pair<Automaton, std::vector<Transition>>>
-              new_tls;
+          TimeLine new_tls;
           // copy all original tls
           for (auto &tl_entry : curr_tl->second) {
             std::string op_name =
@@ -445,7 +427,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
             std::string new_prefix = addToPrefix(tl_entry.first, op_name);
             orig_prefix_to_curr[tl_entry.first] = new_prefix;
             Automaton copy_ta = target_filter.filterAutomaton(
-                tl_entry.second.first, new_prefix, "", false);
+                tl_entry.second.ta, new_prefix, "", false);
 
             copy_ta.clocks.push_back(clock);
             if (upper_bounded) {
@@ -465,20 +447,18 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
                 // copy (copy and successor transitions)
                 std::vector<Transition> trans_orig_to_cp;
                 trans_orig_to_cp = createCopyTransitionsBetweenTAs(
-                    pa_tls_entry->second.first, copy_ta,
-                    target_filter.getFilter(), prev_window_guard_constraint_sat,
-                    clock + " = 0", "");
+                    pa_tls_entry->second.ta, copy_ta, target_filter.getFilter(),
+                    prev_window_guard_constraint_sat, clock + " = 0", "");
                 std::vector<Transition> trans_orig_to_cp_succ =
                     createSuccessorTransitionsBetweenTAs(
-                        s.instances[base_index].first,
-                        pa_tls_entry->second.first, copy_ta,
-                        pa_tls_entry->second.first.states,
+                        s.instances[base_index].first, pa_tls_entry->second.ta,
+                        copy_ta, pa_tls_entry->second.ta.states,
                         prev_window_guard_constraint_sat, clock + " = 0");
-                pa_tls_entry->second.second.insert(
-                    pa_tls_entry->second.second.end(), trans_orig_to_cp.begin(),
-                    trans_orig_to_cp.end());
-                pa_tls_entry->second.second.insert(
-                    pa_tls_entry->second.second.end(),
+                pa_tls_entry->second.trans_out.insert(
+                    pa_tls_entry->second.trans_out.end(),
+                    trans_orig_to_cp.begin(), trans_orig_to_cp.end());
+                pa_tls_entry->second.trans_out.insert(
+                    pa_tls_entry->second.trans_out.end(),
                     trans_orig_to_cp_succ.begin(), trans_orig_to_cp_succ.end());
 
               } else {
@@ -495,22 +475,22 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
             // also copy the transitions connecting different orig TLs
             if (tls_copied + context_start < context_end) {
               cp_to_other_cp =
-                  addToPrefixOnTransitions(tl_entry.second.second, op_name);
+                  addToPrefixOnTransitions(tl_entry.second.trans_out, op_name);
             } else {
-              cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.second,
-                                                        op_name, true);
+              cp_to_other_cp = addToPrefixOnTransitions(
+                  tl_entry.second.trans_out, op_name, true);
               // The last Copy of the last Window connects back to the original
               // TLs
               if (info + 1 == infos.end()) {
                 cp_to_orig = createTransitionsBackToOrigTL(
-                    tl_entry.second.second, new_prefix, tl_entry.first,
+                    tl_entry.second.trans_out, new_prefix, tl_entry.first,
                     guard_constraint_sat);
               }
             }
             cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
                                   cp_to_orig.end());
             auto emp = new_tls.emplace(
-                std::make_pair(new_prefix, make_pair(copy_ta, cp_to_other_cp)));
+                std::make_pair(new_prefix, TlEntry(copy_ta, cp_to_other_cp)));
             if (emp.second == false) {
               std::cout
                   << "DirectEncoder encodeUntilChain: failed to add prefix: "
@@ -590,7 +570,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
       for (auto &prev_tl_entry :
            pa_tls[pa_order[search_pa - pa_order.begin() - 1]]) {
         base_filter.addToTransitions(
-            prev_tl_entry.second.second, "", clock + " = 0",
+            prev_tl_entry.second.trans_out, "", clock + " = 0",
             pa_order[search_pa - pa_order.begin() - 1], true);
       }
     }
@@ -599,9 +579,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
     std::size_t context_past_end =
         std::min(search_pa - pa_order.begin() + context + 1,
                  (long int)pa_order.size() - 1);
-    std::unordered_map<std::string,
-                       std::pair<Automaton, std::vector<Transition>>>
-        new_tls;
+    TimeLine new_tls;
     std::size_t tls_copied = 0;
     auto curr_future_tl = search_tl;
     encode_counter++;
@@ -611,22 +589,22 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
       for (auto &tl_entry : curr_future_tl->second) {
         std::string op_name = info.name + "F" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
-        for (const auto &orig_s : tl_entry.second.first.states) {
+        for (const auto &orig_s : tl_entry.second.ta.states) {
           if (orig_s.inv == "") {
             std::cout << "WARNING: " << orig_s.name << "has no invariant!"
                       << std::endl;
           }
         }
         Automaton cp_automaton =
-            Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
+            Filter::copyAutomaton(tl_entry.second.ta, new_prefix, false);
         if (upper_bounded) {
-          addInvariants(tl_entry.second.first, base_filter.getFilter(),
+          addInvariants(tl_entry.second.ta, base_filter.getFilter(),
                         clock + info.bounds.r_op +
                             std::to_string(info.bounds.upper_bound));
         }
         cp_automaton.clocks.push_back(clock);
         std::vector<Transition> trans_orig_to_cp =
-            createCopyTransitionsBetweenTAs(tl_entry.second.first, cp_automaton,
+            createCopyTransitionsBetweenTAs(tl_entry.second.ta, cp_automaton,
                                             target_filter.getFilter(),
                                             guard_constraint_sat, "", "");
         std::vector<Transition> cp_to_other_cp;
@@ -634,14 +612,14 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
         // check if next tl also gets copied
         if (tls_copied + context_start + 1 < context_past_end) {
           cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.second, op_name);
+              addToPrefixOnTransitions(tl_entry.second.trans_out, op_name);
         } else {
-          cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.second, op_name, true);
+          cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.trans_out,
+                                                    op_name, true);
           cp_to_orig = createTransitionsBackToOrigTL(
-              tl_entry.second.second, new_prefix, tl_entry.first);
+              tl_entry.second.trans_out, new_prefix, tl_entry.first);
           removeTransitionsToNextTl(
-              tl_entry.second.second,
+              tl_entry.second.trans_out,
               Filter::getPrefix(tl_entry.first, constants::TL_SEP));
         }
 
@@ -649,8 +627,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                               trans_orig_to_cp.end());
         cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
                               cp_to_orig.end());
-        auto emp = new_tls.emplace(std::make_pair(
-            new_prefix, make_pair(cp_automaton, cp_to_other_cp)));
+        auto emp = new_tls.emplace(
+            std::make_pair(new_prefix, TlEntry(cp_automaton, cp_to_other_cp)));
         if (emp.second == false) {
           std::cout << "DirectEncoder encodeFuture: failed to add prefix: "
                     << new_prefix << std::endl;
@@ -715,9 +693,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
     std::size_t context_end = search_pa - pa_order.begin() - 1;
     std::size_t context_prior_start =
         std::max(search_pa - pa_order.begin() - CONTEXT - 1, (long int)0);
-    std::unordered_map<std::string,
-                       std::pair<Automaton, std::vector<Transition>>>
-        new_tls;
+    TimeLine new_tls;
     std::size_t tls_copied = 0;
     auto curr_past_tl = pa_tls.find(pa_order[context_end]);
     if (curr_past_tl == pa_tls.end()) {
@@ -732,7 +708,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
         std::string op_name = pa + "P" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
         Automaton cp_automaton =
-            Filter::copyAutomaton(tl_entry.second.first, new_prefix, false);
+            Filter::copyAutomaton(tl_entry.second.ta, new_prefix, false);
         if (upper_bounded) {
           addInvariants(cp_automaton, base_filter.getFilter(),
                         clock + bounds.r_op +
@@ -745,7 +721,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
         cp_automaton.clocks.push_back(clock);
         cp_automaton.bool_vars.push_back(bvar);
         std::vector<Transition> trans_orig_to_cp =
-            createCopyTransitionsBetweenTAs(tl_entry.second.first, cp_automaton,
+            createCopyTransitionsBetweenTAs(tl_entry.second.ta, cp_automaton,
                                             base_filter.getFilter(), "",
                                             clock + " = 0", "");
         // target states already reached in orig tls
@@ -757,25 +733,25 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
         // check if this is the latest tl
         if (tls_copied > 0) {
           cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.second, op_name);
+              addToPrefixOnTransitions(tl_entry.second.trans_out, op_name);
         } else {
-          cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.second, op_name, true);
+          cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.trans_out,
+                                                    op_name, true);
           cp_to_orig = createTransitionsBackToOrigTL(
-              tl_entry.second.second, new_prefix, tl_entry.first);
+              tl_entry.second.trans_out, new_prefix, tl_entry.first);
           // add constraints that ensure a target state was indeed visited
           // before
           base_filter.addToTransitions(cp_to_orig, bvar + " == true",
                                        bvar + " = false", "", true);
 
-          removeTransitionsToNextTl(tl_entry.second.second, tl_entry.first);
+          removeTransitionsToNextTl(tl_entry.second.trans_out, tl_entry.first);
         }
         cp_to_other_cp.insert(cp_to_other_cp.end(), trans_orig_to_cp.begin(),
                               trans_orig_to_cp.end());
         cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
                               cp_to_orig.end());
-        new_tls.emplace(std::make_pair(
-            new_prefix, make_pair(cp_automaton, cp_to_other_cp)));
+        new_tls.emplace(
+            std::make_pair(new_prefix, TlEntry(cp_automaton, cp_to_other_cp)));
       }
       tls_copied++;
       curr_past_tl = pa_tls.find(pa_order[context_end - tls_copied]);
@@ -814,10 +790,10 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
   std::vector<Transition> interconnections;
   for (const auto &curr_tl : pa_tls) {
     for (const auto &curr_copy : curr_tl.second) {
-      automata.push_back(curr_copy.second.first);
+      automata.push_back(curr_copy.second.ta);
       interconnections.insert(interconnections.end(),
-                              curr_copy.second.second.begin(),
-                              curr_copy.second.second.end());
+                              curr_copy.second.trans_out.begin(),
+                              curr_copy.second.trans_out.end());
     }
   }
   res.instances.push_back(
