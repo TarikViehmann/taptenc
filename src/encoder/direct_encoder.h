@@ -39,6 +39,9 @@ private:
 
 public:
   size_t getPlanTAIndex();
+  void encodeUntilChain(AutomataSystem &s, const ::std::vector<EncICInfo> &info,
+                        const ::std::string start_pa,
+                        const ::std::string end_pa, const int base_pos = 0);
   void encodeInvariant(AutomataSystem &s, const ::std::vector<State> &targets,
                        const ::std::string pa);
   void encodeNoOp(AutomataSystem &s, const ::std::vector<State> &targets,

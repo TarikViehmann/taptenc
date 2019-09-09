@@ -143,9 +143,10 @@ Automaton Filter::filterAutomaton(const Automaton &source,
           return Filter::matchesFilter(s.id, filter_prefix, f_state.id);
         });
     if (search != source.states.end()) {
-      res_states.push_back(State(ta_prefix + search->name,
-                                 strip_constraints ? "" : search->inv,
-                                 search->urgent, search->initial));
+      res_states.push_back(
+          State(ta_prefix + Filter::getSuffix(search->id, constants::BASE_SEP),
+                strip_constraints ? "" : search->inv, search->urgent,
+                search->initial));
     } else {
       std::cout << "Filter filterAutomaton: filter state not found (id "
                 << f_state.id << ")" << std::endl;

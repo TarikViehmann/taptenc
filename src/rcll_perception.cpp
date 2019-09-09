@@ -117,6 +117,32 @@ DirectEncoder createDirectEncoding(
   return enc;
 }
 
+DirectEncoder testUntilChain(AutomataSystem &direct_system,
+                             const vector<PlanAction> plan,
+                             vector<EncICInfo> &infos, string start_pa,
+                             string end_pa) {
+  DirectEncoder enc(direct_system, plan);
+  for (auto pa = direct_system.instances[1].first.states.begin();
+       pa != direct_system.instances[1].first.states.end(); ++pa) {
+    string pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
+    if (pa_op == constants::START_PA || pa_op == constants::END_PA) {
+      continue;
+    }
+    if (start_pa == pa_op) {
+      for (auto epa = pa; epa != direct_system.instances[1].first.states.end();
+           ++epa) {
+        string epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
+        if (end_pa == epa_op) {
+          cout << endl << "start until chain" << endl << endl;
+          enc.encodeUntilChain(direct_system, infos, pa->id, epa->id);
+          break;
+        }
+      }
+    }
+  }
+  return enc;
+}
+
 ModularEncoder
 createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
                       unordered_map<string, vector<State>> &targets, Bounds b) {
@@ -222,9 +248,7 @@ std::string getEnvVar(std::string const &key) {
 }
 void addStateClock(vector<Transition> &trans) {
   for (auto &t : trans) {
-    cout << "before " << t.update << endl;
     t.update = addUpdate(t.update, string(constants::STATE_CLOCK) + " = 0");
-    cout << "after " << t.update << endl;
   }
 }
 
@@ -276,8 +300,9 @@ int main() {
   vision_filter.insert(vision_filter.end(), {test.states[5]});
   cam_off_filter.insert(cam_off_filter.end(), {test.states[0], test.states[6]});
   puck_sense_filter.insert(puck_sense_filter.end(), {test.states[6]});
-  Bounds vision_bounds(0, numeric_limits<int>::max());
-  Bounds cam_off_bounds(0, numeric_limits<int>::max());
+  Bounds full_bounds(0, 10); // numeric_limits<int>::max());
+  Bounds vision_bounds(20, numeric_limits<int>::max());
+  Bounds cam_off_bounds(2, 5);
   Bounds puck_sense_bounds(0, 15, "&lt;=", "&lt;");
   Bounds goto_bounds(15, 45);
   Bounds pick_bounds(13, 18);
@@ -292,50 +317,61 @@ int main() {
       PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds)};
   //, "put", "goto", "pick", "discard", "goto",
   //"pick", "goto", "put"};
-  unordered_map<string, vector<EncICInfo>> activations;
-  activations.insert(make_pair(
-      "goto", vector<EncICInfo>{EncICInfo(cam_off_filter, "cam_off",
-                                          cam_off_bounds, ICType::Invariant)}));
-  activations.insert(make_pair(
-      "pick", vector<EncICInfo>{EncICInfo(vision_filter, "vision",
-                                          vision_bounds, ICType::Future),
-                                EncICInfo(puck_sense_filter, "puck_sense",
-                                          puck_sense_bounds, ICType::Future)}));
-  activations.insert(make_pair(
-      "put", vector<EncICInfo>{EncICInfo(vision_filter, "vision", vision_bounds,
-                                         ICType::Future)}));
-  activations.insert(make_pair(
-      "discard",
-      vector<EncICInfo>{
-          EncICInfo(cam_off_filter, "cam_off", cam_off_bounds, ICType::NoOp),
-          EncICInfo(puck_sense_filter, "puck_sense", puck_sense_bounds,
-                    ICType::Future)}));
+  // unordered_map<string, vector<EncICInfo>> activations;
+  // activations.insert(make_pair(
+  //     "goto", vector<EncICInfo>{EncICInfo(cam_off_filter, "cam_off",
+  //                                         cam_off_bounds,
+  //                                         ICType::Invariant)}));
+  // activations.insert(make_pair(
+  //     "pick", vector<EncICInfo>{EncICInfo(vision_filter, "vision",
+  //                                         vision_bounds, ICType::Future),
+  //                               EncICInfo(puck_sense_filter, "puck_sense",
+  //                                         puck_sense_bounds,
+  //                                         ICType::Future)}));
+  // activations.insert(make_pair(
+  //     "put", vector<EncICInfo>{EncICInfo(vision_filter, "vision",
+  //     vision_bounds,
+  //                                        ICType::Future)}));
+  // activations.insert(make_pair(
+  //     "discard",
+  //     vector<EncICInfo>{
+  //         EncICInfo(cam_off_filter, "cam_off", cam_off_bounds, ICType::NoOp),
+  //         EncICInfo(puck_sense_filter, "puck_sense", puck_sense_bounds,
+  //                   ICType::Future)}));
+  vector<EncICInfo> uc{
+      EncICInfo(states, "full1", full_bounds, ICType::Future),
+      EncICInfo(vision_filter, "vision", vision_bounds, ICType::Future),
+      EncICInfo(states, "full2", cam_off_bounds, ICType::Future),
+      EncICInfo(cam_off_filter, "cam_off", puck_sense_bounds, ICType::Future),
+      EncICInfo(puck_sense_filter, "puck_sense", cam_off_bounds,
+                ICType::Future)};
   AutomataSystem base_system;
   base_system.instances = automata_direct;
-  DirectEncoder enc1 = createDirectEncoding(base_system, plan, activations);
+  // DirectEncoder enc1 = createDirectEncoding(base_system, plan, activations);
+  DirectEncoder enc1 = testUntilChain(base_system, plan, uc, "pick", "endgoto");
   SystemVisInfo direct_system_vis_info;
   AutomataSystem direct_system =
       enc1.createFinalSystem(base_system, direct_system_vis_info);
   printer.print(direct_system, direct_system_vis_info, "perception_direct.xml");
-  std::ofstream myfile;
-  myfile.open("perception_direct.q", std::ios_base::trunc);
-  myfile << "E<> sys_direct.query";
-  myfile.close();
-  string call_get_if =
-      "UPPAAL_COMPILE_ONLY=1 " + getEnvVar("VERIFYTA_DIR") +
-      "/verifyta perception_direct.xml - > perception_direct.if";
-  std::system(call_get_if.c_str());
-  string call_get_trace = getEnvVar("VERIFYTA_DIR") +
-                          "/verifyta -t 1 -f perception_direct "
-                          "perception_direct.xml perception_direct.q";
-  std::system(call_get_trace.c_str());
-  deleteEmptyLines("perception_direct-1.xtr");
-  string call_make_trace_readable =
-      "tracer perception_direct.if perception_direct-1.xtr > "
-      "perception_direct.trace";
-  std::system(call_make_trace_readable.c_str());
-  UTAPTraceParser::parseTraceInfo(
-      "perception_direct.trace", test,
-      base_system.instances[enc1.getPlanTAIndex()].first);
+  // std::ofstream myfile;
+  // myfile.open("perception_direct.q", std::ios_base::trunc);
+  // myfile << "E<> sys_direct.query";
+  // myfile.close();
+  // string call_get_if =
+  //     "UPPAAL_COMPILE_ONLY=1 " + getEnvVar("VERIFYTA_DIR") +
+  //     "/verifyta perception_direct.xml - > perception_direct.if";
+  // std::system(call_get_if.c_str());
+  // string call_get_trace = getEnvVar("VERIFYTA_DIR") +
+  //                         "/verifyta -t 1 -f perception_direct "
+  //                         "perception_direct.xml perception_direct.q";
+  // std::system(call_get_trace.c_str());
+  // deleteEmptyLines("perception_direct-1.xtr");
+  // string call_make_trace_readable =
+  //     "tracer perception_direct.if perception_direct-1.xtr > "
+  //     "perception_direct.trace";
+  // std::system(call_make_trace_readable.c_str());
+  // UTAPTraceParser::parseTraceInfo(
+  //     "perception_direct.trace", test,
+  //     base_system.instances[enc1.getPlanTAIndex()].first);
   return 0;
 }
