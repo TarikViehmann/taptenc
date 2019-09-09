@@ -147,6 +147,21 @@ DirectEncoder::addToPrefixOnTransitions(const std::vector<Transition> &trans,
   return res;
 }
 
+void DirectEncoder::modifyTransitionsToNextTl(std::vector<Transition> &trans,
+                                              std::string curr_pa,
+                                              std::string guard,
+                                              std::string update,
+                                              std::string sync) {
+  for (auto &t : trans) {
+    if (Filter::getPrefix(t.dest_id, constants::TL_SEP) != curr_pa) {
+      t.guard = addConstraint(t.guard, guard);
+      t.update = addUpdate(t.update, update);
+      if (sync != "")
+        t.sync = sync;
+    }
+  }
+}
+
 void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
                                               std::string curr_pa) {
   trans.erase(std::remove_if(trans.begin(), trans.end(),
