@@ -1,4 +1,5 @@
 #pragma once
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -24,6 +25,11 @@ float fDotProduct(const ::std::pair<float, float> &a,
 ::std::string addConstraint(::std::string old_con, ::std::string to_add);
 ::std::string addUpdate(::std::string old_con, ::std::string to_add);
 
+template <typename T> T safeAddition(T add1, T add2) {
+  return (add1 < std::numeric_limits<T>::max() - add2)
+             ? add1 + add2
+             : ::std::numeric_limits<T>::max();
+}
 } // end namespace taptenc
 
 namespace std {

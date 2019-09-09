@@ -137,9 +137,10 @@ std::vector<Transition> Encoder::createSuccessorTransitionsBetweenTAs(
           });
       if (source_state != source.states.end() &&
           dest_state != dest.states.end()) {
-        res_transitions.push_back(Transition(source_state->id, dest_state->id,
-                                             trans.action, guard, update,
-                                             trans.sync, true));
+        res_transitions.push_back(
+            Transition(source_state->id, dest_state->id, trans.action,
+                       addConstraint(trans.guard, guard),
+                       addUpdate(trans.update, update), trans.sync, true));
       }
     }
   }

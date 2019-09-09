@@ -277,6 +277,282 @@ void DirectEncoder::encodeNoOp(AutomataSystem &,
               << pa << std::endl;
   }
 }
+void print_construction(
+    const std::unordered_map<
+        std::string,
+        std::unordered_map<std::string,
+                           std::pair<Automaton, std::vector<Transition>>>>
+        &to_print) {
+  std::cout << std::endl;
+  for (const auto &entry : to_print) {
+    std::cout << "TL: " << entry.first << std::endl;
+    for (const auto &ta : entry.second) {
+      std::cout << "    TA: " << ta.first << std::endl;
+    }
+  }
+  std::cout << std::endl;
+}
+
+// first entry in info determines clock name
+//
+void DirectEncoder::encodeUntilChain(AutomataSystem &s,
+                                     const std::vector<EncICInfo> &infos,
+                                     const std::string start_pa,
+                                     const std::string end_pa,
+                                     const int base_index) {
+  if (infos.size() == 0) {
+    std::cout << "DirectEncoder enodeUntilchain: empty infos, abort."
+              << std::endl;
+  }
+  Filter base_filter = Filter(s.instances[base_index].first.states);
+  std::string clock = "clX" + infos[0].name;
+  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
+  if (start_pa_entry == pa_order.end()) {
+    std::cout << "DirectEncoder encodeUntilChain: could not find start pa "
+              << start_pa << std::endl;
+    return;
+  }
+  auto end_pa_entry = std::find(pa_order.begin(), pa_order.end(), end_pa);
+  if (end_pa_entry == pa_order.end()) {
+    std::cout << "DirectEncoder encodeUntilChain: could not find end pa "
+              << end_pa << std::endl;
+    return;
+  }
+  int lb_acc = 0;
+  int ub_acc = 0;
+  // TLs before encoding the Until Chain
+  std::unordered_map<
+      std::string,
+      std::unordered_map<std::string,
+                         std::pair<Automaton, std::vector<Transition>>>>
+      orig_tls = pa_tls;
+  // TLs of the current window
+  std::unordered_map<
+      std::string,
+      std::unordered_map<std::string,
+                         std::pair<Automaton, std::vector<Transition>>>>
+      curr_window = pa_tls;
+  // TL of the previous window
+  std::unordered_map<
+      std::string,
+      std::unordered_map<std::string,
+                         std::pair<Automaton, std::vector<Transition>>>>
+      prev_window;
+  // maps to obtain tl entry id of current/previous window given the original
+  // prefix id
+  std::unordered_map<std::string, std::string> orig_prefix_to_prev;
+  std::unordered_map<std::string, std::string> orig_prefix_to_curr;
+
+  std::string prev_window_guard_constraint_sat = "";
+  std::string guard_constraint_sat = "";
+  // init orig_prefix_to_curr
+  for (const auto &pa_tl : orig_tls) {
+    for (const auto &pa_entry : pa_tl.second) {
+      orig_prefix_to_curr[pa_entry.first] = pa_entry.first;
+    }
+  }
+  // encode the until chain from left to right
+  for (auto info = infos.begin(); info != infos.end(); ++info) {
+    // init round by backing up data from the previous round
+    prev_window = curr_window;
+    prev_window_guard_constraint_sat = guard_constraint_sat;
+    orig_prefix_to_prev = orig_prefix_to_curr;
+    orig_prefix_to_curr.clear();
+    curr_window.clear();
+    // determine context (window begin and end)
+    std::pair<int, int> context =
+        calculateContext(*info, start_pa, end_pa, lb_acc, ub_acc);
+    lb_acc += info->bounds.lower_bound;
+    ub_acc = safeAddition(ub_acc, info->bounds.upper_bound);
+    std::size_t context_start = context.first;
+    std::size_t context_end = context.first + context.second;
+    // delete unreachable original timelines
+    //   Example: Until Chain from PA 1-6, initial window is 1-3
+    //            -> original TLs from PA 4-5 are not reachable
+    //               (TLs from PA 6 are reached from the TLS of the
+    //                last window from the Until Chain)
+    if (info == infos.begin()) {
+      for (auto pa_past_context = pa_order.begin() + context_end + 1;
+           pa_past_context - pa_order.begin() <=
+           end_pa_entry - pa_order.begin();
+           ++pa_past_context) {
+        pa_tls[*pa_past_context].clear();
+      }
+      auto pa_last_context = pa_order.begin() + context_end;
+      // delete outgoing transitions form pa_tls at context_end
+      for (auto &last_ta_entry : pa_tls[*pa_last_context]) {
+        removeTransitionsToNextTl(
+            last_ta_entry.second.second,
+            Filter::getPrefix(last_ta_entry.first, constants::TL_SEP));
+      }
+    }
+    std::cout << "context: " << context_start << ", " << context_end
+              << std::endl;
+    // formulate constraints based on the given bounds
+    bool upper_bounded =
+        (info->bounds.upper_bound != std::numeric_limits<int>::max());
+    bool lower_bounded =
+        (info->bounds.lower_bound != 0 || info->bounds.l_op != "&lt;=");
+    std::string guard_upper_bound_crossed =
+        clock + inverse_op(info->bounds.r_op) +
+        std::to_string(info->bounds.upper_bound);
+    guard_constraint_sat =
+        (lower_bounded ? clock + reverse_op(info->bounds.l_op) +
+                             std::to_string(info->bounds.lower_bound)
+                       : "") +
+        ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
+        (upper_bounded ? clock + info->bounds.r_op +
+                             std::to_string(info->bounds.upper_bound)
+                       : "");
+    auto curr_tl = orig_tls.find(*(pa_order.begin() + context_start));
+    if (curr_tl != orig_tls.end()) {
+      // iterate over orig TLs of window
+      int tls_copied = 0;
+      while (context_start + tls_copied <= context_end) {
+        // The first window directly modifies the existing TLs instead of
+        // creating new ones
+        if (info == infos.begin()) {
+          std::string curr_pa =
+              *(pa_order.begin() + context_start + tls_copied);
+          encodeInvariant(s, info->targets, curr_pa);
+          curr_window[curr_pa] = pa_tls[curr_pa];
+          for (const auto &pa_entry : pa_tls[curr_pa]) {
+            orig_prefix_to_curr[pa_entry.first] = pa_entry.first;
+          }
+          // add clock reset upon entering the window
+          if (context_start > 0 && tls_copied == 0) {
+            std::string prev_pa = *(pa_order.begin() + context_start - 1);
+            for (auto &prev_pa_entry :
+                 pa_tls[*(pa_order.begin() + context_start - 1)]) {
+              modifyTransitionsToNextTl(prev_pa_entry.second.second, prev_pa,
+                                        "", clock + " = 0", "");
+            }
+          }
+        } else {
+          // All following windows in the Until Chain have to create copies
+          Filter target_filter = Filter(info->targets);
+          std::unordered_map<std::string,
+                             std::pair<Automaton, std::vector<Transition>>>
+              copy_tls;
+          // formulate clock constraints
+          std::unordered_map<std::string,
+                             std::pair<Automaton, std::vector<Transition>>>
+              new_tls;
+          // copy all original tls
+          for (auto &tl_entry : curr_tl->second) {
+            std::string op_name =
+                info->name + "F" + std::to_string(encode_counter);
+            std::string new_prefix = addToPrefix(tl_entry.first, op_name);
+            orig_prefix_to_curr[tl_entry.first] = new_prefix;
+            Automaton copy_ta = target_filter.filterAutomaton(
+                tl_entry.second.first, new_prefix, "", false);
+
+            copy_ta.clocks.push_back(clock);
+            if (upper_bounded) {
+              addInvariants(copy_ta, base_filter.getFilter(),
+                            clock + info->bounds.r_op +
+                                std::to_string(info->bounds.upper_bound));
+            }
+            std::vector<Transition> cp_to_other_cp;
+            std::vector<Transition> cp_to_orig;
+            auto prev_prefix = orig_prefix_to_prev.find(tl_entry.first);
+            // if this TL is also present in the prev window (they overlap) ...
+            if (prev_prefix != orig_prefix_to_prev.end()) {
+              auto pa_tls_entry =
+                  pa_tls[curr_tl->first].find(prev_prefix->second);
+              if (pa_tls_entry != pa_tls[curr_tl->first].end()) {
+                // ... then create transitions from prev_window ta to current
+                // copy (copy and successor transitions)
+                std::vector<Transition> trans_orig_to_cp;
+                trans_orig_to_cp = createCopyTransitionsBetweenTAs(
+                    pa_tls_entry->second.first, copy_ta,
+                    target_filter.getFilter(), prev_window_guard_constraint_sat,
+                    clock + " = 0", "");
+                std::vector<Transition> trans_orig_to_cp_succ =
+                    createSuccessorTransitionsBetweenTAs(
+                        s.instances[base_index].first,
+                        pa_tls_entry->second.first, copy_ta,
+                        pa_tls_entry->second.first.states,
+                        prev_window_guard_constraint_sat, clock + " = 0");
+                pa_tls_entry->second.second.insert(
+                    pa_tls_entry->second.second.end(), trans_orig_to_cp.begin(),
+                    trans_orig_to_cp.end());
+                pa_tls_entry->second.second.insert(
+                    pa_tls_entry->second.second.end(),
+                    trans_orig_to_cp_succ.begin(), trans_orig_to_cp_succ.end());
+
+              } else {
+                std::cout
+                    << "DirectEncoder encodeUntilChain: cannot find entry "
+                       "in pa_tls: "
+                    << prev_prefix->second << std::endl;
+              }
+            } else {
+              std::cout << "DirectEncoder encodeUntilChain: cannot find entry "
+                           "with prefix "
+                        << tl_entry.first << " in prev window" << std::endl;
+            }
+            // also copy the transitions connecting different orig TLs
+            if (tls_copied + context_start < context_end) {
+              cp_to_other_cp =
+                  addToPrefixOnTransitions(tl_entry.second.second, op_name);
+            } else {
+              cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.second,
+                                                        op_name, true);
+              // The last Copy of the last Window connects back to the original
+              // TLs
+              if (info + 1 == infos.end()) {
+                cp_to_orig = createTransitionsBackToOrigTL(
+                    tl_entry.second.second, new_prefix, tl_entry.first,
+                    guard_constraint_sat);
+              }
+            }
+            cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
+                                  cp_to_orig.end());
+            auto emp = new_tls.emplace(
+                std::make_pair(new_prefix, make_pair(copy_ta, cp_to_other_cp)));
+            if (emp.second == false) {
+              std::cout
+                  << "DirectEncoder encodeUntilChain: failed to add prefix: "
+                  << new_prefix << std::endl;
+            }
+          }
+          // insert the new tls and also save them in the curr_window
+          for (const auto &new_tl : new_tls) {
+            auto emplaced =
+                pa_tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)]
+                    .emplace(new_tl);
+            curr_window[Filter::getPrefix(new_tl.first, constants::TL_SEP)]
+                .emplace(new_tl);
+            if (emplaced.second == false) {
+              std::cout << "DirectEncoder encodeUntilChain: final merge failed "
+                           "with automaton "
+                        << new_tl.first << std::endl;
+            }
+          }
+        }
+        tls_copied++;
+        if (context_start + tls_copied < pa_order.size()) {
+          curr_tl = orig_tls.find(pa_order[context_start + tls_copied]);
+          if (curr_tl == orig_tls.end()) {
+            std::cout << "DirectEncoder encodeUntilChain: cannot find next tl"
+                      << std::endl;
+          }
+        } else {
+          curr_tl = orig_tls.end();
+          std::cout << "DirectEncoder encodeUntilChain: Reached end of "
+                       "orig_tls, context start "
+                    << context_start << std::endl;
+        }
+      }
+    } else {
+      std::cout << "DirectEncoder encodeUntilChain: done cannot find start tl "
+                   "of chain "
+                << info->name << " context start pa "
+                << *(pa_order.begin() + context_start) << std::endl;
+    }
+  }
+}
 
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
@@ -395,9 +671,9 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
           pa_tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)].emplace(
               new_tl);
       if (emplaced.second == false) {
-        std::cout
-            << "DirectEncoder encodeFuture: final merge failed with automaton "
-            << new_tl.first << std::endl;
+        std::cout << "DirectEncoder encodeFuture: final merge failed with "
+                     "automaton "
+                  << new_tl.first << std::endl;
       }
     }
   } else {
