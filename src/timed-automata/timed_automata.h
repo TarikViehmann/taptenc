@@ -3,6 +3,7 @@
 #include "constraints.h"
 #include <algorithm>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace taptenc {
@@ -100,4 +101,14 @@ struct automataSystem {
 };
 typedef struct automataSystem AutomataSystem;
 
+struct tlEntry {
+  Automaton ta;
+  ::std::vector<Transition> trans_out;
+  tlEntry(Automaton &arg_ta, ::std::vector<Transition> arg_trans_out)
+      : ta(arg_ta), trans_out(arg_trans_out){};
+};
+typedef struct tlEntry TlEntry;
+
+typedef ::std::unordered_map<::std::string, TlEntry> TimeLine;
+typedef ::std::unordered_map<::std::string, TimeLine> TimeLines;
 } // end namespace taptenc

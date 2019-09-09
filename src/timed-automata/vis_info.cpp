@@ -1,4 +1,5 @@
 #include "vis_info.h"
+#include "timed_automata.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -17,13 +18,8 @@ systemVisInfo::systemVisInfo(AutomataSystem &s) {
   transition_counters.resize(s.instances.size());
 }
 
-systemVisInfo::systemVisInfo(
-    const std::unordered_map<
-        std::string,
-        std::unordered_map<std::string,
-                           std::pair<Automaton, std::vector<Transition>>>>
-        &direct_encoding,
-    const std::vector<State> &pa_order) {
+systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
+                             const std::vector<State> &pa_order) {
   int x_offset = 0;
   int y_offset = 0;
   int instances = 0;
@@ -34,11 +30,11 @@ systemVisInfo::systemVisInfo(
     if (search != direct_encoding.end()) {
       for (const auto &entity : search->second) {
         instances++;
-        auto si = this->generateStateInfo(entity.second.first.states, x_offset,
+        auto si = this->generateStateInfo(entity.second.ta.states, x_offset,
                                           y_offset);
         state_info[0].insert(si.begin(), si.end());
         y_offset += 500;
-        auto ti = this->generateTransitionInfo(entity.second.first.transitions,
+        auto ti = this->generateTransitionInfo(entity.second.ta.transitions,
                                                state_info.back());
         transition_info[0].insert(ti.begin(), ti.end());
       }
@@ -50,18 +46,18 @@ systemVisInfo::systemVisInfo(
   if (search != direct_encoding.end()) {
     for (const auto &entity : search->second) {
       instances++;
-      auto si = this->generateStateInfo(entity.second.first.states, x_offset,
-                                        y_offset);
+      auto si =
+          this->generateStateInfo(entity.second.ta.states, x_offset, y_offset);
       state_info[0].insert(si.begin(), si.end());
-      auto ti = this->generateTransitionInfo(entity.second.first.transitions,
+      auto ti = this->generateTransitionInfo(entity.second.ta.transitions,
                                              state_info.back());
       transition_info[0].insert(ti.begin(), ti.end());
     }
   }
   for (const auto &tl : direct_encoding) {
     for (const auto &entity : tl.second) {
-      auto iti =
-          this->generateTransitionInfo(entity.second.second, state_info.back());
+      auto iti = this->generateTransitionInfo(entity.second.trans_out,
+                                              state_info.back());
       transition_info[0].insert(iti.begin(), iti.end());
     }
   }

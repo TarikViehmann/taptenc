@@ -12,11 +12,7 @@ private:
   size_t encode_counter = 0;
   size_t plan_ta_index;
   ::std::vector<PlanAction> plan;
-  ::std::unordered_map<
-      ::std::string,
-      ::std::unordered_map<::std::string,
-                           ::std::pair<Automaton, ::std::vector<Transition>>>>
-      pa_tls;
+  TimeLines pa_tls;
   ::std::vector<::std::string> pa_order;
   void generateBaseTimeLine(AutomataSystem &s, const int base_pos,
                             const int plan_pos);
