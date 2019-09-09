@@ -112,8 +112,10 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   }
 }
 
-std::vector<Transition> DirectEncoder::createTransitionsBackToOrigTL(
-    std::vector<Transition> &trans, std::string prefix, std::string pa) {
+std::vector<Transition>
+DirectEncoder::createTransitionsBackToOrigTL(std::vector<Transition> &trans,
+                                             std::string prefix, std::string pa,
+                                             std::string guard) {
   std::vector<Transition> res;
   for (const auto &tr : trans) {
     if (pa + Filter::getSuffix(tr.source_id, constants::BASE_SEP) ==
@@ -121,7 +123,8 @@ std::vector<Transition> DirectEncoder::createTransitionsBackToOrigTL(
         pa + Filter::getSuffix(tr.dest_id, constants::BASE_SEP) != pa) {
       res.push_back(Transition(
           prefix + Filter::getSuffix(tr.source_id, constants::BASE_SEP),
-          tr.dest_id, tr.action, tr.guard, tr.update, tr.sync));
+          tr.dest_id, tr.action, addConstraint(tr.guard, guard), tr.update,
+          tr.sync));
     }
   }
   return res;
