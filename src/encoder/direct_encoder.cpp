@@ -415,10 +415,13 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
   // start index needs to subtract one because of start action
   // indices w.r.t. to the plan, not the plan automaton
   int start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
+  // if an end_index is specified this means the begin of the PA ends the
+  // context, hence we have to subtract 1 for the start action and 1 to exclude
+  // the ending pa itself
   int end_index =
       (ending_pa == "")
           ? plan.size() - 1
-          : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 1;
+          : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2;
   int offset_index = start_index;
   if ((long unsigned int)start_index >= plan.size()) {
     std::cout << "DirectEncoder calculateContext: starting pa " << starting_pa
@@ -447,7 +450,7 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
       }
     }
     // res needs to add one because of fin action
-    return std::make_pair(offset_index + 1, end_index - start_index);
+    return std::make_pair(offset_index + 1, end_index - offset_index);
   } else {
     std::cout << "DirectEncoder calculateContext: unsopported type "
               << info.type << std::endl;
