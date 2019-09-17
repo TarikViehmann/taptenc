@@ -1,4 +1,5 @@
 #include "vis_info.h"
+#include "constants.h"
 #include "timed_automata.h"
 #include <algorithm>
 #include <cmath>
@@ -42,7 +43,7 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
       x_offset += 800;
     }
   }
-  auto search = direct_encoding.find("query");
+  auto search = direct_encoding.find(constants::QUERY);
   if (search != direct_encoding.end()) {
     for (const auto &entity : search->second) {
       instances++;

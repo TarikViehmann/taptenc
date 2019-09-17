@@ -198,7 +198,7 @@ bool parseTransition(std::string &currentReadLine, const Automaton &base_ta,
   string pa_dest_id = Filter::getPrefix(dest_id, constants::TL_SEP);
   bool same_pa = false;
   bool same_state = false;
-  if (pa_dest_id == "query") {
+  if (pa_dest_id == constants::QUERY) {
     return false;
   }
   if (pa_source_id != pa_dest_id) {
