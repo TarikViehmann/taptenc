@@ -10,7 +10,7 @@ using namespace taptenc;
 
 Filter::Filter(std::vector<State> arg_filter) { filter = arg_filter; }
 
-std::vector<State> Filter::getFilter() { return filter; }
+std::vector<State> Filter::getFilter() const { return filter; }
 
 std::string Filter::stripPrefix(std::string name, std::string prefix) {
   if (name.size() >= prefix.size()) {
@@ -53,7 +53,8 @@ std::string Filter::getPrefix(std::string name, char marker) {
 }
 
 void Filter::filterTransitionsInPlace(std::vector<Transition> &trans,
-                                      std::string prefix, bool filter_source) {
+                                      std::string prefix,
+                                      bool filter_source) const {
   trans.erase(std::remove_if(trans.begin(), trans.end(),
                              [filter_source, prefix, this](Transition &t) bool {
                                std::string id =
@@ -71,7 +72,8 @@ void Filter::filterTransitionsInPlace(std::vector<Transition> &trans,
               trans.end());
 }
 
-void Filter::filterAutomatonInPlace(Automaton &source, std::string prefix) {
+void Filter::filterAutomatonInPlace(Automaton &source,
+                                    std::string prefix) const {
   source.states.erase(
       std::remove_if(source.states.begin(), source.states.end(),
                      [prefix, this](State &s) bool {
@@ -133,7 +135,7 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
 Automaton Filter::filterAutomaton(const Automaton &source,
                                   std::string ta_prefix,
                                   std::string filter_prefix,
-                                  bool strip_constraints) {
+                                  bool strip_constraints) const {
   std::vector<State> res_states;
   std::vector<Transition> res_transitions;
   for (const auto &f_state : filter) {
@@ -188,7 +190,7 @@ Automaton Filter::filterAutomaton(const Automaton &source,
 
 void Filter::addToTransitions(std::vector<Transition> &trans, std::string guard,
                               std::string update, std::string prefix,
-                              bool filter_source) {
+                              bool filter_source) const {
   for (auto &tr : trans) {
     auto search = std::find_if(
         filter.begin(), filter.end(),
@@ -202,7 +204,7 @@ void Filter::addToTransitions(std::vector<Transition> &trans, std::string guard,
     }
   }
 }
-Filter Filter::updateFilter(const Automaton &ta) {
+Filter Filter::updateFilter(const Automaton &ta) const {
   std::vector<State> update_filter;
   for (const auto &f_state : filter) {
     auto search =
@@ -220,7 +222,7 @@ Filter Filter::updateFilter(const Automaton &ta) {
   return Filter(update_filter);
 }
 
-Filter Filter::reverseFilter(const Automaton &ta) {
+Filter Filter::reverseFilter(const Automaton &ta) const {
   std::vector<State> reverse_filter;
   for (const auto &ta_state : ta.states) {
     auto search = std::find_if(
