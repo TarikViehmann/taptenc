@@ -217,7 +217,6 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
             << std::endl;
   Filter base_filter = Filter(s.instances[base_index].first.states);
   for (const auto &pa : s.instances[plan_index].first.states) {
-    std::cout << pa.id << std::endl;
     TimeLine tl;
     std::string ta_prefix = toPrefix("", "", pa.id);
     Automaton ta_copy = base_filter.filterAutomaton(
@@ -691,12 +690,6 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
       for (auto &tl_entry : curr_future_tl->second) {
         std::string op_name = info.name + "F" + std::to_string(encode_counter);
         std::string new_prefix = addToPrefix(tl_entry.first, op_name);
-        for (const auto &orig_s : tl_entry.second.ta.states) {
-          if (orig_s.inv == "") {
-            std::cout << "WARNING: " << orig_s.name << "has no invariant!"
-                      << std::endl;
-          }
-        }
         Automaton cp_automaton =
             Filter::copyAutomaton(tl_entry.second.ta, new_prefix, false);
         if (upper_bounded) {
@@ -757,7 +750,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
       }
     }
   } else {
-    std::cout << " DirectEncoder encodeFuture: could not find timeline of pa "
+    std::cout << "DirectEncoder encodeFuture: could not find timeline of pa "
               << pa << std::endl;
   }
 }
@@ -876,7 +869,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
       }
     }
   } else {
-    std::cout << " DirectEncoder encodePast: could not find timeline of pa "
+    std::cout << "DirectEncoder encodePast: could not find timeline of pa "
               << pa << std::endl;
   }
 }

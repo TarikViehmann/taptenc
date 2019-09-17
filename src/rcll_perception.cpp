@@ -133,7 +133,6 @@ DirectEncoder testUntilChain(AutomataSystem &direct_system,
            ++epa) {
         string epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
         if (end_pa == epa_op) {
-          cout << endl << "start until chain" << endl << endl;
           enc.encodeUntilChain(direct_system, infos, pa->id, epa->id);
           break;
         }
