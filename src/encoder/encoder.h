@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace taptenc {
-enum ICType { Future, NoOp, Past, Invariant };
+enum ICType { Future, NoOp, Past, Invariant, Until, Since };
 struct encICInfo {
   ::std::vector<State> targets;
   ::std::string name;

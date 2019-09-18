@@ -411,28 +411,67 @@ void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
               trans.end());
 }
 
+void DirectEncoder::addStateInvariantToWindow(TimeLines &tls,
+                                              std::string start_pa,
+                                              std::string end_pa,
+                                              std::string inv) {
+  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
+  if (start_pa_entry == pa_order.end()) {
+    std::cout
+        << "DirectEncoder addStateInvariantToWindow: could not find start pa "
+        << start_pa << std::endl;
+    return;
+  }
+  auto end_pa_entry = std::find(start_pa_entry, pa_order.end(), end_pa);
+  if (end_pa_entry == pa_order.end()) {
+    std::cout
+        << "DirectEncoder addStateInvariantToWindow: could not find end pa "
+        << end_pa << std::endl;
+    return;
+  }
+  size_t curr_pa_index = start_pa_entry - pa_order.begin();
+  size_t end_pa_index = end_pa_entry - pa_order.begin();
+  while (curr_pa_index <= end_pa_index) {
+    auto curr_tl = tls.find(*(pa_order.begin() + curr_pa_index));
+    if (curr_tl == tls.end()) {
+      std::cout << "DirectEncoder addStateInvariantToWindow: TLs for pa "
+                << *(pa_order.begin() + curr_pa_index) << " not found"
+                << std::endl;
+      break;
+    }
+    for (auto &tl_entry : curr_tl->second) {
+      addInvariants(tl_entry.second.ta, tl_entry.second.ta.states, inv);
+    }
+    curr_pa_index++;
+  }
+}
+
 std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
                                                     std::string starting_pa,
                                                     std::string ending_pa,
                                                     int lb_offset,
                                                     int ub_offset) {
-  // start index needs to subtract one because of start action
-  // indices w.r.t. to the plan, not the plan automaton
-  int start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
-  // if an end_index is specified this means the begin of the PA ends the
-  // context, hence we have to subtract 1 for the start action and 1 to exclude
-  // the ending pa itself
-  int end_index =
-      (ending_pa == "")
-          ? plan.size() - 1
-          : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2;
-  int offset_index = start_index;
-  if ((long unsigned int)start_index >= plan.size()) {
-    std::cout << "DirectEncoder calculateContext: starting pa " << starting_pa
-              << " is out of range" << std::endl;
-    return std::make_pair(0, 0);
-  }
-  if (info.type == ICType::Future) {
+  if (info.isFutureInfo()) {
+    // start index needs to subtract one because of start action
+    // indices w.r.t. to the plan, not the plan automaton
+    int start_index =
+        stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
+    // if an end_index is specified this means the begin of the PA ends the
+    // context, hence we have to subtract 1 for the start action and 1 to
+    // exclude the ending pa itself
+    int end_index =
+        (ending_pa == "")
+            ? plan.size()
+            : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2;
+    if (ending_pa == "" && lb_offset == 0) {
+      lb_offset = info.bounds.lower_bound;
+    }
+    int offset_index = start_index;
+    if ((long unsigned int)start_index >= plan.size()) {
+      std::cout << "DirectEncoder calculateContext: starting pa " << starting_pa
+                << " is out of range" << std::endl;
+      return std::make_pair(0, 0);
+    }
     int lb_acc = 0;
     int ub_acc = 0;
     for (auto pa = plan.begin() + start_index; pa != plan.end(); ++pa) {
@@ -455,6 +494,50 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
     }
     // res needs to add one because of fin action
     return std::make_pair(offset_index + 1, end_index - offset_index);
+  } else if (info.isPastInfo()) {
+    // rstart index is the offset from the end of the plan to the activated
+    // action plus one (because the context starts before the activation action
+    // indices w.r.t. to the plan, not the plan automaton, e.g. the position of
+    // the starting pa is the suffix -1
+    int rstart_index = plan.size() -
+                       stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) +
+                       1;
+    // if an end_index is specified this means the begin of the PA ends the
+    // context, hence we have to subtract 1 for the start action and 1 to
+    // exclude the ending pa itself
+    int rend_index =
+        (ending_pa == "")
+            ? plan.size()
+            : plan.size() -
+                  (stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2);
+    if (ending_pa == "" && lb_offset == 0) {
+      lb_offset = info.bounds.lower_bound;
+    }
+    int roffset_index = rstart_index;
+    int lb_acc = 0;
+    int ub_acc = 0;
+    for (auto pa = plan.rbegin() + rstart_index; pa != plan.rend(); ++pa) {
+      lb_acc += pa->duration.lower_bound;
+      if (ub_acc != std::numeric_limits<int>::max()) {
+        // Increase ub_acc only if it does not overflow
+        ub_acc = safeAddition(pa->duration.upper_bound, ub_acc);
+      }
+      if (ub_acc < lb_offset) {
+        roffset_index++;
+      }
+      if (lb_acc >= safeAddition(info.bounds.upper_bound, ub_offset) ||
+          pa - plan.rbegin() == rend_index) {
+        return std::make_pair(plan.size() - roffset_index,
+                              pa - plan.rbegin() - roffset_index);
+      }
+      if (pa - plan.rbegin() == rend_index) {
+        break;
+      }
+    }
+    // res needs to add one because of fin action
+    return std::make_pair(plan.size() - roffset_index,
+                          roffset_index - rend_index);
+
   } else {
     std::cout << "DirectEncoder calculateContext: unsopported type "
               << info.type << std::endl;
@@ -645,240 +728,179 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                                  const EncICInfo &info, int base_index) {
-  int context = calculateContext(info, pa).second;
-  Filter target_filter = Filter(info.targets);
   Filter base_filter = Filter(s.instances[base_index].first.states);
-  auto search_tl = pa_tls.find(pa);
-  if (search_tl != pa_tls.end()) {
-    auto search_pa = std::find(pa_order.begin(), pa_order.end(), pa);
-    if (search_pa == pa_order.end()) {
-      std::cout << "DirectEncoder encodeFuture: could not find pa " << pa
-                << std::endl;
-      return;
-    }
-    // formulate clock constraints
-    std::string clock = "clX" + info.name;
-    bool upper_bounded =
-        (info.bounds.upper_bound != std::numeric_limits<int>::max());
-    bool lower_bounded =
-        (info.bounds.lower_bound != 0 || info.bounds.l_op != "&lt;=");
-    std::string guard_upper_bound_crossed =
-        clock + inverse_op(info.bounds.r_op) +
-        std::to_string(info.bounds.upper_bound);
-    std::string guard_constraint_sat =
-        (lower_bounded ? clock + reverse_op(info.bounds.l_op) +
-                             std::to_string(info.bounds.lower_bound)
-                       : "") +
-        ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded ? clock + info.bounds.r_op +
-                             std::to_string(info.bounds.upper_bound)
-                       : "");
-    // reset clock
-    if (search_pa - pa_order.begin() > 0) {
-      for (auto &prev_tl_entry :
-           pa_tls[pa_order[search_pa - pa_order.begin() - 1]]) {
-        base_filter.addToTransitions(
-            prev_tl_entry.second.trans_out, "", clock + " = 0",
-            pa_order[search_pa - pa_order.begin() - 1], true);
-      }
-    }
-    // determine context (mockup)
-    std::size_t context_start = search_pa - pa_order.begin();
-    std::size_t context_past_end =
-        std::min(search_pa - pa_order.begin() + context + 1,
-                 (long int)pa_order.size() - 1);
-    TimeLine new_tls;
-    std::size_t tls_copied = 0;
-    auto curr_future_tl = search_tl;
-    encode_counter++;
-    // create copies for each tl within the context
-    while (Filter::getPrefix(curr_future_tl->first, constants::TL_SEP) !=
-           pa_order[context_past_end]) {
-      for (auto &tl_entry : curr_future_tl->second) {
-        std::string op_name = info.name + "F" + std::to_string(encode_counter);
-        std::string new_prefix = addToPrefix(tl_entry.first, op_name);
-        Automaton cp_automaton =
-            Filter::copyAutomaton(tl_entry.second.ta, new_prefix, false);
-        if (upper_bounded) {
-          addInvariants(tl_entry.second.ta, base_filter.getFilter(),
-                        clock + info.bounds.r_op +
-                            std::to_string(info.bounds.upper_bound));
-        }
-        cp_automaton.clocks.push_back(clock);
-        std::vector<Transition> trans_orig_to_cp =
-            createCopyTransitionsBetweenTAs(tl_entry.second.ta, cp_automaton,
-                                            target_filter.getFilter(),
-                                            guard_constraint_sat, "", "");
-        std::vector<Transition> cp_to_other_cp;
-        std::vector<Transition> cp_to_orig;
-        // check if next tl also gets copied
-        if (tls_copied + context_start + 1 < context_past_end) {
-          cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.trans_out, op_name);
-        } else {
-          cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.trans_out,
-                                                    op_name, true, false);
-          cp_to_orig = createTransitionsBackToOrigTL(
-              tl_entry.second.trans_out, new_prefix, tl_entry.first);
-          removeTransitionsToNextTl(
-              tl_entry.second.trans_out,
-              Filter::getPrefix(tl_entry.first, constants::TL_SEP));
-        }
-
-        cp_to_other_cp.insert(cp_to_other_cp.end(), trans_orig_to_cp.begin(),
-                              trans_orig_to_cp.end());
-        cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
-                              cp_to_orig.end());
-        auto emp = new_tls.emplace(
-            std::make_pair(new_prefix, TlEntry(cp_automaton, cp_to_other_cp)));
-        if (emp.second == false) {
-          std::cout << "DirectEncoder encodeFuture: failed to add prefix: "
-                    << new_prefix << std::endl;
-        }
-      }
-      tls_copied++;
-      curr_future_tl = pa_tls.find(pa_order[context_start + tls_copied]);
-      if (curr_future_tl == pa_tls.end()) {
-        std::cout << "DirectEncoder encodeFuture: cannot find next tl"
-                  << std::endl;
-      }
-    }
-    std::cout << "DirectEncoder encodeFuture: done with copying timelines, "
-              << new_tls.size() << " tls created for activation " << pa
+  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
+  if (start_pa_entry == pa_order.end()) {
+    std::cout << "DirectEncoder encodeFuture: could not find start pa " << pa
               << std::endl;
-    for (const auto &new_tl : new_tls) {
-      auto emplaced =
-          pa_tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)].emplace(
-              new_tl);
-      if (emplaced.second == false) {
-        std::cout << "DirectEncoder encodeFuture: final merge failed with "
-                     "automaton "
-                  << new_tl.first << std::endl;
+    return;
+  }
+  // TLs of the current window
+  TimeLines curr_window = pa_tls;
+  // maps to obtain the original tl entry id given the prefix of
+  // new window prefix id
+  std::string guard_constraint_sat = "";
+  std::string clock = "clX" + info.name;
+  // determine context (window begin and end)
+  std::pair<int, int> context = calculateContext(info, pa, "");
+  std::size_t context_start = context.first;
+  std::size_t constraint_start = start_pa_entry - pa_order.begin();
+  std::size_t context_end = context.first + context.second;
+  std::string context_pa_start = *(pa_order.begin() + context_start);
+  std::string context_pa_end = *(pa_order.begin() + context_end);
+  // formulate constraints based on the given bounds
+  bool upper_bounded =
+      (info.bounds.upper_bound != std::numeric_limits<int>::max());
+  bool lower_bounded =
+      (info.bounds.lower_bound != 0 || info.bounds.l_op != "&lt;=");
+  std::string guard_upper_bound_crossed =
+      clock + inverse_op(info.bounds.r_op) +
+      std::to_string(info.bounds.upper_bound);
+  guard_constraint_sat =
+      (lower_bounded ? clock + reverse_op(info.bounds.l_op) +
+                           std::to_string(info.bounds.lower_bound)
+                     : "") +
+      ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
+      (upper_bounded
+           ? clock + info.bounds.r_op + std::to_string(info.bounds.upper_bound)
+           : "");
+  std::string op_name = info.name + "F" + std::to_string(encode_counter);
+  Filter target_filter(info.targets);
+  curr_window = createWindow(pa_tls, context_pa_start, context_pa_end,
+                             base_filter, base_filter, op_name, clock, info);
+  // creset clock upon entering context range
+  if (constraint_start > 0) {
+    std::string prev_pa = *(pa_order.begin() + constraint_start - 1);
+    for (auto &prev_pa_entry : pa_tls[prev_pa]) {
+      modifyTransitionsToNextTl(prev_pa_entry.second.trans_out,
+                                prev_pa_entry.first, "", clock + " = 0", "");
+    }
+  }
+  OrigMap orig_id = createOrigMapping(pa_tls, "");
+  OrigMap to_orig = createOrigMapping(pa_tls, op_name);
+  to_orig.insert(orig_id.begin(), orig_id.end());
+  if (upper_bounded) {
+    addStateInvariantToWindow(pa_tls, context_pa_start, context_pa_end,
+                              clock + info.bounds.r_op +
+                                  std::to_string(info.bounds.upper_bound));
+  }
+  createTransitionsBetweenWindows(s.instances[base_index].first, pa_tls,
+                                  curr_window, to_orig, context_pa_start,
+                                  context_pa_end, target_filter,
+                                  guard_constraint_sat, "");
+  std::string last_pa = *(pa_order.begin() + context_end);
+  addOutgoingTransOfOrigTL(pa_tls[last_pa], curr_window[last_pa], to_orig,
+                           guard_constraint_sat);
+  for (auto &tl_entry : pa_tls[last_pa]) {
+    removeTransitionsToNextTl(tl_entry.second.trans_out, last_pa);
+  }
+  mergeWindows(pa_tls, curr_window, true);
+}
+
+void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
+                                const EncICInfo &info, int base_index) {
+  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
+  if (start_pa_entry == pa_order.end()) {
+    std::cout << "DirectEncoder encodeUntil: could not find start pa " << pa
+              << std::endl;
+    return;
+  }
+  OrigMap to_orig = createOrigMapping(pa_tls, "");
+  Filter target_filter(info.targets);
+  // determine context (window begin and end)
+  std::pair<int, int> context = calculateContext(info, pa, "");
+  std::size_t context_end = context.first + context.second;
+  std::size_t constraint_start = start_pa_entry - pa_order.begin();
+  encodeFuture(s, pa, info, base_index);
+  for (size_t i = constraint_start; i <= context_end; i++) {
+    auto pa_tl = pa_tls.find(*(pa_order.begin() + i));
+    if (pa_tl != pa_tls.end()) {
+      for (auto &tl_entry : pa_tl->second) {
+        if (to_orig[tl_entry.first] != "") {
+          target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
+          target_filter.filterTransitionsInPlace(tl_entry.second.trans_out, "",
+                                                 true);
+        }
       }
     }
-  } else {
-    std::cout << "DirectEncoder encodeFuture: could not find timeline of pa "
-              << pa << std::endl;
   }
 }
 
-void DirectEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
-                               const std::string pa, const Bounds bounds,
-                               int base_index) {
-  Filter target_filter = Filter(targets);
+void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
+                               const EncICInfo &info, int base_index) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
-  auto search_tl = pa_tls.find(pa);
-  if (search_tl != pa_tls.end()) {
-    auto search_pa = std::find(pa_order.begin(), pa_order.end(), pa);
-    if (search_pa == pa_order.end()) {
-      std::cout << "DirectEncoder encodePast: cannot find pa " << pa
-                << std::endl;
-      return;
-    }
-    // formulate clock constraints
-    std::string clock = "clX" + pa;
-    std::string bvar = "bX" + pa;
-    bool upper_bounded =
-        (bounds.upper_bound != std::numeric_limits<int>::max());
-    bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
-    std::string guard_upper_bound_crossed =
-        clock + inverse_op(bounds.r_op) + std::to_string(bounds.upper_bound);
-    std::string guard_constraint_sat =
-        (lower_bounded ? clock + reverse_op(bounds.l_op) +
-                             std::to_string(bounds.lower_bound)
-                       : "") +
-        ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded
-             ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
-             : "");
-    // determine context (mockup)
-    std::size_t context_end = search_pa - pa_order.begin() - 1;
-    std::size_t context_prior_start =
-        std::max(search_pa - pa_order.begin() - CONTEXT - 1, (long int)0);
-    TimeLine new_tls;
-    std::size_t tls_copied = 0;
-    auto curr_past_tl = pa_tls.find(pa_order[context_end]);
-    if (curr_past_tl == pa_tls.end()) {
-      std::cout << "DirectEncoder encodePast: cannot find previous tl"
-                << std::endl;
-    }
-    // create copies for each tl within the context
-    encode_counter++;
-    while (Filter::getPrefix(curr_past_tl->first, constants::TL_SEP) !=
-           pa_order[context_prior_start]) {
-      for (auto &tl_entry : curr_past_tl->second) {
-        std::string op_name = pa + "P" + std::to_string(encode_counter);
-        std::string new_prefix = addToPrefix(tl_entry.first, op_name);
-        Automaton cp_automaton =
-            Filter::copyAutomaton(tl_entry.second.ta, new_prefix, false);
-        if (upper_bounded) {
-          addInvariants(cp_automaton, base_filter.getFilter(),
-                        clock + bounds.r_op +
-                            std::to_string(bounds.upper_bound));
-        }
-        // target states reached in copy tls
-        target_filter.addToTransitions(cp_automaton.transitions, "",
-                                       bvar + " = true", "", false);
-
-        cp_automaton.clocks.push_back(clock);
-        cp_automaton.bool_vars.push_back(bvar);
-        std::vector<Transition> trans_orig_to_cp =
-            createCopyTransitionsBetweenTAs(tl_entry.second.ta, cp_automaton,
-                                            base_filter.getFilter(), "",
-                                            clock + " = 0", "");
-        // target states already reached in orig tls
-        target_filter.addToTransitions(trans_orig_to_cp, "", bvar + " = true",
-                                       "", true);
-
-        std::vector<Transition> cp_to_other_cp;
-        std::vector<Transition> cp_to_orig;
-        // check if this is the latest tl
-        if (tls_copied > 0) {
-          cp_to_other_cp =
-              addToPrefixOnTransitions(tl_entry.second.trans_out, op_name);
-        } else {
-          cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.trans_out,
-                                                    op_name, true, false);
-          cp_to_orig = createTransitionsBackToOrigTL(
-              tl_entry.second.trans_out, new_prefix, tl_entry.first);
-          // add constraints that ensure a target state was indeed visited
-          // before
-          base_filter.addToTransitions(cp_to_orig, bvar + " == true",
-                                       bvar + " = false", "", true);
-
-          removeTransitionsToNextTl(tl_entry.second.trans_out, tl_entry.first);
-        }
-        cp_to_other_cp.insert(cp_to_other_cp.end(), trans_orig_to_cp.begin(),
-                              trans_orig_to_cp.end());
-        cp_to_other_cp.insert(cp_to_other_cp.end(), cp_to_orig.begin(),
-                              cp_to_orig.end());
-        new_tls.emplace(
-            std::make_pair(new_prefix, TlEntry(cp_automaton, cp_to_other_cp)));
-      }
-      tls_copied++;
-      curr_past_tl = pa_tls.find(pa_order[context_end - tls_copied]);
-      if (curr_past_tl == pa_tls.end()) {
-        std::cout << "DirectEncoder encodePast: cannot find next tl"
-                  << std::endl;
-      }
-    }
-    std::cout << "DirectEncoder encodePast: done with copying timelines, "
-              << new_tls.size() << " tls created for activation " << pa
+  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
+  if (start_pa_entry == pa_order.end()) {
+    std::cout << "DirectEncoder encodePast: could not find start pa " << pa
               << std::endl;
-    for (const auto &new_tl : new_tls) {
-      auto emplaced =
-          pa_tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)].emplace(
-              new_tl);
-      if (emplaced.second == false) {
-        std::cout
-            << "DirectEncoder encodePast: final merge failed with automaton "
-            << new_tl.first << std::endl;
-      }
-    }
-  } else {
-    std::cout << "DirectEncoder encodePast: could not find timeline of pa "
-              << pa << std::endl;
+    return;
   }
+  // TLs of the current window
+  TimeLines curr_window = pa_tls;
+  // maps to obtain the original tl entry id given the prefix of
+  // new window prefix id
+  std::string guard_constraint_sat = "";
+  std::string clock = "clX" + info.name;
+  // determine context (window begin and end)
+  std::pair<int, int> context = calculateContext(info, pa, "");
+  std::size_t context_end = context.first;
+  std::size_t constraint_end = start_pa_entry - pa_order.begin() - 1;
+  std::size_t context_start = context.first + context.second;
+  std::string context_pa_start = *(pa_order.begin() + context_start);
+  std::string context_pa_end = *(pa_order.begin() + context_end);
+  std::string constraint_end_pa = *(pa_order.begin() + constraint_end);
+  // formulate constraints based on the given bounds
+  bool upper_bounded =
+      (info.bounds.upper_bound != std::numeric_limits<int>::max());
+  bool lower_bounded =
+      (info.bounds.lower_bound != 0 || info.bounds.l_op != "&lt;=");
+  std::string guard_upper_bound_crossed =
+      clock + inverse_op(info.bounds.r_op) +
+      std::to_string(info.bounds.upper_bound);
+  guard_constraint_sat =
+      (lower_bounded ? clock + reverse_op(info.bounds.l_op) +
+                           std::to_string(info.bounds.lower_bound)
+                     : "") +
+      ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
+      (upper_bounded
+           ? clock + info.bounds.r_op + std::to_string(info.bounds.upper_bound)
+           : "");
+  std::string op_name = info.name + "F" + std::to_string(encode_counter);
+  Filter target_filter(info.targets);
+  curr_window = createWindow(pa_tls, context_pa_start, context_pa_end,
+                             base_filter, base_filter, op_name, clock, info);
+  OrigMap orig_id = createOrigMapping(pa_tls, "");
+  OrigMap to_orig = createOrigMapping(pa_tls, op_name);
+  to_orig.insert(orig_id.begin(), orig_id.end());
+  if (upper_bounded) {
+    if (context_end < constraint_end) {
+      std::string past_context_pa = *(pa_order.begin() + context_end + 1);
+      addStateInvariantToWindow(pa_tls, past_context_pa, constraint_end_pa,
+                                clock + info.bounds.r_op +
+                                    std::to_string(info.bounds.upper_bound));
+    }
+  }
+  createTransitionsBetweenWindows(
+      s.instances[base_index].first, pa_tls, curr_window, to_orig,
+      context_pa_start, context_pa_end, target_filter, "", clock + " = 0");
+  std::string last_pa = *(pa_order.begin() + context_end);
+  addOutgoingTransOfOrigTL(pa_tls[last_pa], curr_window[last_pa], to_orig, "");
+  for (auto &tl_entry : pa_tls[last_pa]) {
+    removeTransitionsToNextTl(tl_entry.second.trans_out, last_pa);
+  }
+  if (lower_bounded) {
+    TimeLine *last_tl;
+    if (context_end < constraint_end) {
+      last_tl = &(pa_tls[constraint_end_pa]);
+    } else {
+      last_tl = &(curr_window[constraint_end_pa]);
+    }
+    for (auto &last_entry : *last_tl) {
+      modifyTransitionsToNextTl(last_entry.second.trans_out, constraint_end_pa,
+                                guard_constraint_sat, "", "");
+    }
+  }
+  mergeWindows(pa_tls, curr_window, true);
 }
 
 size_t DirectEncoder::getPlanTAIndex() { return plan_ta_index; }
