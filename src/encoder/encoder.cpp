@@ -12,7 +12,12 @@
 #define BASE_SYNC_CONNECTIVE "XtoX"
 
 using namespace taptenc;
-
+bool EncICInfo::isFutureInfo() const {
+  return type == ICType::Future || type == ICType::Until;
+}
+bool EncICInfo::isPastInfo() const {
+  return type == ICType::Past || type == ICType::Since;
+}
 Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
                                          std::string name) {
   std::vector<PlanAction> full_plan = plan;

@@ -16,6 +16,8 @@ struct encICInfo {
             const Bounds &arg_bounds, ICType arg_type)
       : targets(arg_targets), name(arg_name), bounds(arg_bounds),
         type(arg_type) {}
+  bool isFutureInfo() const;
+  bool isPastInfo() const;
 };
 typedef struct encICInfo EncICInfo;
 
