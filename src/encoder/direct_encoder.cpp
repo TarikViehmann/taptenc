@@ -115,9 +115,6 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
         }
       } else {
         curr_tl = orig_tls.end();
-        std::cout << "DirectEncoder createWindow: Reached end of "
-                     "orig_tls, context start "
-                  << context_start << std::endl;
       }
     }
   } else {
