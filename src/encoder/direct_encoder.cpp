@@ -129,8 +129,8 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
 void DirectEncoder::createTransitionsBetweenWindows(
     const Automaton &base_ta, TimeLines &source_tls, TimeLines &dest_tls,
     const std::unordered_map<std::string, std::string> &map_to_orig,
-    std::string start_pa, std::string end_pa, std::string guard,
-    std::string update) {
+    std::string start_pa, std::string end_pa, const Filter &target_filter,
+    std::string guard, std::string update) {
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
   if (start_pa_entry == pa_order.end()) {
     std::cout << "DirectEncoder createTransitionsBetweenWindows: could not "
@@ -172,6 +172,9 @@ void DirectEncoder::createTransitionsBetweenWindows(
               createSuccessorTransitionsBetweenTAs(
                   base_ta, source_entry.second.ta, dest_entry->second.ta,
                   source_entry.second.ta.states, guard, update);
+          target_filter.filterTransitionsInPlace(res, dest_entry->first, false);
+          target_filter.filterTransitionsInPlace(res_succ, dest_entry->first,
+                                                 false);
           source_entry.second.trans_out.insert(
               source_entry.second.trans_out.end(), res.begin(), res.end());
           source_entry.second.trans_out.insert(
@@ -618,8 +621,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
 
     createTransitionsBetweenWindows(
         s.instances[base_index].first, prev_window, curr_window, to_orig,
-        context_pa_start, context_pa_end, prev_window_guard_constraint_sat,
-        clock + " = 0");
+        context_pa_start, context_pa_end, base_filter,
+        prev_window_guard_constraint_sat, clock + " = 0");
     // add transitions back to original TLs
     if (info + 1 == infos.end()) {
       std::string last_pa = *(pa_order.begin() + context_end);

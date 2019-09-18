@@ -47,8 +47,8 @@ private:
   void createTransitionsBetweenWindows(
       const Automaton &base_ta, TimeLines &source_tls, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
-      ::std::string start_pa, ::std::string end_pa, ::std::string guard,
-      ::std::string update);
+      ::std::string start_pa, ::std::string end_pa, const Filter &target_filter,
+      ::std::string guard, ::std::string update);
   void mergeWindows(TimeLines &dest, const TimeLines &to_add,
                     bool overwrite = false);
 
