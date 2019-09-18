@@ -102,6 +102,12 @@ DirectEncoder createDirectEncoding(
         case ICType::Future:
           enc.encodeFuture(direct_system, pa.id, ac);
           break;
+        case ICType::Until:
+          enc.encodeUntil(direct_system, pa.id, ac);
+          break;
+        case ICType::Past:
+          enc.encodePast(direct_system, pa.id, ac);
+          break;
         case ICType::NoOp:
           enc.encodeNoOp(direct_system, ac.targets, pa.id);
           break;

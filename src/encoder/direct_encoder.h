@@ -16,6 +16,8 @@ private:
   ::std::vector<PlanAction> plan;
   TimeLines pa_tls;
   ::std::vector<::std::string> pa_order;
+  void addStateInvariantToWindow(TimeLines &tls, ::std::string start_pa,
+                                 ::std::string end_pa, ::std::string inv);
   void generateBaseTimeLine(AutomataSystem &s, const int base_pos,
                             const int plan_pos);
   void addOutgoingTransOfOrigTL(const TimeLine &orig_tl, TimeLine &new_tl,
@@ -64,9 +66,10 @@ public:
                   const ::std::string pa);
   void encodeFuture(AutomataSystem &s, const ::std::string pa,
                     const EncICInfo &info, int base_index = 0);
-  void encodePast(AutomataSystem &s, ::std::vector<State> &targets,
-                  const ::std::string pa, const Bounds bounds,
-                  int base_index = 0);
+  void encodeUntil(AutomataSystem &s, const ::std::string pa,
+                   const EncICInfo &info, int base_index = 0);
+  void encodePast(AutomataSystem &s, const ::std::string pa,
+                  const EncICInfo &info, int base_index = 0);
   DirectEncoder(AutomataSystem &s, const ::std::vector<PlanAction> &plan,
                 const int base_pos = 0);
   AutomataSystem createFinalSystem(const AutomataSystem &s,
