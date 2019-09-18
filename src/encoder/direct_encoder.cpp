@@ -184,7 +184,11 @@ void DirectEncoder::createTransitionsBetweenWindows(
       }
     }
     i++;
-    source_tl = source_tls.find(*(pa_order.begin() + context_start + i));
+    if (context_start + i < pa_order.size()) {
+      source_tl = source_tls.find(*(pa_order.begin() + context_start + i));
+    } else {
+      break;
+    }
   }
 }
 
