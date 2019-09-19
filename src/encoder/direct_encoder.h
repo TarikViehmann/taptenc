@@ -69,6 +69,8 @@ public:
                     const UnaryInfo &info, int base_index = 0);
   void encodeUntil(AutomataSystem &s, const ::std::string pa,
                    const BinaryInfo &info, int base_index = 0);
+  void encodeSince(AutomataSystem &s, const ::std::string pa,
+                   const BinaryInfo &info, int base_index = 0);
   void encodePast(AutomataSystem &s, const ::std::string pa,
                   const UnaryInfo &info, int base_index = 0);
   DirectEncoder(AutomataSystem &s, const ::std::vector<PlanAction> &plan,
