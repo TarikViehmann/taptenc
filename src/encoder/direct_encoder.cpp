@@ -46,7 +46,7 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
                                       const Filter &base_filter,
                                       const Filter &target_filter,
                                       std::string prefix, std::string clock,
-                                      const EncICInfo &info) {
+                                      const TargetSpecs &specs) {
   TimeLines new_window;
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
   if (start_pa_entry == pa_order.end()) {
@@ -63,7 +63,7 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
   std::size_t context_start = start_pa_entry - pa_order.begin();
   std::size_t context_end = end_pa_entry - pa_order.begin();
   bool upper_bounded =
-      (info.bounds.upper_bound != std::numeric_limits<int>::max());
+      (specs.bounds.upper_bound != std::numeric_limits<int>::max());
   auto curr_tl = orig_tls.find(*(pa_order.begin() + context_start));
   std::string op_name = Filter::getPrefix(prefix, constants::CONSTRAINT_SEP);
   if (curr_tl != orig_tls.end()) {
@@ -81,8 +81,8 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
         copy_ta.clocks.push_back(clock);
         if (upper_bounded) {
           addInvariants(copy_ta, base_filter.getFilter(),
-                        clock + info.bounds.r_op +
-                            std::to_string(info.bounds.upper_bound));
+                        clock + specs.bounds.r_op +
+                            std::to_string(specs.bounds.upper_bound));
         }
         std::vector<Transition> cp_to_other_cp;
         // also copy the transitions connecting different orig TLs
@@ -118,9 +118,9 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
       }
     }
   } else {
-    std::cout << "DirectEncoder createWindow: done cannot find start tl "
-                 "of chain "
-              << info.name << " context start pa "
+    std::cout << "DirectEncoder createWindow: done cannot find start tl. "
+                 "prefix "
+              << prefix << " context start pa "
               << *(pa_order.begin() + context_start) << std::endl;
   }
   return new_window;
@@ -446,12 +446,11 @@ void DirectEncoder::addStateInvariantToWindow(TimeLines &tls,
   }
 }
 
-std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
-                                                    std::string starting_pa,
-                                                    std::string ending_pa,
-                                                    int lb_offset,
-                                                    int ub_offset) {
-  if (info.isFutureInfo()) {
+std::pair<int, int>
+DirectEncoder::calculateContext(const TargetSpecs &specs,
+                                std::string starting_pa, std::string ending_pa,
+                                bool look_ahead, int lb_offset, int ub_offset) {
+  if (look_ahead) {
     // start index needs to subtract one because of start action
     // indices w.r.t. to the plan, not the plan automaton
     int start_index =
@@ -464,7 +463,7 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
             ? plan.size()
             : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2;
     if (ending_pa == "" && lb_offset == 0) {
-      lb_offset = info.bounds.lower_bound;
+      lb_offset = specs.bounds.lower_bound;
     }
     int offset_index = start_index;
     if ((long unsigned int)start_index >= plan.size()) {
@@ -483,7 +482,7 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
       if (ub_acc < lb_offset) {
         offset_index++;
       }
-      if (lb_acc >= safeAddition(info.bounds.upper_bound, ub_offset) ||
+      if (lb_acc >= safeAddition(specs.bounds.upper_bound, ub_offset) ||
           pa - plan.begin() == end_index) {
         return std::make_pair(offset_index + 1,
                               pa - plan.begin() - offset_index);
@@ -494,7 +493,7 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
     }
     // res needs to add one because of fin action
     return std::make_pair(offset_index + 1, end_index - offset_index);
-  } else if (info.isPastInfo()) {
+  } else {
     // rstart index is the offset from the end of the plan to the activated
     // action plus one (because the context starts before the activation action
     // indices w.r.t. to the plan, not the plan automaton, e.g. the position of
@@ -511,7 +510,7 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
             : plan.size() -
                   (stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2);
     if (ending_pa == "" && lb_offset == 0) {
-      lb_offset = info.bounds.lower_bound;
+      lb_offset = specs.bounds.lower_bound;
     }
     int roffset_index = rstart_index;
     int lb_acc = 0;
@@ -525,7 +524,7 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
       if (ub_acc < lb_offset) {
         roffset_index++;
       }
-      if (lb_acc >= safeAddition(info.bounds.upper_bound, ub_offset) ||
+      if (lb_acc >= safeAddition(specs.bounds.upper_bound, ub_offset) ||
           pa - plan.rbegin() == rend_index) {
         return std::make_pair(plan.size() - roffset_index,
                               pa - plan.rbegin() - roffset_index);
@@ -537,11 +536,6 @@ std::pair<int, int> DirectEncoder::calculateContext(const EncICInfo &info,
     // res needs to add one because of fin action
     return std::make_pair(plan.size() - roffset_index,
                           roffset_index - rend_index);
-
-  } else {
-    std::cout << "DirectEncoder calculateContext: unsopported type "
-              << info.type << std::endl;
-    return std::make_pair(0, 0);
   }
 }
 
@@ -603,17 +597,16 @@ void DirectEncoder::encodeNoOp(AutomataSystem &,
   }
 }
 
-void DirectEncoder::encodeUntilChain(AutomataSystem &s,
-                                     const std::vector<EncICInfo> &infos,
+void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
                                      const std::string start_pa,
                                      const std::string end_pa,
                                      const int base_index) {
-  if (infos.size() == 0) {
-    std::cout << "DirectEncoder enodeUntilchain: empty infos, abort."
+  if (info.specs_list.size() == 0) {
+    std::cout << "DirectEncoder enodeUntilchain: empty info, abort."
               << std::endl;
   }
   Filter base_filter = Filter(s.instances[base_index].first.states);
-  std::string clock = "clX" + infos[0].name;
+  std::string clock = "clX" + info.name;
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
   if (start_pa_entry == pa_order.end()) {
     std::cout << "DirectEncoder encodeUntilChain: could not find start pa "
@@ -653,7 +646,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
     }
   }
   // encode the until chain from left to right
-  for (auto info = infos.begin(); info != infos.end(); ++info) {
+  for (auto specs = info.specs_list.begin(); specs != info.specs_list.end();
+       ++specs) {
     // init round by backing up data from the previous round
     prev_window = curr_window;
     prev_window_guard_constraint_sat = guard_constraint_sat;
@@ -662,35 +656,36 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
     curr_window.clear();
     // determine context (window begin and end)
     std::pair<int, int> context =
-        calculateContext(*info, start_pa, end_pa, lb_acc, ub_acc);
-    lb_acc += info->bounds.lower_bound;
-    ub_acc = safeAddition(ub_acc, info->bounds.upper_bound);
+        calculateContext(*specs, start_pa, end_pa, true, lb_acc, ub_acc);
+    lb_acc += specs->bounds.lower_bound;
+    ub_acc = safeAddition(ub_acc, specs->bounds.upper_bound);
     std::size_t context_start = context.first;
     std::size_t context_end = context.first + context.second;
     std::string context_pa_start = *(pa_order.begin() + context_start);
     std::string context_pa_end = *(pa_order.begin() + context_end);
     // formulate constraints based on the given bounds
     bool upper_bounded =
-        (info->bounds.upper_bound != std::numeric_limits<int>::max());
+        (specs->bounds.upper_bound != std::numeric_limits<int>::max());
     bool lower_bounded =
-        (info->bounds.lower_bound != 0 || info->bounds.l_op != "&lt;=");
+        (specs->bounds.lower_bound != 0 || specs->bounds.l_op != "&lt;=");
     std::string guard_upper_bound_crossed =
-        clock + inverse_op(info->bounds.r_op) +
-        std::to_string(info->bounds.upper_bound);
+        clock + inverse_op(specs->bounds.r_op) +
+        std::to_string(specs->bounds.upper_bound);
     guard_constraint_sat =
-        (lower_bounded ? clock + reverse_op(info->bounds.l_op) +
-                             std::to_string(info->bounds.lower_bound)
+        (lower_bounded ? clock + reverse_op(specs->bounds.l_op) +
+                             std::to_string(specs->bounds.lower_bound)
                        : "") +
         ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded ? clock + info->bounds.r_op +
-                             std::to_string(info->bounds.upper_bound)
+        (upper_bounded ? clock + specs->bounds.r_op +
+                             std::to_string(specs->bounds.upper_bound)
                        : "");
-    std::string op_name = info->name + "F" + std::to_string(encode_counter);
-    Filter target_filter(info->targets);
+    std::string op_name = info.name + "F" + std::to_string(encode_counter);
+    encode_counter++;
+    Filter target_filter(specs->targets);
     curr_window =
         createWindow(orig_tls, context_pa_start, context_pa_end, base_filter,
-                     target_filter, op_name, clock, *info);
-    if (info == infos.begin()) {
+                     target_filter, op_name, clock, *specs);
+    if (specs == info.specs_list.begin()) {
       // connect TL before start pa to the first window
       if (context_start > 0) {
         std::string prev_pa = *(pa_order.begin() + context_start - 1);
@@ -711,14 +706,14 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
         context_pa_start, context_pa_end, base_filter,
         prev_window_guard_constraint_sat, clock + " = 0");
     // add transitions back to original TLs
-    if (info + 1 == infos.end()) {
+    if (specs + 1 == info.specs_list.end()) {
       std::string last_pa = *(pa_order.begin() + context_end);
       addOutgoingTransOfOrigTL(orig_tls[last_pa], curr_window[last_pa],
                                curr_to_orig, guard_constraint_sat);
     }
     // merge a window once it is done (this is, when outgoing transitions to the
     // next window are added)
-    if (info != infos.begin()) {
+    if (specs != info.specs_list.begin()) {
       mergeWindows(pa_tls, prev_window, true);
     }
   }
@@ -727,7 +722,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s,
 }
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
-                                 const EncICInfo &info, int base_index) {
+                                 const UnaryInfo &info, int base_index) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
   if (start_pa_entry == pa_order.end()) {
@@ -742,7 +737,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   std::string guard_constraint_sat = "";
   std::string clock = "clX" + info.name;
   // determine context (window begin and end)
-  std::pair<int, int> context = calculateContext(info, pa, "");
+  std::pair<int, int> context = calculateContext(info.specs, pa, "");
   std::size_t context_start = context.first;
   std::size_t constraint_start = start_pa_entry - pa_order.begin();
   std::size_t context_end = context.first + context.second;
@@ -750,24 +745,25 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   std::string context_pa_end = *(pa_order.begin() + context_end);
   // formulate constraints based on the given bounds
   bool upper_bounded =
-      (info.bounds.upper_bound != std::numeric_limits<int>::max());
+      (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
   bool lower_bounded =
-      (info.bounds.lower_bound != 0 || info.bounds.l_op != "&lt;=");
+      (info.specs.bounds.lower_bound != 0 || info.specs.bounds.l_op != "&lt;=");
   std::string guard_upper_bound_crossed =
-      clock + inverse_op(info.bounds.r_op) +
-      std::to_string(info.bounds.upper_bound);
+      clock + inverse_op(info.specs.bounds.r_op) +
+      std::to_string(info.specs.bounds.upper_bound);
   guard_constraint_sat =
-      (lower_bounded ? clock + reverse_op(info.bounds.l_op) +
-                           std::to_string(info.bounds.lower_bound)
+      (lower_bounded ? clock + reverse_op(info.specs.bounds.l_op) +
+                           std::to_string(info.specs.bounds.lower_bound)
                      : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded
-           ? clock + info.bounds.r_op + std::to_string(info.bounds.upper_bound)
-           : "");
+      (upper_bounded ? clock + info.specs.bounds.r_op +
+                           std::to_string(info.specs.bounds.upper_bound)
+                     : "");
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
-  Filter target_filter(info.targets);
-  curr_window = createWindow(pa_tls, context_pa_start, context_pa_end,
-                             base_filter, base_filter, op_name, clock, info);
+  Filter target_filter(info.specs.targets);
+  curr_window =
+      createWindow(pa_tls, context_pa_start, context_pa_end, base_filter,
+                   base_filter, op_name, clock, info.specs);
   // creset clock upon entering context range
   if (constraint_start > 0) {
     std::string prev_pa = *(pa_order.begin() + constraint_start - 1);
@@ -780,9 +776,10 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   OrigMap to_orig = createOrigMapping(pa_tls, op_name);
   to_orig.insert(orig_id.begin(), orig_id.end());
   if (upper_bounded) {
-    addStateInvariantToWindow(pa_tls, context_pa_start, context_pa_end,
-                              clock + info.bounds.r_op +
-                                  std::to_string(info.bounds.upper_bound));
+    addStateInvariantToWindow(
+        pa_tls, context_pa_start, context_pa_end,
+        clock + info.specs.bounds.r_op +
+            std::to_string(info.specs.bounds.upper_bound));
   }
   createTransitionsBetweenWindows(s.instances[base_index].first, pa_tls,
                                   curr_window, to_orig, context_pa_start,
@@ -798,7 +795,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
 }
 
 void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
-                                const EncICInfo &info, int base_index) {
+                                const BinaryInfo &info, int base_index) {
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
   if (start_pa_entry == pa_order.end()) {
     std::cout << "DirectEncoder encodeUntil: could not find start pa " << pa
@@ -806,20 +803,21 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
     return;
   }
   OrigMap to_orig = createOrigMapping(pa_tls, "");
-  Filter target_filter(info.targets);
+  Filter target_filter(info.specs.targets);
+  Filter pre_target_filter(info.pre_targets);
   // determine context (window begin and end)
-  std::pair<int, int> context = calculateContext(info, pa, "");
+  std::pair<int, int> context = calculateContext(info.specs, pa, "", true);
   std::size_t context_end = context.first + context.second;
   std::size_t constraint_start = start_pa_entry - pa_order.begin();
-  encodeFuture(s, pa, info, base_index);
+  encodeFuture(s, pa, info.toUnary(), base_index);
   for (size_t i = constraint_start; i <= context_end; i++) {
     auto pa_tl = pa_tls.find(*(pa_order.begin() + i));
     if (pa_tl != pa_tls.end()) {
       for (auto &tl_entry : pa_tl->second) {
         if (to_orig[tl_entry.first] != "") {
-          target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
-          target_filter.filterTransitionsInPlace(tl_entry.second.trans_out, "",
-                                                 true);
+          pre_target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
+          pre_target_filter.filterTransitionsInPlace(tl_entry.second.trans_out,
+                                                     "", true);
         }
       }
     }
@@ -827,7 +825,7 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
 }
 
 void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
-                               const EncICInfo &info, int base_index) {
+                               const UnaryInfo &info, int base_index) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
   if (start_pa_entry == pa_order.end()) {
@@ -842,7 +840,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   std::string guard_constraint_sat = "";
   std::string clock = "clX" + info.name;
   // determine context (window begin and end)
-  std::pair<int, int> context = calculateContext(info, pa, "");
+  std::pair<int, int> context = calculateContext(info.specs, pa, "", false);
   std::size_t context_end = context.first;
   std::size_t constraint_end = start_pa_entry - pa_order.begin() - 1;
   std::size_t context_start = context.first + context.second;
@@ -851,33 +849,35 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   std::string constraint_end_pa = *(pa_order.begin() + constraint_end);
   // formulate constraints based on the given bounds
   bool upper_bounded =
-      (info.bounds.upper_bound != std::numeric_limits<int>::max());
+      (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
   bool lower_bounded =
-      (info.bounds.lower_bound != 0 || info.bounds.l_op != "&lt;=");
+      (info.specs.bounds.lower_bound != 0 || info.specs.bounds.l_op != "&lt;=");
   std::string guard_upper_bound_crossed =
-      clock + inverse_op(info.bounds.r_op) +
-      std::to_string(info.bounds.upper_bound);
+      clock + inverse_op(info.specs.bounds.r_op) +
+      std::to_string(info.specs.bounds.upper_bound);
   guard_constraint_sat =
-      (lower_bounded ? clock + reverse_op(info.bounds.l_op) +
-                           std::to_string(info.bounds.lower_bound)
+      (lower_bounded ? clock + reverse_op(info.specs.bounds.l_op) +
+                           std::to_string(info.specs.bounds.lower_bound)
                      : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded
-           ? clock + info.bounds.r_op + std::to_string(info.bounds.upper_bound)
-           : "");
+      (upper_bounded ? clock + info.specs.bounds.r_op +
+                           std::to_string(info.specs.bounds.upper_bound)
+                     : "");
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
-  Filter target_filter(info.targets);
-  curr_window = createWindow(pa_tls, context_pa_start, context_pa_end,
-                             base_filter, base_filter, op_name, clock, info);
+  Filter target_filter(info.specs.targets);
+  curr_window =
+      createWindow(pa_tls, context_pa_start, context_pa_end, base_filter,
+                   base_filter, op_name, clock, info.specs);
   OrigMap orig_id = createOrigMapping(pa_tls, "");
   OrigMap to_orig = createOrigMapping(pa_tls, op_name);
   to_orig.insert(orig_id.begin(), orig_id.end());
   if (upper_bounded) {
     if (context_end < constraint_end) {
       std::string past_context_pa = *(pa_order.begin() + context_end + 1);
-      addStateInvariantToWindow(pa_tls, past_context_pa, constraint_end_pa,
-                                clock + info.bounds.r_op +
-                                    std::to_string(info.bounds.upper_bound));
+      addStateInvariantToWindow(
+          pa_tls, past_context_pa, constraint_end_pa,
+          clock + info.specs.bounds.r_op +
+              std::to_string(info.specs.bounds.upper_bound));
     }
   }
   createTransitionsBetweenWindows(
