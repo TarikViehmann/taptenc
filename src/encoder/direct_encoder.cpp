@@ -916,6 +916,79 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   mergeWindows(pa_tls, curr_window, true);
 }
 
+void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
+                                const BinaryInfo &info, int base_index) {
+  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), pa);
+  if (start_pa_entry == pa_order.end()) {
+    std::cout << "DirectEncoder encodeSince: could not find start pa " << pa
+              << std::endl;
+    return;
+  }
+  OrigMap to_orig = createOrigMapping(pa_tls, "");
+  Filter target_filter(info.specs.targets);
+  Filter pre_target_filter(info.pre_targets);
+  // determine context (window begin and end)
+  std::pair<int, int> context = calculateContext(info.specs, pa, "", false);
+  std::size_t context_start = context.first + context.second;
+  std::size_t context_end = context.first;
+  std::size_t constraint_end = start_pa_entry - pa_order.begin() - 1;
+  encodePast(s, pa, info.toUnary(), base_index);
+  // Ensure the TA stays in the pre_target state until activation pa is reached
+  for (size_t i = context_start; i <= constraint_end; i++) {
+    auto pa_tl = pa_tls.find(*(pa_order.begin() + i));
+    if (pa_tl != pa_tls.end()) {
+      for (auto &tl_entry : pa_tl->second) {
+        // inside the context window the past operator adds a new tl
+        // representing that the target states were reached, this is when we
+        // should stay in the pre_target states
+        if (i <= context_end) {
+          if (to_orig.find(tl_entry.first) == to_orig.end()) {
+            pre_target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
+            pre_target_filter.filterTransitionsInPlace(
+                tl_entry.second.trans_out, "", true);
+          } else {
+            // we have to delete transitions leading to states that we deleted
+            // above
+            tl_entry.second.trans_out.erase(
+                std::remove_if(
+                    tl_entry.second.trans_out.begin(),
+                    tl_entry.second.trans_out.end(),
+                    [to_orig, pre_target_filter,
+                     this](const Transition &t) bool {
+                      std::string prefix =
+                          Filter::getPrefix(t.dest_id, constants::BASE_SEP);
+                      prefix.push_back(constants::BASE_SEP);
+                      return (to_orig.find(prefix) == to_orig.end()) &&
+                             !pre_target_filter.matchesId(t.dest_id);
+                    }),
+                tl_entry.second.trans_out.end());
+          }
+          // after the context window but before the pa begin  we also have to
+          // remain in the pre_target states
+        } else if (to_orig.find(tl_entry.first) != to_orig.end() &&
+                   i > context_end) {
+          pre_target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
+          pre_target_filter.filterTransitionsInPlace(tl_entry.second.trans_out,
+                                                     "", true);
+        }
+      }
+    }
+  }
+  if (context_start > 0) {
+    std::string prev_pa = *(pa_order.begin() + context_start - 1);
+    auto prev_tl = pa_tls.find(prev_pa);
+    if (prev_tl != pa_tls.end()) {
+      for (auto &prev_entry : prev_tl->second) {
+        pre_target_filter.filterTransitionsInPlace(prev_entry.second.trans_out,
+                                                   pa, false);
+      }
+    } else {
+      std::cout << "DirectEncoder encodeSince: cannot find prev_pa TLs. "
+                << prev_pa << std::endl;
+    }
+  }
+}
+
 size_t DirectEncoder::getPlanTAIndex() { return plan_ta_index; }
 
 AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,

@@ -229,9 +229,14 @@ Filter Filter::reverseFilter(const Automaton &ta) const {
         filter.begin(), filter.end(), [ta_state](const State &s) bool {
           return Filter::matchesFilter(ta_state.id, "", s.id);
         });
-    if (search == ta.states.end()) {
+    if (search == filter.end()) {
       reverse_filter.push_back(ta_state);
     }
   }
   return Filter(reverse_filter);
+}
+bool Filter::matchesId(const std::string id) const {
+  return std::find_if(filter.begin(), filter.end(), [id](const State &s) bool {
+           return Filter::matchesFilter(id, "", s.id);
+         }) != filter.end();
 }

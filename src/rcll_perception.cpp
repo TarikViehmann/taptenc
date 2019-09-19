@@ -108,6 +108,10 @@ DirectEncoder createDirectEncoding(
           BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
           enc.encodeUntil(direct_system, pa.id, *info);
         } break;
+        case ICType::Since: {
+          BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
+          enc.encodeSince(direct_system, pa.id, *info);
+        } break;
         case ICType::Past: {
           UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
           enc.encodePast(direct_system, pa.id, *info);

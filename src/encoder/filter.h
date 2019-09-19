@@ -30,5 +30,6 @@ public:
   ::std::vector<State> getFilter() const;
   Filter updateFilter(const Automaton &ta) const;
   Filter reverseFilter(const Automaton &ta) const;
+  bool matchesId(const std::string id) const;
 };
 } // end namespace taptenc
