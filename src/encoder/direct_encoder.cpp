@@ -822,6 +822,19 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
       }
     }
   }
+  if (constraint_start > 0) {
+    std::string prev_pa = *(pa_order.begin() + constraint_start - 1);
+    auto prev_tl = pa_tls.find(prev_pa);
+    if (prev_tl != pa_tls.end()) {
+      for (auto &prev_entry : prev_tl->second) {
+        pre_target_filter.filterTransitionsInPlace(prev_entry.second.trans_out,
+                                                   pa, false);
+      }
+    } else {
+      std::cout << "DirectEncoder encodeUntil: cannot find prev_pa TLs. "
+                << prev_pa << std::endl;
+    }
+  }
 }
 
 void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
