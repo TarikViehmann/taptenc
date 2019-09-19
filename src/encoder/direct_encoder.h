@@ -37,15 +37,16 @@ private:
                                  ::std::string op_name = "");
   void removeTransitionsToNextTl(::std::vector<Transition> &trans,
                                  ::std::string curr_pa);
-  ::std::pair<int, int> calculateContext(const EncICInfo &info,
+  ::std::pair<int, int> calculateContext(const TargetSpecs &specs,
                                          ::std::string starting_pa,
                                          ::std::string ending_pa = "",
+                                         bool look_ahead = true,
                                          int lb_offset = 0, int ub_offset = 0);
   OrigMap createOrigMapping(const TimeLines &orig_tls, ::std::string prefix);
   TimeLines createWindow(const TimeLines &origin, ::std::string start_pa,
                          ::std::string end_pa, const Filter &base_filter,
                          const Filter &target_filter, ::std::string prefix,
-                         ::std::string clock, const EncICInfo &info);
+                         ::std::string clock, const TargetSpecs &info);
   void createTransitionsBetweenWindows(
       const Automaton &base_ta, TimeLines &source_tls, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
@@ -57,7 +58,7 @@ private:
 public:
   static void printTLs(const TimeLines &to_print);
   size_t getPlanTAIndex();
-  void encodeUntilChain(AutomataSystem &s, const ::std::vector<EncICInfo> &info,
+  void encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
                         const ::std::string start_pa,
                         const ::std::string end_pa, const int base_pos = 0);
   void encodeInvariant(AutomataSystem &s, const ::std::vector<State> &targets,
@@ -65,11 +66,11 @@ public:
   void encodeNoOp(AutomataSystem &s, const ::std::vector<State> &targets,
                   const ::std::string pa);
   void encodeFuture(AutomataSystem &s, const ::std::string pa,
-                    const EncICInfo &info, int base_index = 0);
+                    const UnaryInfo &info, int base_index = 0);
   void encodeUntil(AutomataSystem &s, const ::std::string pa,
-                   const EncICInfo &info, int base_index = 0);
+                   const BinaryInfo &info, int base_index = 0);
   void encodePast(AutomataSystem &s, const ::std::string pa,
-                  const EncICInfo &info, int base_index = 0);
+                  const UnaryInfo &info, int base_index = 0);
   DirectEncoder(AutomataSystem &s, const ::std::vector<PlanAction> &plan,
                 const int base_pos = 0);
   AutomataSystem createFinalSystem(const AutomataSystem &s,

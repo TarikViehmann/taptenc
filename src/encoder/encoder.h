@@ -6,21 +6,51 @@
 #include <vector>
 
 namespace taptenc {
-enum ICType { Future, NoOp, Past, Invariant, Until, Since };
-struct encICInfo {
-  ::std::vector<State> targets;
-  ::std::string name;
+enum ICType { Future, NoOp, Past, Invariant, Until, UntilChain, Since };
+struct targetSpecs {
   Bounds bounds;
+  ::std::vector<State> targets;
+  targetSpecs(const Bounds arg_bounds, const ::std::vector<State> &arg_targets)
+      : bounds(arg_bounds), targets(arg_targets) {}
+};
+typedef targetSpecs TargetSpecs;
+struct encICInfo {
+  ::std::string name;
   ICType type;
-  encICInfo(::std::vector<State> arg_targets, ::std::string arg_name,
-            const Bounds &arg_bounds, ICType arg_type)
-      : targets(arg_targets), name(arg_name), bounds(arg_bounds),
-        type(arg_type) {}
+  encICInfo(::std::string arg_name, ICType arg_type)
+      : name(arg_name), type(arg_type){};
   bool isFutureInfo() const;
   bool isPastInfo() const;
+  virtual ~encICInfo() = default;
 };
+
 typedef struct encICInfo EncICInfo;
 
+struct unaryInfo : EncICInfo {
+  TargetSpecs specs;
+  unaryInfo(::std::string arg_name, ICType arg_type,
+            const TargetSpecs &arg_specs)
+      : EncICInfo(arg_name, arg_type), specs(arg_specs) {}
+};
+typedef struct unaryInfo UnaryInfo;
+struct binaryInfo : EncICInfo {
+  TargetSpecs specs;
+  ::std::vector<State> pre_targets;
+  binaryInfo(::std::string arg_name, ICType arg_type,
+             const TargetSpecs &arg_specs,
+             const ::std::vector<State> arg_pre_targets)
+      : EncICInfo(arg_name, arg_type), specs(arg_specs),
+        pre_targets(arg_pre_targets) {}
+  UnaryInfo toUnary() const;
+};
+typedef struct binaryInfo BinaryInfo;
+struct chainInfo : EncICInfo {
+  ::std::vector<TargetSpecs> specs_list;
+  chainInfo(::std::string arg_name, ICType arg_type,
+            const ::std::vector<TargetSpecs> &arg_specs_list)
+      : EncICInfo(arg_name, arg_type), specs_list(arg_specs_list) {}
+};
+typedef struct chainInfo ChainInfo;
 class Encoder {
 protected:
   Automaton mergeAutomata(const ::std::vector<Automaton> &automata,

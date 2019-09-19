@@ -18,6 +18,9 @@ bool EncICInfo::isFutureInfo() const {
 bool EncICInfo::isPastInfo() const {
   return type == ICType::Past || type == ICType::Since;
 }
+
+UnaryInfo BinaryInfo::toUnary() const { return UnaryInfo(name, type, specs); }
+
 Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
                                          std::string name) {
   std::vector<PlanAction> full_plan = plan;

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdlib.h>
 #include <string>
@@ -87,7 +88,7 @@ Automaton generateSyncPlanAutomaton(
 
 DirectEncoder createDirectEncoding(
     AutomataSystem &direct_system, const vector<PlanAction> plan,
-    const unordered_map<string, vector<EncICInfo>> &activations,
+    const unordered_map<string, vector<unique_ptr<EncICInfo>>> &activations,
     int plan_index = 1) {
   DirectEncoder enc(direct_system, plan);
   for (const auto &pa : direct_system.instances[plan_index].first.states) {
@@ -98,24 +99,29 @@ DirectEncoder createDirectEncoding(
     auto search = activations.find(pa_op);
     if (search != activations.end()) {
       for (const auto &ac : search->second) {
-        switch (ac.type) {
-        case ICType::Future:
-          enc.encodeFuture(direct_system, pa.id, ac);
-          break;
-        case ICType::Until:
-          enc.encodeUntil(direct_system, pa.id, ac);
-          break;
-        case ICType::Past:
-          enc.encodePast(direct_system, pa.id, ac);
-          break;
-        case ICType::NoOp:
-          enc.encodeNoOp(direct_system, ac.targets, pa.id);
-          break;
-        case ICType::Invariant:
-          enc.encodeInvariant(direct_system, ac.targets, pa.id);
-          break;
+        switch (ac->type) {
+        case ICType::Future: {
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          enc.encodeFuture(direct_system, pa.id, *info);
+        } break;
+        case ICType::Until: {
+          BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
+          enc.encodeUntil(direct_system, pa.id, *info);
+        } break;
+        case ICType::Past: {
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          enc.encodePast(direct_system, pa.id, *info);
+        } break;
+        case ICType::NoOp: {
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          enc.encodeNoOp(direct_system, info->specs.targets, pa.id);
+        } break;
+        case ICType::Invariant: {
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          enc.encodeInvariant(direct_system, info->specs.targets, pa.id);
+        } break;
         default:
-          cout << "error: no support yet for type " << ac.type << endl;
+          cout << "error: no support yet for type " << ac->type << endl;
         }
       }
     }
@@ -124,9 +130,8 @@ DirectEncoder createDirectEncoding(
 }
 
 DirectEncoder testUntilChain(AutomataSystem &direct_system,
-                             const vector<PlanAction> plan,
-                             vector<EncICInfo> &infos, string start_pa,
-                             string end_pa) {
+                             const vector<PlanAction> plan, ChainInfo &info,
+                             string start_pa, string end_pa) {
   DirectEncoder enc(direct_system, plan);
   for (auto pa = direct_system.instances[1].first.states.begin();
        pa != direct_system.instances[1].first.states.end(); ++pa) {
@@ -139,7 +144,7 @@ DirectEncoder testUntilChain(AutomataSystem &direct_system,
            ++epa) {
         string epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
         if (end_pa == epa_op) {
-          enc.encodeUntilChain(direct_system, infos, pa->id, epa->id);
+          enc.encodeUntilChain(direct_system, info, pa->id, epa->id);
           break;
         }
       }
@@ -305,8 +310,8 @@ int main() {
   vision_filter.insert(vision_filter.end(), {test.states[5]});
   cam_off_filter.insert(cam_off_filter.end(), {test.states[0], test.states[6]});
   puck_sense_filter.insert(puck_sense_filter.end(), {test.states[6]});
-  Bounds full_bounds(0, 10); // numeric_limits<int>::max());
-  Bounds vision_bounds(20, numeric_limits<int>::max());
+  Bounds full_bounds(0, 10);   // numeric_limits<int>::max());
+  Bounds vision_bounds(5, 10); // numeric_limits<int>::max());
   Bounds cam_off_bounds(2, 5);
   Bounds puck_sense_bounds(0, 15, "&lt;=", "&lt;");
   Bounds goto_bounds(15, 45);
@@ -322,37 +327,40 @@ int main() {
       PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds)};
   //, "put", "goto", "pick", "discard", "goto",
   //"pick", "goto", "put"};
-  // unordered_map<string, vector<EncICInfo>> activations;
+  // ---------------------- Normal Constraints ------------------------------
+  unordered_map<string, vector<unique_ptr<EncICInfo>>> activations;
   // activations.insert(make_pair(
-  //     "goto", vector<EncICInfo>{EncICInfo(cam_off_filter, "cam_off",
-  //                                         cam_off_bounds,
-  //                                         ICType::Invariant)}));
-  // activations.insert(make_pair(
-  //     "pick", vector<EncICInfo>{EncICInfo(vision_filter, "vision",
-  //                                         vision_bounds, ICType::Future),
-  //                               EncICInfo(puck_sense_filter, "puck_sense",
-  //                                         puck_sense_bounds,
-  //                                         ICType::Future)}));
-  // activations.insert(make_pair(
-  //     "put", vector<EncICInfo>{EncICInfo(vision_filter, "vision",
-  //     vision_bounds,
-  //                                        ICType::Future)}));
-  // activations.insert(make_pair(
-  //     "discard",
-  //     vector<EncICInfo>{
-  //         EncICInfo(cam_off_filter, "cam_off", cam_off_bounds, ICType::NoOp),
-  //         EncICInfo(puck_sense_filter, "puck_sense", puck_sense_bounds,
-  //                   ICType::Future)}));
-  vector<EncICInfo> uc{
-      EncICInfo(states, "full1", full_bounds, ICType::Future),
-      EncICInfo(vision_filter, "vision", vision_bounds, ICType::Future),
-      EncICInfo(states, "full2", cam_off_bounds, ICType::Future),
-      EncICInfo(cam_off_filter, "cam_off", puck_sense_bounds, ICType::Future),
-      EncICInfo(puck_sense_filter, "puck_sense", cam_off_bounds,
-                ICType::Future)};
+  //    "goto", vector<EncICInfo>{EncICInfo(cam_off_filter, "cam_off",
+  //                                        cam_off_bounds,
+  //                                        ICType::Invariant)}));
+  vector<unique_ptr<EncICInfo>> pick_activations;
+  pick_activations.emplace_back(make_unique<UnaryInfo>(
+      "vision", ICType::Past, TargetSpecs(vision_bounds, vision_filter)));
+  activations.insert(make_pair("pick", std::move(pick_activations)));
+  //                                EncICInfo(puck_sense_filter, "puck_sense",
+  //                                          puck_sense_bounds,
+  //                                          ICType::Future)}));
+  //  activations.insert(make_pair(
+  //      "put", vector<EncICInfo>{UnaryInfo("vision", ICType::Future,
+  //      TargetSpecs(vision_bounds,vision_filter))}));
+  //  activations.insert(make_pair(
+  //      "discard",
+  //      vector<EncICInfo>{
+  //          EncICInfo("cam_off", ICType::NoOp),
+  //          UnaryInfo("puck_sense",
+  //          ICType::Future,puck_TargetSpecs(sense_bounds,puck_sense_filter))}));
+  // ---------------------- Until Chain -------------------------------------
+  ChainInfo uc(
+      "chain", ICType::UntilChain,
+      vector<TargetSpecs>{TargetSpecs(full_bounds, states),
+                          TargetSpecs(full_bounds, states),
+                          TargetSpecs(vision_bounds, vision_filter),
+                          TargetSpecs(cam_off_bounds, states),
+                          TargetSpecs(puck_sense_bounds, cam_off_filter),
+                          TargetSpecs(cam_off_bounds, puck_sense_filter)});
   AutomataSystem base_system;
   base_system.instances = automata_direct;
-  // DirectEncoder enc1 = createDirectEncoding(base_system, plan, activations);
+  //  DirectEncoder enc1 = createDirectEncoding(base_system, plan, activations);
   DirectEncoder enc1 = testUntilChain(base_system, plan, uc, "pick", "endgoto");
   SystemVisInfo direct_system_vis_info;
   AutomataSystem direct_system =
@@ -360,7 +368,7 @@ int main() {
   printer.print(direct_system, direct_system_vis_info, "perception_direct.xml");
   // std::ofstream myfile;
   // myfile.open("perception_direct.q", std::ios_base::trunc);
-  // myfile << "E<> sys_direct.query";
+  // myfile << "E<> sys_direct." << constants::QUERY;
   // myfile.close();
   // string call_get_if =
   //     "UPPAAL_COMPILE_ONLY=1 " + getEnvVar("VERIFYTA_DIR") +
