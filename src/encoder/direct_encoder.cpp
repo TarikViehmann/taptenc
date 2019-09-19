@@ -527,7 +527,7 @@ DirectEncoder::calculateContext(const TargetSpecs &specs,
       if (lb_acc >= safeAddition(specs.bounds.upper_bound, ub_offset) ||
           pa - plan.rbegin() == rend_index) {
         return std::make_pair(plan.size() - roffset_index,
-                              pa - plan.rbegin() - roffset_index);
+                              roffset_index - (pa - plan.rbegin()));
       }
       if (pa - plan.rbegin() == rend_index) {
         break;
