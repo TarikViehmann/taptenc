@@ -376,7 +376,8 @@ DirectEncoder::addToPrefixOnTransitions(const std::vector<Transition> &trans,
 }
 
 void DirectEncoder::modifyTransitionsToNextTl(
-    std::vector<Transition> &trans, std::string curr_pa, std::string guard,
+    std::vector<Transition> &trans, std::string curr_pa,
+    const std::vector<State> &target_states, std::string guard,
     std::string update, std::string sync, std::string op_name) {
   for (auto &t : trans) {
     if (Filter::getPrefix(t.dest_id, constants::TL_SEP) != curr_pa) {
@@ -389,6 +390,17 @@ void DirectEncoder::modifyTransitionsToNextTl(
       }
     }
   }
+  trans.erase(std::remove_if(trans.begin(), trans.end(),
+                             [target_states](const Transition &t) bool {
+                               return std::find_if(
+                                          target_states.begin(),
+                                          target_states.end(),
+                                          [t](const State &s) bool {
+                                            return Filter::matchesFilter(
+                                                t.dest_id, "", s.id);
+                                          }) == target_states.end();
+                             }),
+              trans.end());
 }
 
 void DirectEncoder::removeTransitionsToNextTl(std::vector<Transition> &trans,
@@ -685,9 +697,9 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
       if (context_start > 0) {
         std::string prev_pa = *(pa_order.begin() + context_start - 1);
         for (auto &prev_pa_entry : pa_tls[prev_pa]) {
-          modifyTransitionsToNextTl(prev_pa_entry.second.trans_out,
-                                    prev_pa_entry.first, "", clock + " = 0", "",
-                                    op_name);
+          modifyTransitionsToNextTl(
+              prev_pa_entry.second.trans_out, prev_pa_entry.first,
+              target_filter.getFilter(), "", clock + " = 0", "", op_name);
         }
       }
     }
@@ -763,7 +775,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
     std::string prev_pa = *(pa_order.begin() + constraint_start - 1);
     for (auto &prev_pa_entry : pa_tls[prev_pa]) {
       modifyTransitionsToNextTl(prev_pa_entry.second.trans_out,
-                                prev_pa_entry.first, "", clock + " = 0", "");
+                                prev_pa_entry.first, target_filter.getFilter(),
+                                "", clock + " = 0", "");
     }
   }
   OrigMap orig_id = createOrigMapping(pa_tls, "");
@@ -903,7 +916,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
     }
     for (auto &last_entry : *last_tl) {
       modifyTransitionsToNextTl(last_entry.second.trans_out, constraint_end_pa,
-                                guard_constraint_sat, "", "");
+                                target_filter.getFilter(), guard_constraint_sat,
+                                "", "");
     }
   }
   mergeWindows(pa_tls, curr_window, true);
