@@ -278,7 +278,13 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
     if (source_ta != pa_tls.end() && dest_ta != pa_tls.end()) {
       std::string source_ta_prefix = toPrefix("", "", pa_trans.source_id);
       std::string dest_ta_prefix = toPrefix("", "", pa_trans.dest_id);
-      std::vector<Transition> successor_trans = createCopyTransitionsBetweenTAs(
+      std::vector<Transition> succ_trans = createSuccessorTransitionsBetweenTAs(
+          s.instances[base_index].first,
+          source_ta->second.find(source_ta_prefix)->second.ta,
+          dest_ta->second.find(dest_ta_prefix)->second.ta,
+          source_ta->second.find(source_ta_prefix)->second.ta.states,
+          pa_trans.guard, pa_trans.update);
+      std::vector<Transition> copy_trans = createCopyTransitionsBetweenTAs(
           source_ta->second.find(source_ta_prefix)->second.ta,
           dest_ta->second.find(dest_ta_prefix)->second.ta,
           source_ta->second.find(source_ta_prefix)->second.ta.states,
@@ -288,8 +294,16 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
           ->second.trans_out.insert(pa_tls[pa_trans.source_id]
                                         .find(source_ta_prefix)
                                         ->second.trans_out.end(),
-                                    successor_trans.begin(),
-                                    successor_trans.end());
+                                    copy_trans.begin(), copy_trans.end());
+      for (auto suc : succ_trans) {
+        std::cout << suc.source_id << " -> " << suc.dest_id << std::endl;
+      }
+      pa_tls[pa_trans.source_id]
+          .find(source_ta_prefix)
+          ->second.trans_out.insert(pa_tls[pa_trans.source_id]
+                                        .find(source_ta_prefix)
+                                        ->second.trans_out.end(),
+                                    succ_trans.begin(), succ_trans.end());
     } else {
       std::cout << "DirectEncoder generateBaseTimeLine: pa "
                 << pa_trans.source_id << " or " << pa_trans.dest_id
