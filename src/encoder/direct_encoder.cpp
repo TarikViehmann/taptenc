@@ -807,8 +807,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                                   context_pa_end, target_filter,
                                   guard_constraint_sat, "");
   std::string last_pa = *(pa_order.begin() + context_end);
-  addOutgoingTransOfOrigTL(pa_tls[last_pa], curr_window[last_pa], to_orig,
-                           guard_constraint_sat);
+  addOutgoingTransOfOrigTL(pa_tls[last_pa], curr_window[last_pa], to_orig, "");
   for (auto &tl_entry : pa_tls[last_pa]) {
     removeTransitionsToNextTl(tl_entry.second.trans_out, last_pa);
   }
