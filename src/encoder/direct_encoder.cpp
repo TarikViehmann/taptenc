@@ -43,10 +43,8 @@ OrigMap DirectEncoder::createOrigMapping(const TimeLines &orig_tls,
 
 TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
                                       std::string start_pa, std::string end_pa,
-                                      const Filter &base_filter,
                                       const Filter &target_filter,
-                                      std::string prefix, std::string clock,
-                                      const TargetSpecs &specs) {
+                                      std::string prefix, std::string clock) {
   TimeLines new_window;
   auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
   if (start_pa_entry == pa_order.end()) {
@@ -62,8 +60,6 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
   }
   std::size_t context_start = start_pa_entry - pa_order.begin();
   std::size_t context_end = end_pa_entry - pa_order.begin();
-  bool upper_bounded =
-      (specs.bounds.upper_bound != std::numeric_limits<int>::max());
   auto curr_tl = orig_tls.find(*(pa_order.begin() + context_start));
   std::string op_name = Filter::getPrefix(prefix, constants::CONSTRAINT_SEP);
   if (curr_tl != orig_tls.end()) {
@@ -79,11 +75,6 @@ TimeLines DirectEncoder::createWindow(const TimeLines &orig_tls,
         Automaton copy_ta = target_filter.filterAutomaton(tl_entry.second.ta,
                                                           ta_prefix, "", false);
         copy_ta.clocks.push_back(clock);
-        if (upper_bounded) {
-          addInvariants(copy_ta, base_filter.getFilter(),
-                        clock + specs.bounds.r_op +
-                            std::to_string(specs.bounds.upper_bound));
-        }
         std::vector<Transition> cp_to_other_cp;
         // also copy the transitions connecting different orig TLs
         if (tls_copied + context_start < context_end) {
@@ -682,9 +673,13 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     std::string op_name = info.name + "F" + std::to_string(encode_counter);
     encode_counter++;
     Filter target_filter(specs->targets);
-    curr_window =
-        createWindow(orig_tls, context_pa_start, context_pa_end, base_filter,
-                     target_filter, op_name, clock, *specs);
+    curr_window = createWindow(orig_tls, context_pa_start, context_pa_end,
+                               target_filter, op_name, clock);
+    if (upper_bounded) {
+      addStateInvariantToWindow(curr_window, context_pa_start, context_pa_end,
+                                clock + specs->bounds.r_op +
+                                    std::to_string(specs->bounds.upper_bound));
+    }
     if (specs == info.specs_list.begin()) {
       // connect TL before start pa to the first window
       if (context_start > 0) {
@@ -761,9 +756,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                      : "");
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
-  curr_window =
-      createWindow(pa_tls, context_pa_start, context_pa_end, base_filter,
-                   base_filter, op_name, clock, info.specs);
+  curr_window = createWindow(pa_tls, context_pa_start, context_pa_end,
+                             base_filter, op_name, clock);
   // creset clock upon entering context range
   if (constraint_start > 0) {
     std::string prev_pa = *(pa_order.begin() + constraint_start - 1);
@@ -878,9 +872,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
                      : "");
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
-  curr_window =
-      createWindow(pa_tls, context_pa_start, context_pa_end, base_filter,
-                   base_filter, op_name, clock, info.specs);
+  curr_window = createWindow(pa_tls, context_pa_start, context_pa_end,
+                             base_filter, op_name, clock);
   OrigMap orig_id = createOrigMapping(pa_tls, "");
   OrigMap to_orig = createOrigMapping(pa_tls, op_name);
   to_orig.insert(orig_id.begin(), orig_id.end());
