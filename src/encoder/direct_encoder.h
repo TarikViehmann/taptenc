@@ -32,8 +32,10 @@ private:
                            ::std::string prefix, bool on_inner_trans = true,
                            bool on_outgoing_trans = true);
   void modifyTransitionsToNextTl(::std::vector<Transition> &trans,
-                                 ::std::string curr_pa, ::std::string guard,
-                                 ::std::string update, ::std::string sync,
+                                 ::std::string curr_pa,
+                                 const ::std::vector<State> &target_states,
+                                 ::std::string guard, ::std::string update,
+                                 ::std::string sync,
                                  ::std::string op_name = "");
   void removeTransitionsToNextTl(::std::vector<Transition> &trans,
                                  ::std::string curr_pa);
