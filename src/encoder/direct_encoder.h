@@ -44,9 +44,8 @@ private:
                                          int lb_offset = 0, int ub_offset = 0);
   OrigMap createOrigMapping(const TimeLines &orig_tls, ::std::string prefix);
   TimeLines createWindow(const TimeLines &origin, ::std::string start_pa,
-                         ::std::string end_pa, const Filter &base_filter,
-                         const Filter &target_filter, ::std::string prefix,
-                         ::std::string clock, const TargetSpecs &info);
+                         ::std::string end_pa, const Filter &target_filter,
+                         ::std::string prefix, ::std::string clock);
   void createTransitionsBetweenWindows(
       const Automaton &base_ta, TimeLines &source_tls, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
