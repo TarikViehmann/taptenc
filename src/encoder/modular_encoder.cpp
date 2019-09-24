@@ -8,7 +8,7 @@
 #include <vector>
 
 using namespace taptenc;
-
+using namespace encoderutils;
 void ModularEncoder::encodeNoOp(AutomataSystem &s, std::vector<State> &targets,
                                 const std::string opsync, int base_index) {
   Filter target_filter = Filter(targets);

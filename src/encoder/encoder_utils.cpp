@@ -1,4 +1,4 @@
-#include "encoder.h"
+#include "encoder_utils.h"
 #include "constants.h"
 #include "filter.h"
 #include "timed_automata.h"
@@ -12,17 +12,9 @@
 #define BASE_SYNC_CONNECTIVE "XtoX"
 
 using namespace taptenc;
-bool EncICInfo::isFutureInfo() const {
-  return type == ICType::Future || type == ICType::Until;
-}
-bool EncICInfo::isPastInfo() const {
-  return type == ICType::Past || type == ICType::Since;
-}
-
-UnaryInfo BinaryInfo::toUnary() const { return UnaryInfo(name, type, specs); }
-
-Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
-                                         std::string name) {
+Automaton
+encoderutils::generatePlanAutomaton(const std::vector<PlanAction> &plan,
+                                    std::string name) {
   std::vector<PlanAction> full_plan = plan;
   full_plan.push_back(PlanAction(constants::END_PA,
                                  Bounds(0, std::numeric_limits<int>::max())));
@@ -71,9 +63,9 @@ Automaton Encoder::generatePlanAutomaton(const std::vector<PlanAction> &plan,
   return res;
 }
 
-Automaton Encoder::mergeAutomata(const std::vector<Automaton> &automata,
-                                 std::vector<Transition> &interconnections,
-                                 std::string prefix) {
+Automaton encoderutils::mergeAutomata(const std::vector<Automaton> &automata,
+                                      std::vector<Transition> &interconnections,
+                                      std::string prefix) {
   std::set<State> res_states;
   std::set<Transition> res_transitions(interconnections.begin(),
                                        interconnections.end());
@@ -95,7 +87,7 @@ Automaton Encoder::mergeAutomata(const std::vector<Automaton> &automata,
   return res;
 }
 
-std::vector<Transition> Encoder::createCopyTransitionsBetweenTAs(
+std::vector<Transition> encoderutils::createCopyTransitionsBetweenTAs(
     const Automaton &source, const Automaton &dest,
     const std::vector<State> &filter, std::string guard, std::string update,
     std::string sync, bool passive) {
@@ -103,13 +95,12 @@ std::vector<Transition> Encoder::createCopyTransitionsBetweenTAs(
   for (const auto &f_state : filter) {
     auto c_source = std::find_if(
         source.states.begin(), source.states.end(),
-        [f_state, this](const State &s) bool {
+        [f_state](const State &s) bool {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(f_state.id, constants::BASE_SEP);
         });
     auto c_dest = std::find_if(
-        dest.states.begin(), dest.states.end(),
-        [f_state, this](const State &s) bool {
+        dest.states.begin(), dest.states.end(), [f_state](const State &s) bool {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(f_state.id, constants::BASE_SEP);
         });
@@ -121,13 +112,13 @@ std::vector<Transition> Encoder::createCopyTransitionsBetweenTAs(
   return res_transitions;
 }
 
-std::vector<Transition> Encoder::createSuccessorTransitionsBetweenTAs(
+std::vector<Transition> encoderutils::createSuccessorTransitionsBetweenTAs(
     const Automaton &base, const Automaton &source, const Automaton &dest,
     const std::vector<State> &filter, std::string guard, std::string update) {
   std::vector<Transition> res_transitions;
   for (const auto &trans : base.transitions) {
     auto search = std::find_if(
-        filter.begin(), filter.end(), [trans, this](const State &s) bool {
+        filter.begin(), filter.end(), [trans](const State &s) bool {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(trans.source_id, constants::BASE_SEP);
         });
@@ -136,8 +127,7 @@ std::vector<Transition> Encoder::createSuccessorTransitionsBetweenTAs(
           source.states.begin(), source.states.end(),
           [search](const State &s) bool { return s.id == search->id; });
       auto dest_state = std::find_if(
-          dest.states.begin(), dest.states.end(),
-          [trans, this](const State &s) bool {
+          dest.states.begin(), dest.states.end(), [trans](const State &s) bool {
             return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                    Filter::getSuffix(trans.dest_id, constants::BASE_SEP);
           });
@@ -148,15 +138,17 @@ std::vector<Transition> Encoder::createSuccessorTransitionsBetweenTAs(
                        addConstraint(trans.guard, guard),
                        addUpdate(trans.update, update), trans.sync, true));
       }
+    } else {
+      std::cout << "filter not found" << std::endl;
     }
   }
   return res_transitions;
 }
 
-void Encoder::addTrapTransitions(Automaton &ta,
-                                 const std::vector<State> &sources,
-                                 std::string guard, std::string update,
-                                 std::string sync, bool passive) {
+void encoderutils::addTrapTransitions(Automaton &ta,
+                                      const std::vector<State> &sources,
+                                      std::string guard, std::string update,
+                                      std::string sync, bool passive) {
   auto trap =
       std::find_if(ta.states.begin(), ta.states.end(),
                    [](const State &s) bool { return s.name == "trap"; });
@@ -179,7 +171,7 @@ void Encoder::addTrapTransitions(Automaton &ta,
     }
   }
 }
-void Encoder::addBaseSyncs(AutomataSystem &s, const int base_pos) {
+void encoderutils::addBaseSyncs(AutomataSystem &s, const int base_pos) {
   for (auto &trans : s.instances[base_pos].first.transitions) {
     if (trans.sync == "") {
       trans.sync = trans.source_id + BASE_SYNC_CONNECTIVE + trans.dest_id;
@@ -193,8 +185,8 @@ void Encoder::addBaseSyncs(AutomataSystem &s, const int base_pos) {
   }
 }
 
-void Encoder::addInvariants(Automaton &ta, const std::vector<State> filter,
-                            std::string inv) {
+void encoderutils::addInvariants(Automaton &ta, const std::vector<State> filter,
+                                 std::string inv) {
   for (const auto &f_state : filter) {
     auto target = std::find_if(
         ta.states.begin(), ta.states.end(), [f_state](const State &s) bool {
@@ -206,7 +198,8 @@ void Encoder::addInvariants(Automaton &ta, const std::vector<State> filter,
   }
 }
 
-std::string Encoder::toPrefix(std::string op, std::string sub, std::string pa) {
+std::string encoderutils::toPrefix(std::string op, std::string sub,
+                                   std::string pa) {
   std::string res;
   res += pa;
   res.push_back(constants::TL_SEP);
@@ -217,8 +210,8 @@ std::string Encoder::toPrefix(std::string op, std::string sub, std::string pa) {
   return res;
 }
 
-std::string Encoder::addToPrefix(std::string prefix, std::string op,
-                                 std::string sub) {
+std::string encoderutils::addToPrefix(std::string prefix, std::string op,
+                                      std::string sub) {
   std::string res;
   std::string pa_prefix = Filter::getPrefix(prefix, constants::TL_SEP);
   pa_prefix.push_back(constants::TL_SEP);
