@@ -17,6 +17,7 @@
 #include <string>
 #include <time.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace taptenc;
@@ -133,10 +134,8 @@ DirectEncoder createDirectEncoding(
   return enc;
 }
 
-DirectEncoder testUntilChain(AutomataSystem &direct_system,
-                             const vector<PlanAction> plan, ChainInfo &info,
-                             string start_pa, string end_pa) {
-  DirectEncoder enc(direct_system, plan);
+void testUntilChain(DirectEncoder &enc, AutomataSystem &direct_system,
+                    ChainInfo &info, string start_pa, string end_pa) {
   for (auto pa = direct_system.instances[1].first.states.begin();
        pa != direct_system.instances[1].first.states.end(); ++pa) {
     string pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
@@ -154,7 +153,6 @@ DirectEncoder testUntilChain(AutomataSystem &direct_system,
       }
     }
   }
-  return enc;
 }
 
 ModularEncoder

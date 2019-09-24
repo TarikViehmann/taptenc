@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace taptenc {
-class ModularEncoder : Encoder {
+class ModularEncoder {
 
 public:
   void encodeNoOp(AutomataSystem &s, ::std::vector<State> &targets,

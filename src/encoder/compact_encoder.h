@@ -1,11 +1,11 @@
 #pragma once
-#include "encoder.h"
+#include "encoder_utils.h"
 #include "timed_automata.h"
 #include <string>
 #include <vector>
 
 namespace taptenc {
-class CompactEncoder : Encoder {
+class CompactEncoder {
 public:
   void encodeNoOp(AutomataSystem &s, ::std::vector<State> &targets,
                   const ::std::string opsync, int base_index = 0);
