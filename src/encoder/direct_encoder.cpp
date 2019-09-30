@@ -54,8 +54,8 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                    "unique id (id "
                 << pa.id << ")" << std::endl;
     }
-    po_tls.pa_order.push_back(pa.id);
-    auto emp_tl = po_tls.tls.emplace(std::make_pair(pa.id, tl));
+    po_tls.pa_order.get()->push_back(pa.id);
+    auto emp_tl = po_tls.tls->emplace(std::make_pair(pa.id, tl));
     if (emp_tl.second == false) {
       std::cout << "DirectEncoder generateBaseTimeLine: plan action timeline "
                    "already present (pa "
@@ -69,7 +69,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   query_ta.states.push_back(State(constants::QUERY, ""));
   query_tl.emplace(std::make_pair(
       constants::QUERY, TlEntry(query_ta, std::vector<Transition>())));
-  auto emp_tl = po_tls.tls.emplace(std::make_pair(constants::QUERY, query_tl));
+  auto emp_tl = po_tls.tls->emplace(std::make_pair(constants::QUERY, query_tl));
   if (emp_tl.second == false) {
     std::cout << "DirectEncoder generateBaseTimeLine: query timeline "
                  "already present (no plan action can be named query) "
@@ -77,7 +77,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   }
   // make transitions from last plan actions to query
   for (auto &last_tl :
-       po_tls.tls.find(s.instances[plan_index].first.states.back().id)
+       po_tls.tls->find(s.instances[plan_index].first.states.back().id)
            ->second) {
     for (auto &s : last_tl.second.ta.states) {
       last_tl.second.trans_out.push_back(
@@ -86,37 +86,36 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   }
   // generate connections between TLs according to plan TA transitions
   for (const auto &pa_trans : s.instances[plan_index].first.transitions) {
-    auto source_ta = po_tls.tls.find(pa_trans.source_id);
-    auto dest_ta = po_tls.tls.find(pa_trans.dest_id);
-    if (source_ta != po_tls.tls.end() && dest_ta != po_tls.tls.end()) {
+    auto source_ta = po_tls.tls->find(pa_trans.source_id);
+    auto dest_ta = po_tls.tls->find(pa_trans.dest_id);
+    if (source_ta != po_tls.tls->end() && dest_ta != po_tls.tls->end()) {
       std::string source_ta_prefix = toPrefix("", "", pa_trans.source_id);
       std::string dest_ta_prefix = toPrefix("", "", pa_trans.dest_id);
-      std::cout << "here start" << std::endl;
       std::vector<Transition> succ_trans = createSuccessorTransitionsBetweenTAs(
           s.instances[base_index].first,
           source_ta->second.find(source_ta_prefix)->second.ta,
           dest_ta->second.find(dest_ta_prefix)->second.ta,
           source_ta->second.find(source_ta_prefix)->second.ta.states,
           pa_trans.guard, pa_trans.update);
-      std::cout << "here end" << std::endl;
       std::vector<Transition> copy_trans = createCopyTransitionsBetweenTAs(
           source_ta->second.find(source_ta_prefix)->second.ta,
           dest_ta->second.find(dest_ta_prefix)->second.ta,
           source_ta->second.find(source_ta_prefix)->second.ta.states,
           pa_trans.guard, pa_trans.update, "");
-      po_tls.tls[pa_trans.source_id]
-          .find(source_ta_prefix)
-          ->second.trans_out.insert(po_tls.tls[pa_trans.source_id]
-                                        .find(source_ta_prefix)
+      po_tls.tls.get()
+          ->find(pa_trans.source_id)
+          ->second.find(source_ta_prefix)
+          ->second.trans_out.insert(po_tls.tls.get()
+                                        ->find(pa_trans.source_id)
+                                        ->second.find(source_ta_prefix)
                                         ->second.trans_out.end(),
                                     copy_trans.begin(), copy_trans.end());
-      for (auto suc : succ_trans) {
-        std::cout << suc.source_id << " -> " << suc.dest_id << std::endl;
-      }
-      po_tls.tls[pa_trans.source_id]
-          .find(source_ta_prefix)
-          ->second.trans_out.insert(po_tls.tls[pa_trans.source_id]
-                                        .find(source_ta_prefix)
+      po_tls.tls.get()
+          ->find(pa_trans.source_id)
+          ->second.find(source_ta_prefix)
+          ->second.trans_out.insert(po_tls.tls.get()
+                                        ->find(pa_trans.source_id)
+                                        ->second.find(source_ta_prefix)
                                         ->second.trans_out.end(),
                                     succ_trans.begin(), succ_trans.end());
     } else {
@@ -224,20 +223,22 @@ void DirectEncoder::encodeInvariant(AutomataSystem &,
                                     const std::vector<State> &targets,
                                     const std::string pa) {
   Filter target_filter = Filter(targets);
-  auto search_tl = po_tls.tls.find(pa);
-  if (search_tl != po_tls.tls.end()) {
-    auto search_pa =
-        std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), pa);
-    if (search_pa == po_tls.pa_order.end()) {
+  auto search_tl = po_tls.tls->find(pa);
+  if (search_tl != po_tls.tls->end()) {
+    auto search_pa = std::find(po_tls.pa_order.get()->begin(),
+                               po_tls.pa_order.get()->end(), pa);
+    if (search_pa == po_tls.pa_order.get()->end()) {
       std::cout << "DirectEncoder encodeInvariant: could not find pa " << pa
                 << std::endl;
       return;
     }
     // restrict transitions from prev tl to target states
-    if (search_pa - po_tls.pa_order.begin() > 0) {
+    if (search_pa - po_tls.pa_order.get()->begin() > 0) {
       for (auto &prev_tl_entry :
-           po_tls
-               .tls[po_tls.pa_order[search_pa - po_tls.pa_order.begin() - 1]]) {
+           po_tls.tls.get()
+               ->find(po_tls.pa_order.get()->at(
+                   search_pa - po_tls.pa_order.get()->begin() - 1))
+               ->second) {
         target_filter.filterTransitionsInPlace(prev_tl_entry.second.trans_out,
                                                pa, false);
       }
@@ -258,20 +259,22 @@ void DirectEncoder::encodeNoOp(AutomataSystem &,
                                const std::vector<State> &targets,
                                const std::string pa) {
   Filter target_filter = Filter(targets);
-  auto search_tl = po_tls.tls.find(pa);
-  if (search_tl != po_tls.tls.end()) {
-    auto search_pa =
-        std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), pa);
-    if (search_pa == po_tls.pa_order.end()) {
+  auto search_tl = po_tls.tls->find(pa);
+  if (search_tl != po_tls.tls->end()) {
+    auto search_pa = std::find(po_tls.pa_order.get()->begin(),
+                               po_tls.pa_order.get()->end(), pa);
+    if (search_pa == po_tls.pa_order.get()->end()) {
       std::cout << "DirectEncoder encodeNoOp: could not find pa " << pa
                 << std::endl;
       return;
     }
     // restrict transitions from prev tl to target states
-    if (search_pa - po_tls.pa_order.begin() > 0) {
+    if (search_pa - po_tls.pa_order.get()->begin() > 0) {
       for (auto &prev_tl_entry :
-           po_tls
-               .tls[po_tls.pa_order[search_pa - po_tls.pa_order.begin() - 1]]) {
+           po_tls.tls.get()
+               ->find(po_tls.pa_order.get()->at(
+                   search_pa - po_tls.pa_order.get()->begin() - 1))
+               ->second) {
         target_filter.filterTransitionsInPlace(prev_tl_entry.second.trans_out,
                                                pa, false);
       }
@@ -296,15 +299,16 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
       s.globals.clocks.end()) {
     s.globals.clocks.push_back(clock);
   }
-  auto start_pa_entry =
-      std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), start_pa);
-  if (start_pa_entry == po_tls.pa_order.end()) {
+  auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
+                                  po_tls.pa_order.get()->end(), start_pa);
+  if (start_pa_entry == po_tls.pa_order.get()->end()) {
     std::cout << "DirectEncoder encodeUntilChain: could not find start pa "
               << start_pa << std::endl;
     return;
   }
-  auto end_pa_entry = std::find(start_pa_entry, po_tls.pa_order.end(), end_pa);
-  if (end_pa_entry == po_tls.pa_order.end()) {
+  auto end_pa_entry =
+      std::find(start_pa_entry, po_tls.pa_order.get()->end(), end_pa);
+  if (end_pa_entry == po_tls.pa_order.get()->end()) {
     std::cout << "DirectEncoder encodeUntilChain: could not find end pa "
               << end_pa << std::endl;
     return;
@@ -312,25 +316,39 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
   int lb_acc = 0;
   int ub_acc = 0;
   // TLs before encoding the Until Chain
-  PlanOrderedTLs orig_tls = po_tls;
+  PlanOrderedTLs orig_tls;
   // TLs of the current window
-  PlanOrderedTLs curr_window = po_tls;
+  PlanOrderedTLs curr_window;
   // TL of the previous window
   PlanOrderedTLs prev_window;
+  for (const auto &tl : *(po_tls.tls.get())) {
+    orig_tls.tls.get()->emplace(tl);
+    curr_window.tls.get()->emplace(tl);
+  }
+  for (const auto &pa : *(po_tls.pa_order.get())) {
+    orig_tls.pa_order.get()->push_back(pa);
+    curr_window.pa_order.get()->push_back(pa);
+    prev_window.pa_order.get()->push_back(pa);
+  }
+
   // maps to obtain the original tl entry id given the prefix of
   // current/previous window prefix id
   OrigMap prev_to_orig;
   OrigMap curr_to_orig;
   // delete all tls form the until chain
-  for (auto window_pa = start_pa_entry; window_pa - po_tls.pa_order.begin() <
-                                        end_pa_entry - po_tls.pa_order.begin();
+  for (auto window_pa = start_pa_entry;
+       window_pa - po_tls.pa_order.get()->begin() <
+       end_pa_entry - po_tls.pa_order.get()->begin();
        ++window_pa) {
-    po_tls.tls[*window_pa].clear();
+    po_tls.tls.get()->find(*window_pa)->second.clear();
+  }
+  if (end_pa == constants::END_PA) {
+    po_tls.tls.get()->find(*end_pa_entry)->second.clear();
   }
   std::string prev_window_guard_constraint_sat = "";
   std::string guard_constraint_sat = "";
   // init curr_to_orig
-  for (const auto &pa_tl : orig_tls.tls) {
+  for (const auto &pa_tl : *(orig_tls.tls.get())) {
     for (const auto &pa_entry : pa_tl.second) {
       curr_to_orig[pa_entry.first] = pa_entry.first;
     }
@@ -339,11 +357,11 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
   for (auto specs = info.specs_list.begin(); specs != info.specs_list.end();
        ++specs) {
     // init round by backing up data from the previous round
-    prev_window = curr_window;
+    prev_window.tls = std::move(curr_window.tls);
     prev_window_guard_constraint_sat = guard_constraint_sat;
     prev_to_orig = curr_to_orig;
     curr_to_orig.clear();
-    curr_window.tls.clear();
+    // curr_window.tls->clear();
     // determine context (window begin and end)
     std::pair<int, int> context =
         calculateContext(*specs, start_pa, end_pa, true, lb_acc, ub_acc);
@@ -351,8 +369,10 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     ub_acc = safeAddition(ub_acc, specs->bounds.upper_bound);
     std::size_t context_start = context.first;
     std::size_t context_end = context.first + context.second;
-    std::string context_pa_start = *(po_tls.pa_order.begin() + context_start);
-    std::string context_pa_end = *(po_tls.pa_order.begin() + context_end);
+    std::string context_pa_start =
+        *(po_tls.pa_order.get()->begin() + context_start);
+    std::string context_pa_end =
+        *(po_tls.pa_order.get()->begin() + context_end);
     // formulate constraints based on the given bounds
     bool upper_bounded =
         (specs->bounds.upper_bound != std::numeric_limits<int>::max());
@@ -383,8 +403,9 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     if (specs == info.specs_list.begin()) {
       // connect TL before start pa to the first window
       if (context_start > 0) {
-        std::string prev_pa = *(po_tls.pa_order.begin() + context_start - 1);
-        for (auto &prev_pa_entry : po_tls.tls[prev_pa]) {
+        std::string prev_pa =
+            *(po_tls.pa_order.get()->begin() + context_start - 1);
+        for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
           PlanOrderedTLs::modifyTransitionsToNextTl(
               prev_pa_entry.second.trans_out, prev_pa_entry.first,
               target_filter.getFilter(), "", clock + " = 0", "", op_name);
@@ -397,38 +418,45 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     to_orig.insert(curr_to_orig.begin(), curr_to_orig.end());
 
     prev_window.createTransitionsToWindow(
-        s.instances[base_index].first, curr_window.tls, to_orig,
+        s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
         context_pa_start, context_pa_end, base_filter,
         prev_window_guard_constraint_sat, clock + " = 0");
     // add transitions back to original TLs
     if (specs + 1 == info.specs_list.end()) {
-      std::string last_pa = *(po_tls.pa_order.begin() + context_end);
+      std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
       PlanOrderedTLs::addOutgoingTransOfOrigTL(
-          orig_tls.tls[last_pa], curr_window.tls[last_pa], curr_to_orig,
+          orig_tls.tls.get()->find(last_pa)->second,
+          curr_window.tls.get()->find(last_pa)->second, curr_to_orig,
           guard_constraint_sat);
     }
     // merge a window once it is done (this is, when outgoing transitions to the
     // next window are added)
     if (specs != info.specs_list.begin()) {
-      po_tls.mergeWindow(prev_window.tls, true);
+      po_tls.mergeWindow(*(prev_window.tls.get()), true);
     }
   }
   // merge the last window
-  po_tls.mergeWindow(curr_window.tls, true);
+  po_tls.mergeWindow(*(curr_window.tls.get()), true);
 }
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                                  const UnaryInfo &info, int base_index) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
-  auto start_pa_entry =
-      std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), pa);
-  if (start_pa_entry == po_tls.pa_order.end()) {
+  auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
+                                  po_tls.pa_order.get()->end(), pa);
+  if (start_pa_entry == po_tls.pa_order.get()->end()) {
     std::cout << "DirectEncoder encodeFuture: could not find start pa " << pa
               << std::endl;
     return;
   }
   // TLs of the current window
-  PlanOrderedTLs curr_window = po_tls;
+  PlanOrderedTLs curr_window;
+  for (const auto &tl : *(po_tls.tls.get())) {
+    curr_window.tls.get()->emplace(tl);
+  }
+  for (const auto &pa : *(po_tls.pa_order.get())) {
+    curr_window.pa_order.get()->push_back(pa);
+  }
   // maps to obtain the original tl entry id given the prefix of
   // new window prefix id
   std::string guard_constraint_sat = "";
@@ -440,10 +468,12 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "");
   std::size_t context_start = context.first;
-  std::size_t constraint_start = start_pa_entry - po_tls.pa_order.begin();
+  std::size_t constraint_start =
+      start_pa_entry - po_tls.pa_order.get()->begin();
   std::size_t context_end = context.first + context.second;
-  std::string context_pa_start = *(po_tls.pa_order.begin() + context_start);
-  std::string context_pa_end = *(po_tls.pa_order.begin() + context_end);
+  std::string context_pa_start =
+      *(po_tls.pa_order.get()->begin() + context_start);
+  std::string context_pa_end = *(po_tls.pa_order.get()->begin() + context_end);
   // formulate constraints based on the given bounds
   bool upper_bounded =
       (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
@@ -466,8 +496,9 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                                     base_filter, op_name);
   // creset clock upon entering context range
   if (constraint_start > 0) {
-    std::string prev_pa = *(po_tls.pa_order.begin() + constraint_start - 1);
-    for (auto &prev_pa_entry : po_tls.tls[prev_pa]) {
+    std::string prev_pa =
+        *(po_tls.pa_order.get()->begin() + constraint_start - 1);
+    for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
           prev_pa_entry.second.trans_out, prev_pa_entry.first,
           target_filter.getFilter(), "", clock + " = 0", "");
@@ -482,24 +513,26 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
         clock + info.specs.bounds.r_op +
             std::to_string(info.specs.bounds.upper_bound));
   }
-  po_tls.createTransitionsToWindow(
-      s.instances[base_index].first, curr_window.tls, to_orig, context_pa_start,
-      context_pa_end, target_filter, guard_constraint_sat, "");
-  std::string last_pa = *(po_tls.pa_order.begin() + context_end);
+  po_tls.createTransitionsToWindow(s.instances[base_index].first,
+                                   *(curr_window.tls.get()), to_orig,
+                                   context_pa_start, context_pa_end,
+                                   target_filter, guard_constraint_sat, "");
+  std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
-      po_tls.tls[last_pa], curr_window.tls[last_pa], to_orig, "");
-  for (auto &tl_entry : po_tls.tls[last_pa]) {
+      po_tls.tls.get()->find(last_pa)->second,
+      curr_window.tls.get()->find(last_pa)->second, to_orig, "");
+  for (auto &tl_entry : po_tls.tls.get()->find(last_pa)->second) {
     PlanOrderedTLs::removeTransitionsToNextTl(tl_entry.second.trans_out,
                                               last_pa);
   }
-  po_tls.mergeWindow(curr_window.tls, true);
+  po_tls.mergeWindow(*(curr_window.tls.get()), true);
 }
 
 void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
                                 const BinaryInfo &info, int base_index) {
-  auto start_pa_entry =
-      std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), pa);
-  if (start_pa_entry == po_tls.pa_order.end()) {
+  auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
+                                  po_tls.pa_order.get()->end(), pa);
+  if (start_pa_entry == po_tls.pa_order.get()->end()) {
     std::cout << "DirectEncoder encodeUntil: could not find start pa " << pa
               << std::endl;
     return;
@@ -510,11 +543,12 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "", true);
   std::size_t context_end = context.first + context.second;
-  std::size_t constraint_start = start_pa_entry - po_tls.pa_order.begin();
+  std::size_t constraint_start =
+      start_pa_entry - po_tls.pa_order.get()->begin();
   encodeFuture(s, pa, info.toUnary(), base_index);
   for (size_t i = constraint_start; i <= context_end; i++) {
-    auto pa_tl = po_tls.tls.find(*(po_tls.pa_order.begin() + i));
-    if (pa_tl != po_tls.tls.end()) {
+    auto pa_tl = po_tls.tls->find(*(po_tls.pa_order.get()->begin() + i));
+    if (pa_tl != po_tls.tls->end()) {
       for (auto &tl_entry : pa_tl->second) {
         if (to_orig[tl_entry.first] != "") {
           pre_target_filter.filterAutomatonInPlace(tl_entry.second.ta, "");
@@ -525,9 +559,10 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
     }
   }
   if (constraint_start > 0) {
-    std::string prev_pa = *(po_tls.pa_order.begin() + constraint_start - 1);
-    auto prev_tl = po_tls.tls.find(prev_pa);
-    if (prev_tl != po_tls.tls.end()) {
+    std::string prev_pa =
+        *(po_tls.pa_order.get()->begin() + constraint_start - 1);
+    auto prev_tl = po_tls.tls->find(prev_pa);
+    if (prev_tl != po_tls.tls->end()) {
       for (auto &prev_entry : prev_tl->second) {
         pre_target_filter.filterTransitionsInPlace(prev_entry.second.trans_out,
                                                    pa, false);
@@ -542,15 +577,21 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
 void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
                                const UnaryInfo &info, int base_index) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
-  auto start_pa_entry =
-      std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), pa);
-  if (start_pa_entry == po_tls.pa_order.end()) {
+  auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
+                                  po_tls.pa_order.get()->end(), pa);
+  if (start_pa_entry == po_tls.pa_order.get()->end()) {
     std::cout << "DirectEncoder encodePast: could not find start pa " << pa
               << std::endl;
     return;
   }
   // TLs of the current window
-  PlanOrderedTLs curr_window = po_tls;
+  PlanOrderedTLs curr_window;
+  for (const auto &tl : *(po_tls.tls.get())) {
+    curr_window.tls.get()->emplace(tl);
+  }
+  for (const auto &pa : *(po_tls.pa_order.get())) {
+    curr_window.pa_order.get()->push_back(pa);
+  }
   // maps to obtain the original tl entry id given the prefix of
   // new window prefix id
   std::string guard_constraint_sat = "";
@@ -562,11 +603,14 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "", false);
   std::size_t context_end = context.first;
-  std::size_t constraint_end = start_pa_entry - po_tls.pa_order.begin() - 1;
+  std::size_t constraint_end =
+      start_pa_entry - po_tls.pa_order.get()->begin() - 1;
   std::size_t context_start = context.first + context.second;
-  std::string context_pa_start = *(po_tls.pa_order.begin() + context_start);
-  std::string context_pa_end = *(po_tls.pa_order.begin() + context_end);
-  std::string constraint_end_pa = *(po_tls.pa_order.begin() + constraint_end);
+  std::string context_pa_start =
+      *(po_tls.pa_order.get()->begin() + context_start);
+  std::string context_pa_end = *(po_tls.pa_order.get()->begin() + context_end);
+  std::string constraint_end_pa =
+      *(po_tls.pa_order.get()->begin() + constraint_end);
   // formulate constraints based on the given bounds
   bool upper_bounded =
       (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
@@ -593,7 +637,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   if (upper_bounded) {
     if (context_end < constraint_end) {
       std::string past_context_pa =
-          *(po_tls.pa_order.begin() + context_end + 1);
+          *(po_tls.pa_order.get()->begin() + context_end + 1);
       po_tls.addStateInvariantToWindow(
           past_context_pa, constraint_end_pa,
           clock + info.specs.bounds.r_op +
@@ -601,21 +645,22 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
     }
   }
   po_tls.createTransitionsToWindow(
-      s.instances[base_index].first, curr_window.tls, to_orig, context_pa_start,
-      context_pa_end, target_filter, "", clock + " = 0");
-  std::string last_pa = *(po_tls.pa_order.begin() + context_end);
+      s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
+      context_pa_start, context_pa_end, target_filter, "", clock + " = 0");
+  std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
-      po_tls.tls[last_pa], curr_window.tls[last_pa], to_orig, "");
-  for (auto &tl_entry : po_tls.tls[last_pa]) {
+      po_tls.tls.get()->find(last_pa)->second,
+      curr_window.tls.get()->find(last_pa)->second, to_orig, "");
+  for (auto &tl_entry : po_tls.tls.get()->find(last_pa)->second) {
     PlanOrderedTLs::removeTransitionsToNextTl(tl_entry.second.trans_out,
                                               last_pa);
   }
   if (lower_bounded) {
     TimeLine *last_tl;
     if (context_end < constraint_end) {
-      last_tl = &(po_tls.tls[constraint_end_pa]);
+      last_tl = &(po_tls.tls.get()->find(constraint_end_pa)->second);
     } else {
-      last_tl = &(curr_window.tls[constraint_end_pa]);
+      last_tl = &(curr_window.tls.get()->find(constraint_end_pa)->second);
     }
     for (auto &last_entry : *last_tl) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
@@ -623,14 +668,14 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
           target_filter.getFilter(), guard_constraint_sat, "", "");
     }
   }
-  po_tls.mergeWindow(curr_window.tls, true);
+  po_tls.mergeWindow(*(curr_window.tls.get()), true);
 }
 
 void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
                                 const BinaryInfo &info, int base_index) {
-  auto start_pa_entry =
-      std::find(po_tls.pa_order.begin(), po_tls.pa_order.end(), pa);
-  if (start_pa_entry == po_tls.pa_order.end()) {
+  auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
+                                  po_tls.pa_order.get()->end(), pa);
+  if (start_pa_entry == po_tls.pa_order.get()->end()) {
     std::cout << "DirectEncoder encodeSince: could not find start pa " << pa
               << std::endl;
     return;
@@ -642,12 +687,13 @@ void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
   std::pair<int, int> context = calculateContext(info.specs, pa, "", false);
   std::size_t context_start = context.first + context.second;
   std::size_t context_end = context.first;
-  std::size_t constraint_end = start_pa_entry - po_tls.pa_order.begin() - 1;
+  std::size_t constraint_end =
+      start_pa_entry - po_tls.pa_order.get()->begin() - 1;
   encodePast(s, pa, info.toUnary(), base_index);
   // Ensure the TA stays in the pre_target state until activation pa is reached
   for (size_t i = context_start; i <= constraint_end; i++) {
-    auto pa_tl = po_tls.tls.find(*(po_tls.pa_order.begin() + i));
-    if (pa_tl != po_tls.tls.end()) {
+    auto pa_tl = po_tls.tls->find(*(po_tls.pa_order.get()->begin() + i));
+    if (pa_tl != po_tls.tls->end()) {
       for (auto &tl_entry : pa_tl->second) {
         // inside the context window the past operator adds a new tl
         // representing that the target states were reached, this is when we
@@ -686,9 +732,9 @@ void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
     }
   }
   if (context_start > 0) {
-    std::string prev_pa = *(po_tls.pa_order.begin() + context_start - 1);
-    auto prev_tl = po_tls.tls.find(prev_pa);
-    if (prev_tl != po_tls.tls.end()) {
+    std::string prev_pa = *(po_tls.pa_order.get()->begin() + context_start - 1);
+    auto prev_tl = po_tls.tls->find(prev_pa);
+    if (prev_tl != po_tls.tls->end()) {
       for (auto &prev_entry : prev_tl->second) {
         pre_target_filter.filterTransitionsInPlace(prev_entry.second.trans_out,
                                                    pa, false);
@@ -704,12 +750,12 @@ size_t DirectEncoder::getPlanTAIndex() { return plan_ta_index; }
 
 AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
                                                 SystemVisInfo &s_vis) {
-  s_vis = SystemVisInfo(po_tls.tls, s.instances[plan_ta_index].first.states);
+  s_vis = SystemVisInfo(*(po_tls.tls.get()), *(po_tls.pa_order.get()));
   AutomataSystem res = s;
   res.instances.clear();
   std::vector<Automaton> automata;
   std::vector<Transition> interconnections;
-  for (const auto &curr_tl : po_tls.tls) {
+  for (const auto &curr_tl : *(po_tls.tls.get())) {
     for (const auto &curr_copy : curr_tl.second) {
       automata.push_back(curr_copy.second.ta);
       interconnections.insert(interconnections.end(),

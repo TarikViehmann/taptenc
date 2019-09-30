@@ -6,6 +6,7 @@
 #include "utils.h"
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -13,21 +14,21 @@
 #define CONTEXT 2
 
 using namespace taptenc;
-void PlanOrderedTLs::printTLs() {
+void PlanOrderedTLs::printTLs() const {
   std::cout << std::endl;
-  for (const auto &pa : pa_order) {
-    const auto &entry = tls.find(pa);
-    if (entry != tls.end()) {
+  for (const auto &pa : *(pa_order.get())) {
+    const auto &entry = tls.get()->find(pa);
+    if (entry != tls.get()->end()) {
       std::cout << "TL: " << entry->first << std::endl;
       for (const auto &ta : entry->second) {
         std::cout << "    TA: " << ta.first << std::endl;
       }
     }
   }
-  for (const auto &entry : tls) {
+  for (const auto &entry : *(tls.get())) {
     const auto &search =
-        std::find(pa_order.begin(), pa_order.end(), entry.first);
-    if (search == pa_order.end()) {
+        std::find(pa_order.get()->begin(), pa_order.get()->end(), entry.first);
+    if (search == pa_order.get()->end()) {
       std::cout << "extra TL: " << entry.first << std::endl;
       for (const auto &ta : entry.second) {
         std::cout << "\t TA: " << ta.first << std::endl;
@@ -39,7 +40,7 @@ void PlanOrderedTLs::printTLs() {
 
 OrigMap PlanOrderedTLs::createOrigMapping(std::string prefix) const {
   OrigMap res;
-  for (const auto &curr_tl : tls) {
+  for (const auto &curr_tl : *(tls.get())) {
     for (const auto &tl_entry : curr_tl.second) {
       if (tl_entry.second.ta.prefix == constants::QUERY) {
         continue;
@@ -59,24 +60,27 @@ PlanOrderedTLs PlanOrderedTLs::createWindow(std::string start_pa,
                                             const Filter &target_filter,
                                             std::string prefix_add) const {
   PlanOrderedTLs new_window;
-  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
-  if (start_pa_entry == pa_order.end()) {
+  auto start_pa_entry =
+      std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
+  if (start_pa_entry == pa_order.get()->end()) {
     std::cout << "PlanOrderedTLs createWindow: could not find start pa "
               << start_pa << std::endl;
     return new_window;
   }
-  auto end_pa_entry = std::find(start_pa_entry, pa_order.end(), end_pa);
-  if (end_pa_entry == pa_order.end()) {
+  auto end_pa_entry = std::find(start_pa_entry, pa_order.get()->end(), end_pa);
+  if (end_pa_entry == pa_order.get()->end()) {
     std::cout << "PlanOrderedTLs createWindow: could not find end pa " << end_pa
+              << std::endl;
+    std::cout << "PlanOrderedTLs createWindow: prefix add" << prefix_add
               << std::endl;
     return new_window;
   }
-  std::size_t context_start = start_pa_entry - pa_order.begin();
-  std::size_t context_end = end_pa_entry - pa_order.begin();
-  auto curr_tl = tls.find(*(pa_order.begin() + context_start));
+  std::size_t context_start = start_pa_entry - pa_order.get()->begin();
+  std::size_t context_end = end_pa_entry - pa_order.get()->begin();
+  auto curr_tl = tls.get()->find(*(pa_order.get()->begin() + context_start));
   std::string op_name =
       Filter::getPrefix(prefix_add, constants::CONSTRAINT_SEP);
-  if (curr_tl != tls.end()) {
+  if (curr_tl != tls.get()->end()) {
     // iterate over orig TLs of window
     int tls_copied = 0;
     while (context_start + tls_copied <= context_end) {
@@ -93,6 +97,7 @@ PlanOrderedTLs PlanOrderedTLs::createWindow(std::string start_pa,
         if (tls_copied + context_start < context_end) {
           cp_to_other_cp =
               addToPrefixOnTransitions(tl_entry.second.trans_out, op_name);
+          target_filter.filterTransitionsInPlace(cp_to_other_cp, "", false);
         } else {
           cp_to_other_cp = addToPrefixOnTransitions(tl_entry.second.trans_out,
                                                     op_name, true, false);
@@ -107,27 +112,31 @@ PlanOrderedTLs PlanOrderedTLs::createWindow(std::string start_pa,
       }
       // insert the new tls and also save them in the curr_window
       for (const auto &new_tl : new_tls) {
-        new_window.tls[Filter::getPrefix(new_tl.first, constants::TL_SEP)]
+        (*new_window.tls
+              .get())[Filter::getPrefix(new_tl.first, constants::TL_SEP)]
             .emplace(new_tl);
       }
       tls_copied++;
-      if (context_start + tls_copied < pa_order.size()) {
-        curr_tl = tls.find(pa_order[context_start + tls_copied]);
-        if (curr_tl == tls.end()) {
+      if (context_start + tls_copied < pa_order.get()->size()) {
+        curr_tl =
+            tls.get()->find(pa_order.get()->at(context_start + tls_copied));
+        if (curr_tl == tls.get()->end()) {
           std::cout << "PlanOrderedTLs createWindow: cannot find next tl"
                     << std::endl;
         }
       } else {
-        curr_tl = tls.end();
+        curr_tl = tls.get()->end();
       }
     }
   } else {
     std::cout << "PlanOrderedTLs createWindow: done cannot find start tl. "
                  "prefix "
               << prefix_add << " context start pa "
-              << *(pa_order.begin() + context_start) << std::endl;
+              << *(pa_order.get()->begin() + context_start) << std::endl;
   }
-  new_window.pa_order = pa_order;
+  for (const auto &pa : *(pa_order.get())) {
+    new_window.pa_order.get()->push_back(pa);
+  }
   return new_window;
 }
 
@@ -136,26 +145,28 @@ void PlanOrderedTLs::createTransitionsToWindow(
     const std::unordered_map<std::string, std::string> &map_to_orig,
     std::string start_pa, std::string end_pa, const Filter &target_filter,
     std::string guard, std::string update) {
-  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
-  if (start_pa_entry == pa_order.end()) {
+  auto start_pa_entry =
+      std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
+  if (start_pa_entry == pa_order.get()->end()) {
     std::cout << "PlanOrderedTLs createTransitionsBetweenWindows: could not "
                  "find start pa "
               << start_pa << std::endl;
     return;
   }
-  auto end_pa_entry = std::find(start_pa_entry, pa_order.end(), end_pa);
-  if (end_pa_entry == pa_order.end()) {
+  auto end_pa_entry = std::find(start_pa_entry, pa_order.get()->end(), end_pa);
+  if (end_pa_entry == pa_order.get()->end()) {
     std::cout << "PlanOrderedTLs createTransitionsBetweenWindows: could not "
                  "find end pa "
               << end_pa << std::endl;
     return;
   }
-  std::size_t context_start = start_pa_entry - pa_order.begin();
-  std::size_t context_end = end_pa_entry - pa_order.begin();
-  auto source_tl = tls.find(*(pa_order.begin() + context_start));
+  std::size_t context_start = start_pa_entry - pa_order.get()->begin();
+  std::size_t context_end = end_pa_entry - pa_order.get()->begin();
+  auto source_tl = tls.get()->find(*(pa_order.get()->begin() + context_start));
   int i = 0;
-  while (context_start + i <= context_end && source_tl != tls.end()) {
-    auto dest_tl = dest_tls.find(*(pa_order.begin() + context_start + i));
+  while (context_start + i <= context_end && source_tl != tls.get()->end()) {
+    auto dest_tl =
+        dest_tls.find(*(pa_order.get()->begin() + context_start + i));
     if (dest_tl != dest_tls.end()) {
       for (auto &source_entry : source_tl->second) {
         auto dest_entry = std::find_if(
@@ -189,8 +200,9 @@ void PlanOrderedTLs::createTransitionsToWindow(
       }
     }
     i++;
-    if (context_start + i < pa_order.size()) {
-      source_tl = tls.find(*(pa_order.begin() + context_start + i));
+    if (context_start + i < pa_order.get()->size()) {
+      source_tl =
+          tls.get()->find(*(pa_order.get()->begin() + context_start + i));
     } else {
       break;
     }
@@ -199,9 +211,9 @@ void PlanOrderedTLs::createTransitionsToWindow(
 
 void PlanOrderedTLs::mergeWindow(const TimeLines &to_add, bool overwrite) {
   for (const auto &tl : to_add) {
-    auto dest_tl = tls.find(tl.first);
-    if (dest_tl == tls.end()) {
-      tls.insert(tl);
+    auto dest_tl = tls.get()->find(tl.first);
+    if (dest_tl == tls.get()->end()) {
+      tls.get()->insert(tl);
     } else {
       for (const auto &tl_entry : tl.second) {
         auto dest_tl_entry = dest_tl->second.find(tl_entry.first);
@@ -319,27 +331,28 @@ void PlanOrderedTLs::removeTransitionsToNextTl(std::vector<Transition> &trans,
 void PlanOrderedTLs::addStateInvariantToWindow(std::string start_pa,
                                                std::string end_pa,
                                                std::string inv) {
-  auto start_pa_entry = std::find(pa_order.begin(), pa_order.end(), start_pa);
-  if (start_pa_entry == pa_order.end()) {
+  auto start_pa_entry =
+      std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
+  if (start_pa_entry == pa_order.get()->end()) {
     std::cout
         << "PlanOrderedTLs addStateInvariantToWindow: could not find start pa "
         << start_pa << std::endl;
     return;
   }
-  auto end_pa_entry = std::find(start_pa_entry, pa_order.end(), end_pa);
-  if (end_pa_entry == pa_order.end()) {
+  auto end_pa_entry = std::find(start_pa_entry, pa_order.get()->end(), end_pa);
+  if (end_pa_entry == pa_order.get()->end()) {
     std::cout
         << "PlanOrderedTLs addStateInvariantToWindow: could not find end pa "
         << end_pa << std::endl;
     return;
   }
-  size_t curr_pa_index = start_pa_entry - pa_order.begin();
-  size_t end_pa_index = end_pa_entry - pa_order.begin();
+  size_t curr_pa_index = start_pa_entry - pa_order.get()->begin();
+  size_t end_pa_index = end_pa_entry - pa_order.get()->begin();
   while (curr_pa_index <= end_pa_index) {
-    auto curr_tl = tls.find(*(pa_order.begin() + curr_pa_index));
-    if (curr_tl == tls.end()) {
+    auto curr_tl = tls.get()->find(*(pa_order.get()->begin() + curr_pa_index));
+    if (curr_tl == tls.get()->end()) {
       std::cout << "PlanOrderedTLs addStateInvariantToWindow: TLs for pa "
-                << *(pa_order.begin() + curr_pa_index) << " not found"
+                << *(pa_order.get()->begin() + curr_pa_index) << " not found"
                 << std::endl;
       break;
     }

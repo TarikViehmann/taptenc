@@ -1,6 +1,7 @@
 #pragma once
 #include "filter.h"
 #include "timed_automata.h"
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -9,8 +10,9 @@ namespace taptenc {
 typedef ::std::unordered_map<::std::string, ::std::string> OrigMap;
 class PlanOrderedTLs {
 public:
-  TimeLines tls;
-  ::std::vector<::std::string> pa_order;
+  ::std::unique_ptr<TimeLines> tls = ::std::make_unique<TimeLines>();
+  ::std::unique_ptr<::std::vector<::std::string>> pa_order =
+      ::std::make_unique<::std::vector<::std::string>>();
 
   /*
    * add an invariant to all states within a window in the timelines
@@ -141,6 +143,6 @@ public:
   /* prints the content of tls to std::cout, sorted by plan order.
    * TimeLines where the key does not match a plan action are listed afterwads
    */
-  void printTLs();
+  void printTLs() const;
 };
 } // end namespace taptenc
