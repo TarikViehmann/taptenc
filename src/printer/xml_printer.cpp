@@ -15,7 +15,7 @@ std::string XMLPrinter::toString(const State &s,
       << pos.second << "\">";
   if (s.name != "") {
     res << "<name x=\"" << pos.first << "\" y=\"" << pos.second - 20 << "\">"
-        << s.name << "</name>";
+        << s.id << "</name>";
   }
   if (s.inv != "") {
     res << "<label kind=\"invariant\" x=\"" << pos.first << "\" y=\""
