@@ -14,7 +14,9 @@ exes := # Executables to build.
 #objects.my_benchmark = my_benchmark.o filter.o utils.o compact_encoder.o modular_encoder.o direct_encoder.o encoder.o constraints.o vis_info.o xta_printer.o xml_printer.o timed_automata.o
 
 exes += rcll_perception
-objects.rcll_perception = rcll_perception.o utap_trace_parser.o filter.o utils.o compact_encoder.o modular_encoder.o direct_encoder.o encoder.o constraints.o vis_info.o xta_printer.o xml_printer.o timed_automata.o plan_ordered_tls.o
+objects.rcll_perception = $(notdir $(wildcard ${LIB_DIR}/*.o))
+$(info ${objects.rcll_perception})
+#rcll_perception.o utap_trace_parser.o filter.o utils.o compact_encoder.o modular_encoder.o direct_encoder.o constraints.o vis_info.o xta_printer.o xml_printer.o timed_automata.o plan_ordered_tls.o encoder_utils.o
 all : $(SRC_DIRS) ${exes:%=${BUILD_DIR}/%} # Build all exectuables.
 
 $(SRC_DIRS):
