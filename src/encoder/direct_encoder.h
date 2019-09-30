@@ -24,6 +24,9 @@ private:
                                          ::std::string ending_pa = "",
                                          bool look_ahead = true,
                                          int lb_offset = 0, int ub_offset = 0);
+  DirectEncoder(const PlanOrderedTLs &tls,
+                const ::std::vector<PlanAction> &plan,
+                const size_t plan_ta_index);
 
 public:
   size_t getPlanTAIndex();
@@ -46,5 +49,6 @@ public:
                 const int base_pos = 0);
   AutomataSystem createFinalSystem(const AutomataSystem &s,
                                    SystemVisInfo &s_vis);
+  DirectEncoder mergeEncodings(const DirectEncoder &enc2) const;
 };
 } // end namespace taptenc

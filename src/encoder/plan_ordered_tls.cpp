@@ -363,3 +363,168 @@ void PlanOrderedTLs::addStateInvariantToWindow(std::string start_pa,
     curr_pa_index++;
   }
 }
+
+Automaton PlanOrderedTLs::collapseTL(const TimeLine &tl, std::string tl_name,
+                                     std::vector<Transition> &outgoing) {
+  std::vector<Automaton> automata;
+  std::vector<Transition> interconnections;
+  for (const auto &curr_copy : tl) {
+    automata.push_back(curr_copy.second.ta);
+    interconnections.insert(interconnections.end(),
+                            curr_copy.second.trans_out.begin(),
+                            curr_copy.second.trans_out.end());
+  }
+  std::copy_if(interconnections.begin(), interconnections.end(),
+               std::back_inserter(outgoing),
+               [tl_name](const Transition &tr) bool {
+                 return (not Filter::matchesFilter(tr.dest_id, tl_name, ""));
+               });
+  PlanOrderedTLs::removeTransitionsToNextTl(interconnections, tl_name);
+  return encoderutils::mergeAutomata(automata, interconnections, tl_name);
+}
+
+TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
+                                           const Automaton &ta_to_insert) {
+  TimeLine product_tas;
+  for (const auto &ta_state : source_ta.states) {
+    Automaton state_ta(std::vector<State>(), std::vector<Transition>(),
+                       ta_state.id, false);
+    // add transitions of other tl
+    for (const auto &base_trans : ta_to_insert.transitions) {
+      Transition curr_trans = base_trans;
+      curr_trans.source_id =
+          encoderutils::mergeIds(ta_state.id, curr_trans.source_id);
+      curr_trans.dest_id =
+          encoderutils::mergeIds(ta_state.id, curr_trans.dest_id);
+      state_ta.transitions.push_back(curr_trans);
+    }
+    // add states of other tl
+    for (const auto &base_state : ta_to_insert.states) {
+      State curr_state = base_state;
+      curr_state.id = encoderutils::mergeIds(ta_state.id, curr_state.id);
+      state_ta.states.push_back(curr_state);
+    }
+    // automata generation complete
+    auto emp = product_tas.emplace(
+        make_pair(ta_state.id, TlEntry(state_ta, std::vector<Transition>())));
+    if (emp.second == true) {
+      encoderutils::addInvariants(emp.first->second.ta,
+                                  emp.first->second.ta.states, ta_state.inv);
+    } else {
+      std::cout << "PlanOrderedTLs replaceStatesByTA: error while creating TA "
+                   "copy. Another copy with this name already exists: "
+                << ta_state.id << std::endl;
+    }
+  }
+  for (const auto &ta_trans : source_ta.transitions) {
+    auto source_entry = product_tas.find(ta_trans.source_id);
+    auto dest_entry = product_tas.find(ta_trans.dest_id);
+    if (source_entry != product_tas.end() && dest_entry != product_tas.end()) {
+      std::vector<Transition> conn_trans =
+          encoderutils::createSuccessorTransitionsBetweenTAs(
+              ta_to_insert, source_entry->second.ta, dest_entry->second.ta,
+              ta_to_insert.states, ta_trans.guard, ta_trans.update);
+      source_entry->second.trans_out.insert(
+          source_entry->second.trans_out.end(), conn_trans.begin(),
+          conn_trans.end());
+      conn_trans.clear();
+      conn_trans = encoderutils::createCopyTransitionsBetweenTAs(
+          source_entry->second.ta, dest_entry->second.ta, ta_to_insert.states,
+          ta_trans.guard, ta_trans.update, "");
+      source_entry->second.trans_out.insert(
+          source_entry->second.trans_out.end(), conn_trans.begin(),
+          conn_trans.end());
+    } else {
+      std::cout << "PlanOrderedTLs replaceStatesByTA: error while "
+                   "connecting this states, associated automata not found"
+                << std::endl;
+    }
+  }
+
+  return product_tas;
+}
+
+PlanOrderedTLs
+PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
+  PlanOrderedTLs res;
+  for (const auto &pa : *(pa_order.get())) {
+    res.pa_order.get()->push_back(pa);
+  }
+  for (const auto &curr_tl : *(tls.get())) {
+    auto other_tl = other.tls.get()->find(curr_tl.first);
+    if (other_tl != other.tls.get()->end()) {
+      if (curr_tl.first == constants::QUERY) {
+        res.tls.get()->emplace(curr_tl);
+        continue;
+      }
+      // construct automaton from other tl
+      std::vector<Transition> outgoing;
+      Automaton merged_other_ta = PlanOrderedTLs::collapseTL(
+          other_tl->second, other_tl->first, outgoing);
+      for (const auto &entry : curr_tl.second) {
+        TimeLine product_tas =
+            replaceStatesByTA(entry.second.ta, merged_other_ta);
+        // what about outgoing trans?!!?!?!?!?!?
+        std::vector<Transition> product_trans_out;
+        for (const auto &this_ic_trans : entry.second.trans_out) {
+          if (this_ic_trans.dest_id != constants::QUERY &&
+              Filter::getPrefix(this_ic_trans.source_id, constants::TL_SEP) ==
+                  Filter::getPrefix(this_ic_trans.dest_id, constants::TL_SEP)) {
+            for (const auto &s : merged_other_ta.states) {
+              Transition copy_trans = this_ic_trans;
+              copy_trans.source_id =
+                  encoderutils::mergeIds(this_ic_trans.source_id, s.id);
+              copy_trans.dest_id =
+                  encoderutils::mergeIds(this_ic_trans.dest_id, s.id);
+              product_trans_out.push_back(copy_trans);
+            }
+            for (const auto &tr : merged_other_ta.transitions) {
+              Transition succ_tr = tr;
+              succ_tr.source_id =
+                  encoderutils::mergeIds(this_ic_trans.source_id, tr.source_id);
+              succ_tr.dest_id =
+                  encoderutils::mergeIds(this_ic_trans.dest_id, tr.dest_id);
+              succ_tr.guard = addConstraint(succ_tr.guard, this_ic_trans.guard);
+              succ_tr.update = addUpdate(succ_tr.update, this_ic_trans.update);
+              product_trans_out.push_back(succ_tr);
+            }
+
+          } else {
+            for (const auto &other_ic_trans : outgoing) {
+              Transition out_tr = other_ic_trans;
+              out_tr.source_id = encoderutils::mergeIds(
+                  this_ic_trans.source_id, other_ic_trans.source_id);
+              if (this_ic_trans.dest_id != constants::QUERY) {
+                out_tr.dest_id = encoderutils::mergeIds(this_ic_trans.dest_id,
+                                                        other_ic_trans.dest_id);
+              }
+              out_tr.guard = addConstraint(out_tr.guard, this_ic_trans.guard);
+              out_tr.update = addUpdate(out_tr.update, this_ic_trans.update);
+              product_trans_out.push_back(out_tr);
+            }
+          }
+        }
+        // Merge back automaton to entry
+        std::vector<Automaton> res_tas;
+        std::vector<Transition> res_inner_trans;
+        for (const auto merged_entry : product_tas) {
+          res_tas.push_back(merged_entry.second.ta);
+          res_inner_trans.insert(res_inner_trans.end(),
+                                 merged_entry.second.trans_out.begin(),
+                                 merged_entry.second.trans_out.end());
+        }
+        Automaton merged_res_ta =
+            encoderutils::mergeAutomata(res_tas, res_inner_trans, entry.first);
+        merged_res_ta.clocks.insert(merged_res_ta.clocks.end(),
+                                    entry.second.ta.clocks.begin(),
+                                    entry.second.ta.clocks.end());
+        merged_res_ta.clocks.insert(merged_res_ta.clocks.end(),
+                                    merged_other_ta.clocks.begin(),
+                                    merged_other_ta.clocks.end());
+        (*res.tls.get())[curr_tl.first].emplace(std::make_pair(
+            entry.first, TlEntry(merged_res_ta, product_trans_out)));
+      }
+    }
+  }
+  return res;
+}

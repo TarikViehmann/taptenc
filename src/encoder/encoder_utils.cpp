@@ -222,3 +222,11 @@ std::string encoderutils::addToPrefix(std::string prefix, std::string op,
   res = pa_prefix + prefix_to_add + res;
   return res;
 }
+
+std::string encoderutils::mergeIds(std::string id1, std::string id2) {
+  std::string new_prefix_add =
+      Filter::getPrefix(Filter::getSuffix(id1, constants::TL_SEP),
+                        constants::BASE_SEP) +
+      Filter::getSuffix(id1, constants::BASE_SEP);
+  return encoderutils::addToPrefix(id2, id1);
+}

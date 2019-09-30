@@ -9,6 +9,28 @@
 namespace taptenc {
 typedef ::std::unordered_map<::std::string, ::std::string> OrigMap;
 class PlanOrderedTLs {
+private:
+  /*
+   * merge all TAs of a timeline together.
+   * @param tl timeline to collaps
+   * @param tl_name name of the tl (key within TimeLines)
+   * @param outgoing all outgoing transitions of the timeline get pushed back
+   *        into that vector.
+   * @return a TA consisting off all TAs from the input TimeLine
+   */
+  static Automaton collapseTL(const TimeLine &tl, ::std::string tl_name,
+                              ::std::vector<Transition> &outgoing);
+
+  /*
+   * Constructs a product TA by replacing each state of one TA by anoter TA
+   * @param source_ta TA where states should be replaced
+   * @param ta_to_insert TA that gets inserted to all states of source_ta
+   * @return TimeLine representation of the product, with one entry containing
+   *         ta_to_insert for each state of source_ta
+   */
+  static TimeLine replaceStatesByTA(const Automaton &source_ta,
+                                    const Automaton &ta_to_insert);
+
 public:
   ::std::unique_ptr<TimeLines> tls = ::std::make_unique<TimeLines>();
   ::std::unique_ptr<::std::vector<::std::string>> pa_order =
@@ -144,5 +166,15 @@ public:
    * TimeLines where the key does not match a plan action are listed afterwads
    */
   void printTLs() const;
+
+  /*
+   * merge togehter two direct encodings
+   * Caution: the merged result does not follow the typical pattern of
+   * <map_id> -> TA with prefix <map_id> in the timelines
+   * @param other other direct encoding
+   *        Assumes other pa_order is equal to this pa_order
+   * @return merge of this tls and other tls
+   */
+  PlanOrderedTLs mergePlanOrderedTLs(const PlanOrderedTLs &other) const;
 };
 } // end namespace taptenc

@@ -777,3 +777,20 @@ DirectEncoder::DirectEncoder(AutomataSystem &s,
   plan_ta_index = s.instances.size() - 1;
   generateBaseTimeLine(s, base_pos, plan_ta_index);
 }
+
+DirectEncoder DirectEncoder::mergeEncodings(const DirectEncoder &enc2) const {
+  return DirectEncoder(po_tls.mergePlanOrderedTLs(enc2.po_tls), plan,
+                       plan_ta_index);
+}
+
+DirectEncoder::DirectEncoder(const PlanOrderedTLs &tls,
+                             const ::std::vector<PlanAction> &plan,
+                             size_t plan_ta_index)
+    : plan(plan), plan_ta_index(plan_ta_index) {
+  for (const auto &tl : *(tls.tls.get())) {
+    po_tls.tls.get()->emplace(tl);
+  }
+  for (const auto &pa : *(tls.pa_order.get())) {
+    po_tls.pa_order.get()->push_back(pa);
+  }
+}
