@@ -20,27 +20,31 @@ systemVisInfo::systemVisInfo(AutomataSystem &s) {
 }
 
 systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
-                             const std::vector<State> &pa_order) {
+                             const std::vector<std::string> &pa_order) {
   int x_offset = 0;
   int y_offset = 0;
   int instances = 0;
   state_info.resize(1);
   transition_info.resize(1);
   for (auto tl : pa_order) {
-    auto search = direct_encoding.find(tl.id);
+    auto search = direct_encoding.find(tl);
     if (search != direct_encoding.end()) {
+      int max_x_offset = 0;
       for (const auto &entity : search->second) {
+        int min_x_offset = x_offset;
         instances++;
         auto si = this->generateStateInfo(entity.second.ta.states, x_offset,
                                           y_offset);
+        max_x_offset = std::max(x_offset, max_x_offset);
+        x_offset = min_x_offset;
         state_info[0].insert(si.begin(), si.end());
-        y_offset += 500;
+        y_offset += 600;
         auto ti = this->generateTransitionInfo(entity.second.ta.transitions,
                                                state_info.back());
         transition_info[0].insert(ti.begin(), ti.end());
       }
       y_offset = 0;
-      x_offset += 800;
+      x_offset = max_x_offset + 200;
     }
   }
   auto search = direct_encoding.find(constants::QUERY);
@@ -125,8 +129,15 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
 }
 
 std::unordered_map<std::string, StateVisInfo>
-systemVisInfo::generateStateInfo(const std::vector<State> &states, int x_offset,
-                                 int y_offset) {
+systemVisInfo::generateStateInfo(const std::vector<State> &states) {
+  int x_offset = 0;
+  int y_offset = 0;
+  return generateStateInfo(states, x_offset, y_offset);
+}
+
+std::unordered_map<std::string, StateVisInfo>
+systemVisInfo::generateStateInfo(const std::vector<State> &states,
+                                 int &x_offset, int &y_offset) {
   int row_length = sqrt(states.size());
   std::unordered_map<std::string, StateVisInfo> res;
   int x = x_offset;
@@ -144,6 +155,8 @@ systemVisInfo::generateStateInfo(const std::vector<State> &states, int x_offset,
       y += COL_DELIMITER;
     }
   }
+  x_offset = x_offset + (row_length * ROW_DELIMITER);
+  y_offset = y;
   return res;
 }
 
