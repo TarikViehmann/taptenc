@@ -131,17 +131,19 @@ DirectEncoder::calculateContext(const TargetSpecs &specs,
                                 std::string starting_pa, std::string ending_pa,
                                 bool look_ahead, int lb_offset, int ub_offset) {
   if (look_ahead) {
-    // start index needs to subtract one because of start action
-    // indices w.r.t. to the plan, not the plan automaton
-    int start_index =
-        stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) - 1;
+    int start_index = 0;
+    if (starting_pa != constants::START_PA) {
+      start_index = stoi(Filter::getSuffix(starting_pa, constants::PA_SEP));
+    }
     // if an end_index is specified this means the begin of the PA ends the
-    // context, hence we have to subtract 1 for the start action and 1 to
-    // exclude the ending pa itself
-    int end_index =
-        (ending_pa == "")
-            ? plan.size()
-            : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2;
+    // context, hence we have to subtract 1 to exclude the ending pa itself
+    int end_index = plan.size() - 1;
+    if (ending_pa != "") {
+      end_index =
+          (ending_pa == constants::END_PA)
+              ? plan.size() - 1
+              : stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 1;
+    }
     if (ending_pa == "" && lb_offset == 0) {
       lb_offset = specs.bounds.lower_bound;
     }
@@ -164,31 +166,29 @@ DirectEncoder::calculateContext(const TargetSpecs &specs,
       }
       if (lb_acc >= safeAddition(specs.bounds.upper_bound, ub_offset) ||
           pa - plan.begin() == end_index) {
-        return std::make_pair(offset_index + 1,
-                              pa - plan.begin() - offset_index);
+        return std::make_pair(offset_index, pa - plan.begin() - offset_index);
       }
       if (pa - plan.begin() == end_index) {
         break;
       }
     }
-    // res needs to add one because of fin action
-    return std::make_pair(offset_index + 1, end_index - offset_index);
+    return std::make_pair(offset_index, end_index - offset_index);
   } else {
-    // rstart index is the offset from the end of the plan to the activated
-    // action plus one (because the context starts before the activation action
-    // indices w.r.t. to the plan, not the plan automaton, e.g. the position of
-    // the starting pa is the suffix -1
-    int rstart_index = plan.size() -
-                       stoi(Filter::getSuffix(starting_pa, constants::PA_SEP)) +
-                       1;
+
+    int rstart_index =
+        plan.size() - (std::find(po_tls.pa_order.get()->begin(),
+                                 po_tls.pa_order.get()->end(), starting_pa) -
+                       po_tls.pa_order.get()->begin());
     // if an end_index is specified this means the begin of the PA ends the
-    // context, hence we have to subtract 1 for the start action and 1 to
-    // exclude the ending pa itself
+    // context, hence we have to subtract 1 to exclude the ending pa itself
     int rend_index =
         (ending_pa == "")
             ? plan.size()
             : plan.size() -
-                  (stoi(Filter::getSuffix(ending_pa, constants::PA_SEP)) - 2);
+                  (std::find(po_tls.pa_order.get()->begin(),
+                             po_tls.pa_order.get()->end(), starting_pa) -
+                   po_tls.pa_order.get()->begin()) -
+                  1;
     if (ending_pa == "" && lb_offset == 0) {
       lb_offset = specs.bounds.lower_bound;
     }
@@ -213,7 +213,6 @@ DirectEncoder::calculateContext(const TargetSpecs &specs,
         break;
       }
     }
-    // res needs to add one because of fin action
     return std::make_pair(plan.size() - roffset_index,
                           roffset_index - rend_index);
   }
@@ -773,6 +772,12 @@ DirectEncoder::DirectEncoder(AutomataSystem &s,
                              const int base_pos) {
   Automaton plan_ta = generatePlanAutomaton(plan, constants::PLAN_TA_NAME);
   this->plan = plan;
+  this->plan.insert(this->plan.begin(),
+                    PlanAction(constants::START_PA,
+                               Bounds(0, std::numeric_limits<int>::max())));
+  this->plan.insert(this->plan.end(),
+                    PlanAction(constants::END_PA,
+                               Bounds(0, std::numeric_limits<int>::max())));
   s.instances.push_back(std::make_pair(plan_ta, ""));
   plan_ta_index = s.instances.size() - 1;
   generateBaseTimeLine(s, base_pos, plan_ta_index);
