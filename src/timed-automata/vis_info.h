@@ -51,8 +51,10 @@ private:
                                      TransitionVisInfo>>
       transition_info;
   ::std::unordered_map<::std::string, StateVisInfo>
-  generateStateInfo(const ::std::vector<State> &states, int x_offset = 0,
-                    int y_offset = 0);
+  generateStateInfo(const ::std::vector<State> &states);
+  ::std::unordered_map<::std::string, StateVisInfo>
+  generateStateInfo(const ::std::vector<State> &states, int &x_offset,
+                    int &y_offset);
   ::std::unordered_map<::std::pair<::std::string, ::std::string>,
                        TransitionVisInfo>
   generateTransitionInfo(
@@ -63,7 +65,7 @@ public:
   systemVisInfo() = default;
   systemVisInfo(AutomataSystem &s);
   systemVisInfo(const TimeLines &direct_encoding,
-                const ::std::vector<State> &pa_order);
+                const ::std::vector<::std::string> &pa_order);
   ::std::pair<int, int> getStatePos(int component_index, ::std::string id);
   ::std::vector<::std::pair<int, int>> getTransitionPos(int component_index,
                                                         ::std::string source_id,
