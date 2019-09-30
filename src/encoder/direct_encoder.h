@@ -13,10 +13,10 @@ namespace taptenc {
 typedef ::std::unordered_map<::std::string, ::std::string> OrigMap;
 class DirectEncoder {
 private:
-  size_t encode_counter = 0;
-  size_t plan_ta_index;
-  ::std::vector<PlanAction> plan;
   PlanOrderedTLs po_tls;
+  ::std::vector<PlanAction> plan;
+  size_t plan_ta_index;
+  size_t encode_counter = 0;
   void generateBaseTimeLine(AutomataSystem &s, const int base_pos,
                             const int plan_pos);
   ::std::pair<int, int> calculateContext(const TargetSpecs &specs,

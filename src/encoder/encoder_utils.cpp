@@ -138,8 +138,6 @@ std::vector<Transition> encoderutils::createSuccessorTransitionsBetweenTAs(
                        addConstraint(trans.guard, guard),
                        addUpdate(trans.update, update), trans.sync, true));
       }
-    } else {
-      std::cout << "filter not found" << std::endl;
     }
   }
   return res_transitions;
