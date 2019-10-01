@@ -402,6 +402,9 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
     for (const auto &base_state : ta_to_insert.states) {
       State curr_state = base_state;
       curr_state.id = encoderutils::mergeIds(ta_state.id, curr_state.id);
+      if ((not(ta_state.initial && base_state.initial))) {
+        curr_state.initial = false;
+      }
       state_ta.states.push_back(curr_state);
     }
     // automata generation complete
