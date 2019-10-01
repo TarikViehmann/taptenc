@@ -223,10 +223,19 @@ std::string encoderutils::addToPrefix(std::string prefix, std::string op,
   return res;
 }
 
+std::string encoderutils::addToBaseId(std::string id, std::string to_add) {
+  return id + constants::COMPONENT_SEP + to_add;
+}
+
 std::string encoderutils::mergeIds(std::string id1, std::string id2) {
-  std::string new_prefix_add =
-      Filter::getPrefix(Filter::getSuffix(id1, constants::TL_SEP),
-                        constants::BASE_SEP) +
-      Filter::getSuffix(id1, constants::BASE_SEP);
-  return encoderutils::addToPrefix(id2, id1);
+  if (id1.find(constants::BASE_SEP) != std::string::npos) {
+    std::string new_prefix_add = Filter::getPrefix(
+        Filter::getSuffix(id1, constants::TL_SEP), constants::BASE_SEP);
+    return encoderutils::addToPrefix(
+        encoderutils::addToBaseId(id2,
+                                  Filter::getSuffix(id1, constants::BASE_SEP)),
+        new_prefix_add);
+  } else {
+    return encoderutils::addToBaseId(id2, id1);
+  }
 }
