@@ -420,20 +420,24 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
     auto source_entry = product_tas.find(ta_trans.source_id);
     auto dest_entry = product_tas.find(ta_trans.dest_id);
     if (source_entry != product_tas.end() && dest_entry != product_tas.end()) {
-      std::vector<Transition> conn_trans =
-          encoderutils::createSuccessorTransitionsBetweenTAs(
-              ta_to_insert, source_entry->second.ta, dest_entry->second.ta,
-              ta_to_insert.states, ta_trans.guard, ta_trans.update);
-      source_entry->second.trans_out.insert(
-          source_entry->second.trans_out.end(), conn_trans.begin(),
-          conn_trans.end());
-      conn_trans.clear();
-      conn_trans = encoderutils::createCopyTransitionsBetweenTAs(
-          source_entry->second.ta, dest_entry->second.ta, ta_to_insert.states,
-          ta_trans.guard, ta_trans.update, "");
-      source_entry->second.trans_out.insert(
-          source_entry->second.trans_out.end(), conn_trans.begin(),
-          conn_trans.end());
+
+      for (const auto &s : ta_to_insert.states) {
+        Transition copy_trans = ta_trans;
+        copy_trans.source_id = encoderutils::mergeIds(ta_trans.source_id, s.id);
+        copy_trans.dest_id = encoderutils::mergeIds(ta_trans.dest_id, s.id);
+        source_entry->second.trans_out.push_back(copy_trans);
+      }
+      for (const auto &tr : ta_to_insert.transitions) {
+        Transition succ_trans = ta_trans;
+        succ_trans.source_id =
+            encoderutils::mergeIds(ta_trans.source_id, tr.source_id);
+        succ_trans.dest_id =
+            encoderutils::mergeIds(ta_trans.dest_id, tr.dest_id);
+        succ_trans.guard = addConstraint(succ_trans.guard, tr.guard);
+        succ_trans.update = addUpdate(succ_trans.update, tr.update);
+        succ_trans.action += addAction(succ_trans.action, tr.action);
+        source_entry->second.trans_out.push_back(succ_trans);
+      }
     } else {
       std::cout << "PlanOrderedTLs replaceStatesByTA: error while "
                    "connecting this states, associated automata not found"
@@ -462,8 +466,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
       Automaton merged_other_ta = PlanOrderedTLs::collapseTL(
           other_tl->second, other_tl->first, outgoing);
       for (const auto &entry : curr_tl.second) {
-        TimeLine product_tas =
-            replaceStatesByTA(entry.second.ta, merged_other_ta);
+        Automaton merged_res_ta = PlanOrderedTLs::productTA(
+            entry.second.ta, merged_other_ta, entry.first);
         // what about outgoing trans?!!?!?!?!?!?
         std::vector<Transition> product_trans_out;
         for (const auto &this_ic_trans : entry.second.trans_out) {
@@ -504,17 +508,6 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
             }
           }
         }
-        // Merge back automaton to entry
-        std::vector<Automaton> res_tas;
-        std::vector<Transition> res_inner_trans;
-        for (const auto merged_entry : product_tas) {
-          res_tas.push_back(merged_entry.second.ta);
-          res_inner_trans.insert(res_inner_trans.end(),
-                                 merged_entry.second.trans_out.begin(),
-                                 merged_entry.second.trans_out.end());
-        }
-        Automaton merged_res_ta =
-            encoderutils::mergeAutomata(res_tas, res_inner_trans, entry.first);
         merged_res_ta.clocks.insert(merged_res_ta.clocks.end(),
                                     entry.second.ta.clocks.begin(),
                                     entry.second.ta.clocks.end());
@@ -527,4 +520,19 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
     }
   }
   return res;
+}
+
+Automaton PlanOrderedTLs::productTA(const Automaton &ta1, const Automaton &ta2,
+                                    std::string name) {
+
+  TimeLine product_tas = replaceStatesByTA(ta1, ta2);
+  std::vector<Automaton> res_tas;
+  std::vector<Transition> res_inner_trans;
+  for (const auto merged_entry : product_tas) {
+    res_tas.push_back(merged_entry.second.ta);
+    res_inner_trans.insert(res_inner_trans.end(),
+                           merged_entry.second.trans_out.begin(),
+                           merged_entry.second.trans_out.end());
+  }
+  return encoderutils::mergeAutomata(res_tas, res_inner_trans, name);
 }

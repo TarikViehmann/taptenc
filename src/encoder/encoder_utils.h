@@ -28,6 +28,7 @@ void addInvariants(Automaton &ta, const ::std::vector<State> filter,
                        ::std::string pa = "");
 ::std::string addToPrefix(::std::string prefix, ::std::string op,
                           ::std::string sub = "");
+::std::string addToBaseId(::std::string id, ::std::string to_add);
 ::std::string mergeIds(::std::string id1, ::std::string id2);
 Automaton generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
                                 ::std::string name);

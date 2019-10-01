@@ -176,5 +176,16 @@ public:
    * @return merge of this tls and other tls
    */
   PlanOrderedTLs mergePlanOrderedTLs(const PlanOrderedTLs &other) const;
+
+  /*
+   * Constructs a product TA between two TAs
+   * @param ta1 first ta of the product
+   * @param ta2 second ta of the product
+   * @param name name of the product ta
+   * @return Product ta of ta1 and ta2 by replacing each state of ta1
+   *         by a copy of ta2
+   */
+  static Automaton productTA(const Automaton &ta1, const Automaton &ta2,
+                             ::std::string name);
 };
 } // end namespace taptenc

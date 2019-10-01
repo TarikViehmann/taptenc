@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "constants.h"
 #include <cmath>
 #include <string>
 #include <utility>
@@ -47,4 +48,14 @@ std::string taptenc::addUpdate(std::string old_con, std::string to_add) {
     return old_con;
   }
   return old_con + ", " + to_add;
+}
+
+std::string taptenc::addAction(std::string old_action, std::string to_add) {
+  if (old_action.length() == 0) {
+    return to_add;
+  }
+  if (to_add.length() == 0) {
+    return old_action;
+  }
+  return old_action + constants::ACTION_SEP + to_add;
 }
