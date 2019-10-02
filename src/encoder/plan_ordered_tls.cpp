@@ -304,17 +304,19 @@ void PlanOrderedTLs::modifyTransitionsToNextTl(
       }
     }
   }
-  trans.erase(std::remove_if(trans.begin(), trans.end(),
-                             [target_states](const Transition &t) bool {
-                               return std::find_if(
-                                          target_states.begin(),
-                                          target_states.end(),
-                                          [t](const State &s) bool {
-                                            return Filter::matchesFilter(
-                                                t.dest_id, "", s.id);
-                                          }) == target_states.end();
-                             }),
-              trans.end());
+  trans.erase(
+      std::remove_if(
+          trans.begin(), trans.end(),
+          [target_states, curr_pa](const Transition &t) bool {
+            return (Filter::getPrefix(t.dest_id, constants::TL_SEP) !=
+                    curr_pa) &&
+                   (std::find_if(target_states.begin(), target_states.end(),
+                                 [t](const State &s) bool {
+                                   return Filter::matchesFilter(t.dest_id, "",
+                                                                s.id);
+                                 }) == target_states.end());
+          }),
+      trans.end());
 }
 
 void PlanOrderedTLs::removeTransitionsToNextTl(std::vector<Transition> &trans,
