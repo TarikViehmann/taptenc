@@ -756,10 +756,14 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
   std::vector<Transition> interconnections;
   for (const auto &curr_tl : *(po_tls.tls.get())) {
     for (const auto &curr_copy : curr_tl.second) {
-      automata.push_back(curr_copy.second.ta);
-      interconnections.insert(interconnections.end(),
-                              curr_copy.second.trans_out.begin(),
-                              curr_copy.second.trans_out.end());
+      if (curr_copy.first == constants::QUERY ||
+          curr_copy.second.trans_out.size() > 0) {
+        automata.push_back(curr_copy.second.ta);
+        interconnections.insert(interconnections.end(),
+                                curr_copy.second.trans_out.begin(),
+                                curr_copy.second.trans_out.end());
+      } else {
+      }
     }
   }
   res.instances.push_back(
