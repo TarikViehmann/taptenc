@@ -45,9 +45,12 @@ struct binaryInfo : EncICInfo {
 typedef struct binaryInfo BinaryInfo;
 struct chainInfo : EncICInfo {
   ::std::vector<TargetSpecs> specs_list;
+  ::std::string end_pa;
   chainInfo(::std::string arg_name, ICType arg_type,
-            const ::std::vector<TargetSpecs> &arg_specs_list)
-      : EncICInfo(arg_name, arg_type), specs_list(arg_specs_list) {}
+            const ::std::vector<TargetSpecs> &arg_specs_list,
+            ::std::string arg_end_pa)
+      : EncICInfo(arg_name, arg_type), specs_list(arg_specs_list),
+        end_pa(arg_end_pa) {}
 };
 typedef struct chainInfo ChainInfo;
 } // end namespace taptenc

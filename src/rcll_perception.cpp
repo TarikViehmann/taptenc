@@ -2,6 +2,7 @@
 #include "encoders.h"
 #include "filter.h"
 #include "plan_ordered_tls.h"
+#include "platform_model_generator.h"
 #include "printer.h"
 #include "timed_automata.h"
 #include "utap_trace_parser.h"
@@ -93,38 +94,63 @@ DirectEncoder createDirectEncoding(
     const unordered_map<string, vector<unique_ptr<EncICInfo>>> &activations,
     int plan_index = 1) {
   DirectEncoder enc(direct_system, plan);
-  for (const auto &pa : direct_system.instances[plan_index].first.states) {
-    string pa_op = Filter::getPrefix(pa.id, constants::PA_SEP);
-    if (pa_op == constants::START_PA || pa_op == constants::END_PA) {
-      continue;
+  for (auto pa = direct_system.instances[plan_index].first.states.begin();
+       pa != direct_system.instances[plan_index].first.states.end(); ++pa) {
+    string pa_op = pa->id;
+    if (pa->id != constants::START_PA && pa->id != constants::END_PA) {
+      pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
     }
     auto search = activations.find(pa_op);
     if (search != activations.end()) {
       for (const auto &ac : search->second) {
         switch (ac->type) {
         case ICType::Future: {
+          std::cout << "start Future " << pa->id << std::endl;
           UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
-          enc.encodeFuture(direct_system, pa.id, *info);
+          enc.encodeFuture(direct_system, pa->id, *info);
         } break;
         case ICType::Until: {
+          std::cout << "start Until " << pa->id << std::endl;
           BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
-          enc.encodeUntil(direct_system, pa.id, *info);
+          enc.encodeUntil(direct_system, pa->id, *info);
         } break;
         case ICType::Since: {
+          std::cout << "start Since " << pa->id << std::endl;
           BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
-          enc.encodeSince(direct_system, pa.id, *info);
+          enc.encodeSince(direct_system, pa->id, *info);
         } break;
         case ICType::Past: {
+          std::cout << "start Past " << pa->id << std::endl;
           UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
-          enc.encodePast(direct_system, pa.id, *info);
+          enc.encodePast(direct_system, pa->id, *info);
         } break;
         case ICType::NoOp: {
+          std::cout << "start NoOp " << pa->id << std::endl;
           UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
-          enc.encodeNoOp(direct_system, info->specs.targets, pa.id);
+          enc.encodeNoOp(direct_system, info->specs.targets, pa->id);
         } break;
         case ICType::Invariant: {
+          std::cout << "start Invariant " << pa->id << std::endl;
           UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
-          enc.encodeInvariant(direct_system, info->specs.targets, pa.id);
+          enc.encodeInvariant(direct_system, info->specs.targets, pa->id);
+        } break;
+        case ICType::UntilChain: {
+          ChainInfo *info = dynamic_cast<ChainInfo *>(ac.get());
+          for (auto epa = pa;
+               epa != direct_system.instances[plan_index].first.states.end();
+               ++epa) {
+            string epa_op = epa->id;
+            if (epa->id != constants::START_PA &&
+                epa->id != constants::END_PA) {
+              epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
+            }
+            if (info->end_pa == epa_op) {
+              std::cout << "start until chain " << pa->id << " " << epa->id
+                        << std::endl;
+              enc.encodeUntilChain(direct_system, *info, pa->id, epa->id);
+              break;
+            }
+          }
         } break;
         default:
           cout << "error: no support yet for type " << ac->type << endl;
@@ -133,31 +159,6 @@ DirectEncoder createDirectEncoding(
     }
   }
   return enc;
-}
-
-void testUntilChain(DirectEncoder &enc, AutomataSystem &direct_system,
-                    ChainInfo &info, string start_pa, string end_pa) {
-  for (auto pa = direct_system.instances[1].first.states.begin();
-       pa != direct_system.instances[1].first.states.end(); ++pa) {
-    string pa_op = pa->id;
-    if (pa->id != constants::START_PA && pa->id != constants::END_PA) {
-      pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
-    }
-    if (start_pa == pa_op) {
-      for (auto epa = pa; epa != direct_system.instances[1].first.states.end();
-           ++epa) {
-        string epa_op = epa->id;
-        if (epa->id != constants::START_PA && epa->id != constants::END_PA) {
-          epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
-        }
-        if (end_pa == epa_op) {
-          std::cout << "encode Until" << std::endl;
-          enc.encodeUntilChain(direct_system, info, pa->id, epa->id);
-          break;
-        }
-      }
-    }
-  }
 }
 
 ModularEncoder
@@ -263,11 +264,6 @@ std::string getEnvVar(std::string const &key) {
   }
   return std::string(val);
 }
-void addStateClock(vector<Transition> &trans) {
-  for (auto &t : trans) {
-    t.update = addUpdate(t.update, string(constants::STATE_CLOCK) + " = 0");
-  }
-}
 void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta) {
   std::ofstream myfile;
   myfile.open(file_name + ".q", std::ios_base::trunc);
@@ -293,101 +289,12 @@ int main() {
     cout << "ERROR: VERIFYTA_DIR not set!" << endl;
     return -1;
   }
-  vector<State> states;
-  vector<Transition> transitions;
-  states.push_back(State("idle", "", false, true));
-  states.push_back(State("cam_boot", "cam &lt; 5"));
-  states.push_back(State("cam_on", ""));
-  states.push_back(State("save_pic", "pic &lt;= 2"));
-  states.push_back(State("icp_start", "icp &lt;= 10"));
-  states.push_back(State("icp_end", "icp &lt;= 3"));
-  states.push_back(State("puck_sense", "sense &lt; 5"));
-
-  vector<State> comm_states;
-  vector<Transition> comm_transitions;
-  comm_states.push_back(State("idle", "", false, true));
-  comm_states.push_back(State("prepare", "send &lt; 30"));
-  comm_states.push_back(State("prepared", "send &lt;= 0"));
-  comm_states.push_back(State("error", "send &lt;= 0"));
-  comm_transitions.push_back(
-      Transition("idle", "prepare", "send_prepare", "", "send = 0", "", true));
-  comm_transitions.push_back(Transition("prepare", "prepared", "",
-                                        "send &lt; 30 &amp;&amp; send &gt; 10",
-                                        "send = 0", "", true));
-  comm_transitions.push_back(
-      Transition("prepare", "error", "", "send == 30", "send = 0", "", true));
-  comm_transitions.push_back(
-      Transition("error", "idle", "", "send == 30", "", "", true));
-  comm_transitions.push_back(
-      Transition("prepared", "idle", "", "", "", "", true));
-  addStateClock(comm_transitions);
-  Automaton comm_ta =
-      Automaton(comm_states, comm_transitions, "comm_ta", false);
-  comm_ta.clocks.insert(comm_ta.clocks.end(),
-                        {"send", "globtime", constants::STATE_CLOCK});
-  vector<State> comm_idle_filter;
-  vector<State> comm_preparing_filter;
-  vector<State> comm_prepared_filter;
-  comm_idle_filter.push_back(comm_ta.states[0]);
-  comm_prepared_filter.push_back(comm_ta.states[2]);
-  comm_preparing_filter.push_back(comm_ta.states[1]);
-
-  transitions.push_back(
-      Transition("idle", "cam_boot", "power_on_cam", "", "cam = 0", "", true));
-  transitions.push_back(
-      Transition("cam_boot", "cam_on", "", "cam &gt; 2", "cam = 0", "", true));
-  transitions.push_back(
-      Transition("cam_on", "save_pic", "store_pic", "", "pic = 0", "", true));
-  transitions.push_back(
-      Transition("save_pic", "cam_on", "", "pic &gt; 1", "", "", true));
-  transitions.push_back(
-      Transition("cam_on", "icp_start", "start_icp", "", "icp = 0", "", true));
-  transitions.push_back(Transition("icp_start", "icp_end", "",
-                                   "icp &lt; 10 &amp;&amp; icp &gt; 5",
-                                   "icp = 0", "", true));
-  transitions.push_back(
-      Transition("icp_end", "cam_on", "icp &gt; 1", "", "", "", true));
-  transitions.push_back(
-      Transition("cam_on", "idle", "power_off_cam", "", "cam = 0", "", true));
-  transitions.push_back(Transition("idle", "puck_sense", "check_puck",
-                                   "cam &gt; 2", "sense = 0", "", true));
-  transitions.push_back(
-      Transition("puck_sense", "idle", "", "sense &gt; 1", "", "", true));
-  addStateClock(transitions);
-  Automaton test(states, transitions, "main", false);
-
-  test.clocks.insert(test.clocks.end(), {"icp", "cam", "pic", "sense",
-                                         "globtime", constants::STATE_CLOCK});
-  vector<State> pic_filter;
-  vector<State> vision_filter;
-  vector<State> no_vision_filter;
-  vector<State> cam_off_filter;
-  vector<State> cam_on_filter;
-  vector<State> puck_sense_filter;
-  pic_filter.insert(pic_filter.end(), {test.states[3]});
-  vision_filter.insert(vision_filter.end(), {test.states[5]});
-  no_vision_filter.insert(no_vision_filter.end(),
-                          {test.states[0], test.states[1], test.states[2],
-                           test.states[3], test.states[6]});
-  cam_off_filter.insert(cam_off_filter.end(), {test.states[0], test.states[6]});
-  cam_on_filter.insert(cam_on_filter.end(),
-                       {test.states[1], test.states[2], test.states[3],
-                        test.states[4], test.states[5]});
-  puck_sense_filter.insert(puck_sense_filter.end(),
-                           {test.states[6], test.states[5]});
   Bounds full_bounds(0, numeric_limits<int>::max());
   Bounds no_bounds(0, numeric_limits<int>::max());
-  Bounds vision_bounds(5, 10); // numeric_limits<int>::max());
-  Bounds cam_off_bounds(2, 5);
-  Bounds puck_sense_bounds(2, 5, "&lt;=", "&lt;=");
   Bounds goto_bounds(15, 45);
   Bounds pick_bounds(13, 18);
   Bounds discard_bounds(3, 6);
   Bounds end_bounds(0, 5);
-  AutomataGlobals glob;
-  XMLPrinter printer;
-  vector<pair<Automaton, string>> automata_direct;
-  automata_direct.push_back(make_pair(test, ""));
   vector<PlanAction> plan{
       // goto CS-I
       PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
@@ -447,74 +354,22 @@ int main() {
   transform(plan.begin(), plan.end(),
             insert_iterator<unordered_set<string>>(pa_names, pa_names.begin()),
             [](const PlanAction &pa) -> string { return pa.name; });
-  unordered_set<string> cam_off_execptions{"pick", "put", "end_pick",
-                                           "end_put"};
-  // ---------------------- Normal Constraints ------------------------------
-  // cam off by default
-  unordered_map<string, vector<unique_ptr<EncICInfo>>> activations;
-  for (string pa : pa_names) {
-    if (cam_off_execptions.find(pa) == cam_off_execptions.end()) {
-      activations[pa].emplace_back(make_unique<UnaryInfo>(
-          "coff", ICType::Invariant, TargetSpecs(end_bounds, cam_off_filter)));
-    }
-  }
-  // puck sense after pick and put
-  activations["endpick"].emplace_back(make_unique<UnaryInfo>(
-      "sense1", ICType::Future,
-      TargetSpecs(puck_sense_bounds, puck_sense_filter)));
-  activations["endput"].emplace_back(make_unique<UnaryInfo>(
-      "sense2", ICType::Future,
-      TargetSpecs(puck_sense_bounds, puck_sense_filter)));
-
-  // ---------------------- Until Chain -------------------------------------
-  // until chain to do icp
-  ChainInfo icp_chain(
-      "icp_chain", ICType::UntilChain,
-      // start with a booted cam
-      vector<TargetSpecs>{TargetSpecs(vision_bounds, cam_on_filter),
-                          // be done with icp after vision_bounds
-                          TargetSpecs(full_bounds, vision_filter),
-                          // do not do ICP again until pick action is done
-                          TargetSpecs(full_bounds, no_vision_filter)});
-  // until chain to do icp
-  ChainInfo pic_chain("pic_chain", ICType::UntilChain,
-                      // start however
-                      vector<TargetSpecs>{TargetSpecs(full_bounds, states),
-                                          // after unspecified time, save a pic
-                                          TargetSpecs(full_bounds, pic_filter),
-                                          // do whatever until end
-                                          TargetSpecs(full_bounds, states)});
+  AutomataGlobals glob;
+  XMLPrinter printer;
+  vector<pair<Automaton, string>> automata_direct;
+  Automaton perception_ta = benchmarkgenerator::generatePerceptionTA();
+  automata_direct.push_back(make_pair(perception_ta, ""));
   AutomataSystem base_system;
   base_system.instances = automata_direct;
-  DirectEncoder enc1 = createDirectEncoding(base_system, plan, activations);
-  testUntilChain(enc1, base_system, icp_chain, "pick", "endpick");
-  testUntilChain(enc1, base_system, pic_chain, "pick", "endpick");
-
-  unordered_map<string, vector<unique_ptr<EncICInfo>>> comm_activations;
+  DirectEncoder enc1 =
+      createDirectEncoding(base_system, plan,
+                           benchmarkgenerator::generatePerceptionConstraints(
+                               perception_ta, pa_names));
+  Automaton comm_ta = benchmarkgenerator::generateCommTA();
   AutomataSystem comm_system;
   comm_system.instances.push_back(make_pair(comm_ta, ""));
-  DirectEncoder enc2 =
-      createDirectEncoding(comm_system, plan, comm_activations);
-  // until chain to prepare
-  ChainInfo prepare_chain(
-      "prepare_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter),
-                          TargetSpecs(no_bounds, comm_preparing_filter),
-                          TargetSpecs(no_bounds, comm_prepared_filter),
-                          TargetSpecs(no_bounds, comm_idle_filter)});
-  ChainInfo idle_chain(
-      "idle_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)});
-  ChainInfo idle_chain2(
-      "start_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)});
-  ChainInfo idle_chain3(
-      "end_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)});
-  testUntilChain(enc2, comm_system, prepare_chain, "endput", "pick");
-  testUntilChain(enc2, comm_system, idle_chain, "endpick", "put");
-  testUntilChain(enc2, comm_system, idle_chain2, constants::START_PA, "pick");
-  testUntilChain(enc2, comm_system, idle_chain3, "last", constants::END_PA);
+  DirectEncoder enc2 = createDirectEncoding(
+      comm_system, plan, benchmarkgenerator::generateCommConstraints(comm_ta));
 
   AutomataSystem merged_system;
   merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
@@ -537,9 +392,10 @@ int main() {
   AutomataSystem direct_system3 =
       enc3.createFinalSystem(merged_system, merged_system_vis_info);
   printer.print(direct_system3, merged_system_vis_info, "merged_direct.xml");
-  Automaton product_ta = PlanOrderedTLs::productTA(test, comm_ta, "product");
-  solve("merged_direct", product_ta,
-        base_system.instances[enc3.getPlanTAIndex()].first);
-
+  Automaton product_ta =
+      PlanOrderedTLs::productTA(perception_ta, comm_ta, "product");
+  // solve("merged_direct", product_ta,
+  //       base_system.instances[enc3.getPlanTAIndex()].first);
+  //
   return 0;
 }
