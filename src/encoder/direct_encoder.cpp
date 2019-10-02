@@ -406,7 +406,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
             *(po_tls.pa_order.get()->begin() + context_start - 1);
         for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
           PlanOrderedTLs::modifyTransitionsToNextTl(
-              prev_pa_entry.second.trans_out, prev_pa_entry.first,
+              prev_pa_entry.second.trans_out, prev_pa,
               target_filter.getFilter(), "", clock + " = 0", "", op_name);
         }
       }
@@ -499,8 +499,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
         *(po_tls.pa_order.get()->begin() + constraint_start - 1);
     for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
-          prev_pa_entry.second.trans_out, prev_pa_entry.first,
-          target_filter.getFilter(), "", clock + " = 0", "");
+          prev_pa_entry.second.trans_out, prev_pa, target_filter.getFilter(),
+          "", clock + " = 0", "");
     }
   }
   OrigMap orig_id = po_tls.createOrigMapping("");
