@@ -41,7 +41,19 @@ bool Filter::hasPrefix(std::string name, std::string prefix) {
 
 bool Filter::matchesFilter(std::string name, std::string prefix,
                            std::string suffix) {
-  return hasPrefix(name, prefix) && hasSuffix(name, suffix);
+  if (not(hasPrefix(name, prefix) && hasSuffix(name, suffix))) {
+    return false;
+  } else {
+    std::string base_name =
+        (name.find(constants::BASE_SEP) == std::string::npos)
+            ? name
+            : getSuffix(name, constants::BASE_SEP);
+    std::string base_suffix =
+        (suffix.find(constants::BASE_SEP) == std::string::npos)
+            ? suffix
+            : getSuffix(suffix, constants::BASE_SEP);
+    return base_suffix == "" || base_name == base_suffix;
+  }
 }
 
 std::string Filter::getSuffix(std::string name, char marker) {
