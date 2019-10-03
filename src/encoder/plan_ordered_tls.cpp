@@ -440,7 +440,7 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
             encoderutils::mergeIds(ta_trans.dest_id, tr.dest_id);
         succ_trans.guard = addConstraint(succ_trans.guard, tr.guard);
         succ_trans.update = addUpdate(succ_trans.update, tr.update);
-        succ_trans.action += addAction(succ_trans.action, tr.action);
+        succ_trans.action = addAction(succ_trans.action, tr.action);
         source_entry->second.trans_out.push_back(succ_trans);
       }
     } else {
