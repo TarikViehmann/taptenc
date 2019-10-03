@@ -1,4 +1,5 @@
 #include "utap_trace_parser.h"
+#include "utils.h"
 #include "constants.h"
 #include "filter.h"
 #include "timed_automata.h"
@@ -234,9 +235,9 @@ bool parseTransition(std::string &currentReadLine, const Automaton &base_ta,
                         update](const Transition &t) bool {
                          return t.source_id == base_source_id &&
                                 t.dest_id.find(base_dest_id) != string::npos &&
-                                guard.find(t.guard) != string::npos &&
+                                isPiecewiseContained(t.guard,guard, constants::CC_CONJUNCTION) &&
                                 sync.find(t.sync) != string::npos &&
-                                update.find(t.update) != string::npos;
+                                isPiecewiseContained(t.update,update, constants::UPDATE_CONJUNCTION);
                        });
     if (base_trans == base_ta.transitions.end()) {
       cout << "ERROR:  cannot find base ta transition: " << base_source_id

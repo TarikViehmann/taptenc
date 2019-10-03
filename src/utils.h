@@ -25,6 +25,8 @@ float fDotProduct(const ::std::pair<float, float> &a,
 ::std::string addConstraint(::std::string old_con, ::std::string to_add);
 ::std::string addUpdate(::std::string old_con, ::std::string to_add);
 ::std::string addAction(::std::string old_action, ::std::string to_add);
+::std::string trim(const ::std::string &str, const ::std::string &whitespace = " \t");
+bool isPiecewiseContained(::std::string str, ::std::string container_str, ::std::string separator);
 
 template <typename T> T safeAddition(T add1, T add2) {
   return (add1 < std::numeric_limits<T>::max() - add2)
