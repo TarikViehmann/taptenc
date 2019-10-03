@@ -344,21 +344,31 @@ int main() {
             [](const PlanAction &pa) -> string { return pa.name; });
   AutomataGlobals glob;
   XMLPrinter printer;
-  vector<pair<Automaton, string>> automata_direct;
+  // --------------- Perception ------------------------------------
   Automaton perception_ta = benchmarkgenerator::generatePerceptionTA();
-  automata_direct.push_back(make_pair(perception_ta, ""));
   AutomataSystem base_system;
-  base_system.instances = automata_direct;
+  base_system.instances.push_back(make_pair(perception_ta, ""));
   DirectEncoder enc1 =
       createDirectEncoding(base_system, plan,
                            benchmarkgenerator::generatePerceptionConstraints(
                                perception_ta, pa_names));
+  // --------------- Communication ---------------------------------
   Automaton comm_ta = benchmarkgenerator::generateCommTA();
   AutomataSystem comm_system;
   comm_system.instances.push_back(make_pair(comm_ta, ""));
   DirectEncoder enc2 = createDirectEncoding(
       comm_system, plan, benchmarkgenerator::generateCommConstraints(comm_ta));
-
+  // --------------- Calibration ----------------------------------
+  Automaton calib_ta = benchmarkgenerator::generateCalibrationTA();
+  for (const auto &s : calib_ta.states) {
+    std::cout << s.id << std::endl;
+  }
+  AutomataSystem calib_system;
+  calib_system.instances.push_back(make_pair(calib_ta, ""));
+  DirectEncoder enc3 = createDirectEncoding(
+      calib_system, plan,
+      benchmarkgenerator::generateCalibrationConstraints(calib_ta));
+  // --------------- Merge ----------------------------------------
   AutomataSystem merged_system;
   merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
                                       comm_system.globals.clocks.begin(),
@@ -366,24 +376,34 @@ int main() {
   merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
                                       base_system.globals.clocks.begin(),
                                       base_system.globals.clocks.end());
+  merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
+                                      calib_system.globals.clocks.begin(),
+                                      calib_system.globals.clocks.end());
   merged_system.instances = base_system.instances;
-  SystemVisInfo comm_system_vis_info;
-  DirectEncoder enc3 = enc1.mergeEncodings(enc2);
-  AutomataSystem direct_system2 =
-      enc2.createFinalSystem(comm_system, comm_system_vis_info);
-  printer.print(direct_system2, comm_system_vis_info, "comm_direct.xml");
+  DirectEncoder enc4 = enc1.mergeEncodings(enc2);
+  enc4 = enc4.mergeEncodings(enc3);
+  // --------------- Print XMLs -----------------------------------
   SystemVisInfo direct_system_vis_info;
   AutomataSystem direct_system =
       enc1.createFinalSystem(base_system, direct_system_vis_info);
   printer.print(direct_system, direct_system_vis_info, "perception_direct.xml");
-  SystemVisInfo merged_system_vis_info;
+  SystemVisInfo comm_system_vis_info;
+  AutomataSystem direct_system2 =
+      enc2.createFinalSystem(comm_system, comm_system_vis_info);
+  printer.print(direct_system2, comm_system_vis_info, "comm_direct.xml");
+  SystemVisInfo calib_system_vis_info;
   AutomataSystem direct_system3 =
-      enc3.createFinalSystem(merged_system, merged_system_vis_info);
-  printer.print(direct_system3, merged_system_vis_info, "merged_direct.xml");
+      enc3.createFinalSystem(calib_system, calib_system_vis_info);
+  printer.print(direct_system3, calib_system_vis_info, "calib_direct.xml");
+  SystemVisInfo merged_system_vis_info;
+  AutomataSystem direct_system4 =
+      enc4.createFinalSystem(merged_system, merged_system_vis_info);
+  printer.print(direct_system4, merged_system_vis_info, "merged_direct.xml");
   Automaton product_ta =
       PlanOrderedTLs::productTA(perception_ta, comm_ta, "product");
-  // solve("merged_direct", product_ta,
-  //       base_system.instances[enc3.getPlanTAIndex()].first);
-  //
+  product_ta = PlanOrderedTLs::productTA(product_ta, calib_ta, "product");
+  solve("merged_direct", product_ta,
+        base_system.instances[enc3.getPlanTAIndex()].first);
+
   return 0;
 }

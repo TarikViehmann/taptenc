@@ -17,6 +17,28 @@ void addStateClock(vector<Transition> &trans) {
   }
 }
 
+Automaton benchmarkgenerator::generateCalibrationTA() {
+  vector<State> states;
+  vector<Transition> transitions;
+  states.push_back(State("uncalibrated", "", false, true));
+  states.push_back(State("calibrating", "cal &lt; 10"));
+  states.push_back(State("calibrated", "cal &lt;= 30"));
+  transitions.push_back(Transition("uncalibrated", "calibrating", "calibrate",
+                                   "", "cal = 0", "", true));
+  transitions.push_back(Transition("calibrating", "calibrated", "",
+                                   "cal &gt; 7", "cal = 0", "", true));
+  transitions.push_back(Transition("calibrated", "uncalibrated", "",
+                                   "cal == 30", "cal = 0", "", true));
+  transitions.push_back(Transition("calibrated", "uncalibrated", "uncalibrate",
+                                   "cal &lt; 30", "cal = 0", "", true));
+  addStateClock(transitions);
+  Automaton test(states, transitions, "main", false);
+
+  test.clocks.insert(test.clocks.end(),
+                     {"cal", "globtime", constants::STATE_CLOCK});
+  return test;
+}
+
 Automaton benchmarkgenerator::generatePerceptionTA() {
   vector<State> states;
   vector<Transition> transitions;
@@ -193,4 +215,24 @@ benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta) {
       constants::END_PA));
 
   return comm_activations;
+}
+
+unordered_map<string, vector<unique_ptr<EncICInfo>>>
+benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
+  vector<State> calib_filter;
+  calib_filter.push_back(calib_ta.states[2]);
+
+  Bounds no_bounds(0, numeric_limits<int>::max());
+
+  // ---------------------- Until Chain -------------------------------------
+  unordered_map<string, vector<unique_ptr<EncICInfo>>> calib_activations;
+  // until chain to prepare
+  calib_activations["pick"].emplace_back(make_unique<ChainInfo>(
+      "calib_pick_c", ICType::UntilChain,
+      vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endpick"));
+  calib_activations["put"].emplace_back(make_unique<ChainInfo>(
+      "calib_put_c", ICType::UntilChain,
+      vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endput"));
+
+  return calib_activations;
 }

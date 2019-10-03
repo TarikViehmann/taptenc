@@ -9,6 +9,7 @@
 namespace taptenc {
 namespace benchmarkgenerator {
 
+Automaton generateCalibrationTA();
 Automaton generatePerceptionTA();
 Automaton generateCommTA();
 
@@ -19,5 +20,8 @@ generatePerceptionConstraints(
 
 ::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
 generateCommConstraints(const Automaton &comm_ta);
+
+::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
+generateCalibrationConstraints(const Automaton &comm_ta);
 } // end namespace benchmarkgenerator
 } // end namespace taptenc
