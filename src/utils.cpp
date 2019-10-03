@@ -59,31 +59,49 @@ std::string taptenc::addAction(std::string old_action, std::string to_add) {
   }
   return old_action + constants::ACTION_SEP + to_add;
 }
-  std::string taptenc::trim(const std::string &str,
-                   const std::string &whitespace) {
-    const auto strBegin = str.find_first_not_of(whitespace);
-    if (strBegin == std::string::npos)
-      return ""; // no content
+std::string taptenc::trim(const std::string &str,
+                          const std::string &whitespace) {
+  const auto strBegin = str.find_first_not_of(whitespace);
+  if (strBegin == std::string::npos)
+    return ""; // no content
 
-    const auto strEnd = str.find_last_not_of(whitespace);
-    const auto strRange = strEnd - strBegin + 1;
+  const auto strEnd = str.find_last_not_of(whitespace);
+  const auto strRange = strEnd - strBegin + 1;
 
-    return str.substr(strBegin, strRange);
-  }
+  return str.substr(strBegin, strRange);
+}
 
-bool taptenc::isPiecewiseContained(std::string str, std::string container_str, std::string separator) {
+bool taptenc::isPiecewiseContained(std::string str, std::string container_str,
+                                   std::string separator) {
   size_t prev = 0;
   size_t found = str.find(separator);
-    while (found!=std::string::npos)
-  {
-    if(container_str.find(trim(str.substr(prev, found-prev))) == std::string::npos) {
-        return false;
+  while (found != std::string::npos) {
+    if (container_str.find(trim(str.substr(prev, found - prev))) ==
+        std::string::npos) {
+      return false;
     }
     prev = found + separator.size();
     found = str.find(separator, prev);
   }
-    if(container_str.find(trim(str.substr(prev))) == std::string::npos) {
-        return false;
-    }
-    return true;
+  if (container_str.find(trim(str.substr(prev))) == std::string::npos) {
+    return false;
+  }
+  return true;
+}
+
+void taptenc::replaceStringInPlace(std::string &subject,
+                                   const std::string &search,
+                                   const std::string &replace) {
+  size_t pos = 0;
+  while ((pos = subject.find(search, pos)) != std::string::npos) {
+    subject.replace(pos, search.length(), replace);
+    pos += replace.length();
+  }
+}
+
+std::string taptenc::convertCharsToHTML(std::string str) {
+  replaceStringInPlace(str, "&", "&amp;");
+  replaceStringInPlace(str, "<", "&lt;");
+  replaceStringInPlace(str, ">", "&gt;");
+  return str;
 }
