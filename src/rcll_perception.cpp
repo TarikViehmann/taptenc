@@ -228,22 +228,6 @@ void deleteEmptyLines(const std::string &filePath) {
   fileStream.close();
 }
 
-void replaceStringInPlace(std::string &subject, const std::string &search,
-                          const std::string &replace) {
-  size_t pos = 0;
-  while ((pos = subject.find(search, pos)) != std::string::npos) {
-    subject.replace(pos, search.length(), replace);
-    pos += replace.length();
-  }
-}
-
-string convertCharsToHTML(std::string str) {
-  replaceStringInPlace(str, "&", "&amp;");
-  replaceStringInPlace(str, "<", "&lt;");
-  replaceStringInPlace(str, ">", "&gt;");
-  return str;
-}
-
 std::string getEnvVar(std::string const &key) {
   char *val = std::getenv(key.c_str());
   if (val == NULL) {
