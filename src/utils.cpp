@@ -59,3 +59,31 @@ std::string taptenc::addAction(std::string old_action, std::string to_add) {
   }
   return old_action + constants::ACTION_SEP + to_add;
 }
+  std::string taptenc::trim(const std::string &str,
+                   const std::string &whitespace) {
+    const auto strBegin = str.find_first_not_of(whitespace);
+    if (strBegin == std::string::npos)
+      return ""; // no content
+
+    const auto strEnd = str.find_last_not_of(whitespace);
+    const auto strRange = strEnd - strBegin + 1;
+
+    return str.substr(strBegin, strRange);
+  }
+
+bool taptenc::isPiecewiseContained(std::string str, std::string container_str, std::string separator) {
+  size_t prev = 0;
+  size_t found = str.find(separator);
+    while (found!=std::string::npos)
+  {
+    if(container_str.find(trim(str.substr(prev, found-prev))) == std::string::npos) {
+        return false;
+    }
+    prev = found + separator.size();
+    found = str.find(separator, prev);
+  }
+    if(container_str.find(trim(str.substr(prev))) == std::string::npos) {
+        return false;
+    }
+    return true;
+}
