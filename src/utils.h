@@ -29,6 +29,7 @@ float fDotProduct(const ::std::pair<float, float> &a,
                    const ::std::string &whitespace = " \t");
 bool isPiecewiseContained(::std::string str, ::std::string container_str,
                           ::std::string separator);
+::std::string toLowerCase(::std::string s);
 void replaceStringInPlace(::std::string &subject, const ::std::string &search,
                           const ::std::string &replace);
 ::std::string convertCharsToHTML(::std::string str);

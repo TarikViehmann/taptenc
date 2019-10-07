@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "constants.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utility>
@@ -97,6 +98,13 @@ void taptenc::replaceStringInPlace(std::string &subject,
     subject.replace(pos, search.length(), replace);
     pos += replace.length();
   }
+}
+
+std::string taptenc::toLowerCase(std::string s) {
+  std::string res = s;
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return res;
 }
 
 std::string taptenc::convertCharsToHTML(std::string str) {
