@@ -42,6 +42,12 @@ AutomataSystem utapxmlparser::readXMLSystem(std::string filename) {
       if (t.templ->init.getName() == s.uid.getName()) {
         is_init = true;
       }
+      std::string state_name = toLowerCase(s.uid.getName());
+      if (state_name != s.uid.getName()) {
+        std::cout << "UTAPSystemParser readXMLSystem: Detected upper case "
+                     "characters in state name: "
+                  << s.uid.getName() << " converted to " << state_name;
+      }
       states.push_back(State(s.uid.getName(),
                              convertCharsToHTML(s.invariant.toString()), false,
                              is_init));
@@ -51,8 +57,10 @@ AutomataSystem utapxmlparser::readXMLSystem(std::string filename) {
       if (guard.substr(0, 1) == "1" && guard.size() == 1) {
         guard = "";
       }
+      std::string source_id = toLowerCase(tr.src->uid.getName());
+      std::string dest_id = toLowerCase(tr.dst->uid.getName());
       transitions.push_back(Transition(
-          tr.src->uid.getName(), tr.dst->uid.getName(), "", guard,
+          source_id, dest_id, "", guard,
           (tr.assign.toString().size() == 1) ? "" : tr.assign.toString(),
           tr.sync.toString()));
     }
@@ -60,7 +68,15 @@ AutomataSystem utapxmlparser::readXMLSystem(std::string filename) {
     for (const auto &tr : t.templ->variables) {
       if (tr.uid.getType().isClock()) {
         if (tr.uid.getName() != "t(0)") {
-          curr_ta.clocks.push_back(tr.uid.getName());
+          std::string curr_clock = toLowerCase(tr.uid.getName());
+          if (curr_clock != tr.uid.getName()) {
+            std::cout << "UTAPSystemParser readXMLSystem: Detected upper case "
+                         "characters in clock name: "
+                      << tr.uid.getName()
+                      << " THIS IS NOT SUPPORTED and will lead to errors."
+                      << std::endl;
+          }
+          curr_ta.clocks.push_back(curr_clock);
         }
       } else {
         std::cout << "UTAPSystemParser readXMLSystem: process declarations "
