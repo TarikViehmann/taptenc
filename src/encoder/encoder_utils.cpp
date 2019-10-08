@@ -227,6 +227,11 @@ std::string encoderutils::addToBaseId(std::string id, std::string to_add) {
   return id + constants::COMPONENT_SEP + to_add;
 }
 
+std::string encoderutils::mergeActions(std::string action1,
+                                       std::string action2) {
+  return action1 + constants::ACTION_SEP + action2;
+}
+
 std::string encoderutils::mergeIds(std::string id1, std::string id2) {
   if (id1.find(constants::BASE_SEP) != std::string::npos) {
     std::string new_prefix_add = Filter::getPrefix(
