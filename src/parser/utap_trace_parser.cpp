@@ -1,8 +1,8 @@
 #include "utap_trace_parser.h"
-#include "utils.h"
 #include "constants.h"
 #include "filter.h"
 #include "timed_automata.h"
+#include "utils.h"
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -116,7 +116,7 @@ string convertCharsToHTML(std::string str) {
   replaceStringInPlace(str, ">", "&gt;");
   return str;
 }
-void parseState(std::string &currentReadLine) {
+int parseState(std::string &currentReadLine) {
   unordered_map<pair<string, string>, int> closed_dbm;
   size_t eow = currentReadLine.find_first_of(" \t");
   // skip "State: "
@@ -148,20 +148,13 @@ void parseState(std::string &currentReadLine) {
     }
   }
   specialClocksInfo gci = determineSpecialClockBounds(closed_dbm);
-  cout << "total time: " << gci.global_clock.first << " to "
-       << ((gci.global_clock.second == ::std::numeric_limits<int>::max())
-               ? "inf"
-               : ::std::to_string(gci.global_clock.second))
-       << endl;
-  cout << "state time : " << gci.state_clock.first << " to "
-       << ((gci.state_clock.second == ::std::numeric_limits<int>::max())
-               ? "inf"
-               : ::std::to_string(gci.state_clock.second))
-       << endl;
+  return gci.global_clock.first;
 }
 
-bool parseTransition(std::string &currentReadLine, const Automaton &base_ta,
-                     const Automaton &plan_ta) {
+std::vector<std::string> parseTransition(std::string &currentReadLine,
+                                         const Automaton &base_ta,
+                                         const Automaton &plan_ta) {
+  std::vector<std::string> res;
   size_t eow = currentReadLine.find_first_of(" \t");
   currentReadLine = currentReadLine.substr(eow + 1);
   eow = currentReadLine.find_first_of(".");
@@ -197,10 +190,8 @@ bool parseTransition(std::string &currentReadLine, const Automaton &base_ta,
   // obtain action name
   string pa_source_id = Filter::getPrefix(source_id, constants::TL_SEP);
   string pa_dest_id = Filter::getPrefix(dest_id, constants::TL_SEP);
-  bool same_pa = false;
-  bool same_state = false;
   if (pa_dest_id == constants::QUERY) {
-    return false;
+    return res;
   }
   if (pa_source_id != pa_dest_id) {
     auto pa_trans =
@@ -218,41 +209,50 @@ bool parseTransition(std::string &currentReadLine, const Automaton &base_ta,
            << " -> " << pa_dest_id << " {" << guard << "; " << sync << "; "
            << update << "}" << endl;
     } else if (pa_trans->action != "") {
-      cout << pa_trans->action << endl;
+      res.push_back(pa_trans->action);
     } else {
-      cout << "(" << pa_trans->source_id << " -> " << pa_trans->dest_id << ")"
-           << endl;
+      res.push_back("(" + pa_trans->source_id + " -> " + pa_trans->dest_id +
+                    ")");
     }
-  } else {
-    same_pa = true;
   }
   string base_source_id = Filter::getSuffix(source_id, constants::BASE_SEP);
   string base_dest_id = Filter::getSuffix(dest_id, constants::BASE_SEP);
-  if (base_source_id != base_dest_id) {
-    auto base_trans =
-        ::std::find_if(base_ta.transitions.begin(), base_ta.transitions.end(),
-                       [base_source_id, base_dest_id, guard, sync,
-                        update](const Transition &t) bool {
-                         return t.source_id == base_source_id &&
-                                t.dest_id.find(base_dest_id) != string::npos &&
-                                isPiecewiseContained(t.guard,guard, constants::CC_CONJUNCTION) &&
-                                sync.find(t.sync) != string::npos &&
-                                isPiecewiseContained(t.update,update, constants::UPDATE_CONJUNCTION);
-                       });
-    if (base_trans == base_ta.transitions.end()) {
+  auto base_trans = ::std::find_if(
+      base_ta.transitions.begin(), base_ta.transitions.end(),
+      [base_source_id, base_dest_id, guard, sync,
+       update](const Transition &t) bool {
+        return t.source_id == base_source_id &&
+               t.dest_id.find(base_dest_id) != string::npos &&
+               isPiecewiseContained(t.guard, guard,
+                                    constants::CC_CONJUNCTION) &&
+               sync.find(t.sync) != string::npos &&
+               isPiecewiseContained(t.update, update,
+                                    constants::UPDATE_CONJUNCTION);
+      });
+  if (base_trans == base_ta.transitions.end()) {
+    if (base_source_id != base_dest_id) {
       cout << "ERROR:  cannot find base ta transition: " << base_source_id
            << " -> " << base_dest_id << " {" << guard << "; " << sync << "; "
            << update << "}" << endl;
-    } else if (base_trans->action != "") {
-      cout << base_trans->action << endl;
-    } else {
-      cout << "(" << base_trans->source_id << " -> " << base_trans->dest_id
-           << ")" << endl;
     }
   } else {
-    same_state = true;
+    std::vector<std::string> action_vec =
+        splitBySep(base_trans->action, constants::ACTION_SEP);
+    std::vector<std::string> source_vec =
+        splitBySep(base_trans->source_id, constants::COMPONENT_SEP);
+    std::vector<std::string> dest_vec =
+        splitBySep(base_trans->dest_id, constants::COMPONENT_SEP);
+    if (action_vec.size() == source_vec.size() &&
+        source_vec.size() == dest_vec.size()) {
+      for (long unsigned int i = 0; i < action_vec.size(); i++) {
+        if (source_vec[i] != dest_vec[i] || action_vec[i] != "") {
+          res.push_back(source_vec[i] + " -" + action_vec[i] + "-> " +
+                        dest_vec[i]);
+        }
+      }
+    }
   }
-  return same_state && same_pa;
+  return res;
 }
 
 // vector<pair<Transition,size_t>>
@@ -266,23 +266,46 @@ void parseTraceInfo(const std::string &file, const Automaton &base_ta,
   cout << "----------------------------------" << endl;
   cout << "---------Final Plan---------------" << endl;
   cout << "----------------------------------" << endl;
-  bool skip_state = false;
+  std::vector<std::pair<int, std::vector<std::string>>> info;
+  if (!getline(fileStream, currentReadLine)) {
+    std::cout << "UTAPTraceParser parseTraceInfo: trace not valid" << std::endl;
+  }
   while (getline(fileStream, currentReadLine)) {
-    if (currentReadLine.size() > 5) {
-      if (currentReadLine.substr(0, 5) == "State") {
-        if (skip_state) {
-          skip_state = false;
+    if (currentReadLine.size() > 10 &&
+        currentReadLine.substr(0, 10) == "Transition") {
+      std::vector<std::string> trans_vec =
+          parseTransition(currentReadLine, base_ta, plan_ta);
+      getline(fileStream, currentReadLine);
+      if (currentReadLine != "") {
+        std::cout << "UTAPTraceParser parseTraceInfo: expected empty line "
+                     "after transition, but read: "
+                  << currentReadLine << std::endl;
+      }
+      if (getline(fileStream, currentReadLine)) {
+        if (currentReadLine.size() > 5) {
+          if (currentReadLine.substr(0, 5) == "State") {
+            info.push_back(make_pair(parseState(currentReadLine), trans_vec));
+          }
         } else {
-          parseState(currentReadLine);
+          std::cout << "UTAPTraceParser parseTraceInfo: expected state after "
+                       "transition, but read: "
+                    << currentReadLine << std::endl;
+          break;
         }
       }
-      if (currentReadLine.size() > 10 &&
-          currentReadLine.substr(0, 10) == "Transition") {
-        skip_state = parseTransition(currentReadLine, base_ta, plan_ta);
-      }
+    } else {
+      continue;
     }
   }
   fileStream.close();
+  for (const auto &entry : info) {
+    if (entry.second.size() > 0) {
+      std::cout << entry.first << ": ";
+      for (const auto &t : entry.second) {
+        std::cout << "\t" << t << std::endl;
+      }
+    }
+  }
 }
 
 } // end namespace UTAPTraceParser

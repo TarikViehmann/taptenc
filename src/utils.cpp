@@ -2,8 +2,10 @@
 #include "constants.h"
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 using namespace taptenc;
 
 std::pair<int, int> taptenc::iMidPoint(const std::pair<int, int> &a,
@@ -51,15 +53,6 @@ std::string taptenc::addUpdate(std::string old_con, std::string to_add) {
   return old_con + ", " + to_add;
 }
 
-std::string taptenc::addAction(std::string old_action, std::string to_add) {
-  if (old_action.length() == 0) {
-    return to_add;
-  }
-  if (to_add.length() == 0) {
-    return old_action;
-  }
-  return old_action + constants::ACTION_SEP + to_add;
-}
 std::string taptenc::trim(const std::string &str,
                           const std::string &whitespace) {
   const auto strBegin = str.find_first_not_of(whitespace);
@@ -112,4 +105,15 @@ std::string taptenc::convertCharsToHTML(std::string str) {
   replaceStringInPlace(str, "<", "&lt;");
   replaceStringInPlace(str, ">", "&gt;");
   return str;
+}
+
+std::vector<std::string> taptenc::splitBySep(std::string s, char sep) {
+  std::vector<std::string> res;
+  std::stringstream ss(s);
+  while (ss.good()) {
+    std::string substr;
+    getline(ss, substr, sep);
+    res.push_back(substr);
+  }
+  return res;
 }

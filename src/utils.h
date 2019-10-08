@@ -2,6 +2,7 @@
 #include <limits>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace taptenc {
 
@@ -24,7 +25,6 @@ float fDotProduct(const ::std::pair<float, float> &a,
                                                 const ::std::pair<int, int> &b);
 ::std::string addConstraint(::std::string old_con, ::std::string to_add);
 ::std::string addUpdate(::std::string old_con, ::std::string to_add);
-::std::string addAction(::std::string old_action, ::std::string to_add);
 ::std::string trim(const ::std::string &str,
                    const ::std::string &whitespace = " \t");
 bool isPiecewiseContained(::std::string str, ::std::string container_str,
@@ -33,6 +33,7 @@ bool isPiecewiseContained(::std::string str, ::std::string container_str,
 void replaceStringInPlace(::std::string &subject, const ::std::string &search,
                           const ::std::string &replace);
 ::std::string convertCharsToHTML(::std::string str);
+::std::vector<::std::string> splitBySep(::std::string s, char sep);
 
 template <typename T> T safeAddition(T add1, T add2) {
   return (add1 < std::numeric_limits<T>::max() - add2)
