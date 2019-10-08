@@ -18,10 +18,11 @@ void replaceStringInPlace(::std::string &subject, const ::std::string &search,
                           const ::std::string &replace);
 
 ::std::string convertCharsToHTML(::std::string str);
-void parseState(::std::string &currentReadLine);
+int parseState(::std::string &currentReadLine);
 
-bool parseTransition(::std::string &currentReadLine, const Automaton &base_ta,
-                     const Automaton &plan_ta);
+::std::vector<::std::string> parseTransition(::std::string &currentReadLine,
+                                             const Automaton &base_ta,
+                                             const Automaton &plan_ta);
 void parseTraceInfo(const ::std::string &file, const Automaton &base_ta,
                     const Automaton &plan_ta);
 } // end namespace UTAPTraceParser
