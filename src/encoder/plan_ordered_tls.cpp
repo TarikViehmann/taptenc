@@ -398,6 +398,15 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
           encoderutils::mergeIds(ta_state.id, curr_trans.source_id);
       curr_trans.dest_id =
           encoderutils::mergeIds(ta_state.id, curr_trans.dest_id);
+      std::string dummy_action = "";
+      for (long int i = 0;
+           i < std::count(ta_state.id.begin(), ta_state.id.end(),
+                          constants::COMPONENT_SEP);
+           i++) {
+        dummy_action += constants::ACTION_SEP;
+      }
+      curr_trans.action =
+          encoderutils::mergeActions(curr_trans.action, dummy_action);
       state_ta.transitions.push_back(curr_trans);
     }
     // add states of other tl
@@ -430,6 +439,14 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
         Transition copy_trans = ta_trans;
         copy_trans.source_id = encoderutils::mergeIds(ta_trans.source_id, s.id);
         copy_trans.dest_id = encoderutils::mergeIds(ta_trans.dest_id, s.id);
+        std::string dummy_action = "";
+        for (long int i = 0;
+             i < std::count(s.id.begin(), s.id.end(), constants::COMPONENT_SEP);
+             i++) {
+          dummy_action += constants::ACTION_SEP;
+        }
+        copy_trans.action =
+            encoderutils::mergeActions(dummy_action, ta_trans.action);
         source_entry->second.trans_out.push_back(copy_trans);
       }
       for (const auto &tr : ta_to_insert.transitions) {
@@ -440,8 +457,9 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
             encoderutils::mergeIds(ta_trans.dest_id, tr.dest_id);
         succ_trans.guard = addConstraint(succ_trans.guard, tr.guard);
         succ_trans.update = addUpdate(succ_trans.update, tr.update);
-        succ_trans.action = addAction(succ_trans.action, tr.action);
-        source_entry->second.trans_out.push_back(succ_trans);
+          succ_trans.action =
+              encoderutils::mergeActions(succ_trans.action, tr.action);
+          source_entry->second.trans_out.push_back(succ_trans);
       }
     } else {
       std::cout << "PlanOrderedTLs replaceStatesByTA: error while "
@@ -485,6 +503,14 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
                   encoderutils::mergeIds(this_ic_trans.source_id, s.id);
               copy_trans.dest_id =
                   encoderutils::mergeIds(this_ic_trans.dest_id, s.id);
+              std::string dummy_action = "";
+              for (long int i = 0; i < std::count(s.id.begin(), s.id.end(),
+                                                  constants::COMPONENT_SEP);
+                   i++) {
+                dummy_action += constants::ACTION_SEP;
+              }
+              copy_trans.action =
+                  encoderutils::mergeActions(dummy_action, copy_trans.action);
               product_trans_out.push_back(copy_trans);
             }
             for (const auto &tr : merged_other_ta.transitions) {
@@ -495,6 +521,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
                   encoderutils::mergeIds(this_ic_trans.dest_id, tr.dest_id);
               succ_tr.guard = addConstraint(succ_tr.guard, this_ic_trans.guard);
               succ_tr.update = addUpdate(succ_tr.update, this_ic_trans.update);
+              succ_tr.action = encoderutils::mergeActions(succ_tr.action,
+                                                          this_ic_trans.action);
               product_trans_out.push_back(succ_tr);
             }
 
@@ -509,6 +537,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
               }
               out_tr.guard = addConstraint(out_tr.guard, this_ic_trans.guard);
               out_tr.update = addUpdate(out_tr.update, this_ic_trans.update);
+              out_tr.action = encoderutils::mergeActions(out_tr.action,
+                                                         this_ic_trans.action);
               product_trans_out.push_back(out_tr);
             }
           }
