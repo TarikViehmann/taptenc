@@ -386,7 +386,8 @@ Automaton PlanOrderedTLs::collapseTL(const TimeLine &tl, std::string tl_name,
 }
 
 TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
-                                           const Automaton &ta_to_insert) {
+                                           const Automaton &ta_to_insert,
+                                           bool add_succ_trans) {
   TimeLine product_tas;
   for (const auto &ta_state : source_ta.states) {
     Automaton state_ta(std::vector<State>(), std::vector<Transition>(),
@@ -449,17 +450,19 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
             encoderutils::mergeActions(dummy_action, ta_trans.action);
         source_entry->second.trans_out.push_back(copy_trans);
       }
-      for (const auto &tr : ta_to_insert.transitions) {
-        Transition succ_trans = ta_trans;
-        succ_trans.source_id =
-            encoderutils::mergeIds(ta_trans.source_id, tr.source_id);
-        succ_trans.dest_id =
-            encoderutils::mergeIds(ta_trans.dest_id, tr.dest_id);
-        succ_trans.guard = addConstraint(succ_trans.guard, tr.guard);
-        succ_trans.update = addUpdate(succ_trans.update, tr.update);
+      if (add_succ_trans) {
+        for (const auto &tr : ta_to_insert.transitions) {
+          Transition succ_trans = ta_trans;
+          succ_trans.source_id =
+              encoderutils::mergeIds(ta_trans.source_id, tr.source_id);
+          succ_trans.dest_id =
+              encoderutils::mergeIds(ta_trans.dest_id, tr.dest_id);
+          succ_trans.guard = addConstraint(succ_trans.guard, tr.guard);
+          succ_trans.update = addUpdate(succ_trans.update, tr.update);
           succ_trans.action =
               encoderutils::mergeActions(succ_trans.action, tr.action);
           source_entry->second.trans_out.push_back(succ_trans);
+        }
       }
     } else {
       std::cout << "PlanOrderedTLs replaceStatesByTA: error while "
@@ -490,7 +493,7 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
           other_tl->second, other_tl->first, outgoing);
       for (const auto &entry : curr_tl.second) {
         Automaton merged_res_ta = PlanOrderedTLs::productTA(
-            entry.second.ta, merged_other_ta, entry.first);
+            entry.second.ta, merged_other_ta, entry.first, false);
         // what about outgoing trans?!!?!?!?!?!?
         std::vector<Transition> product_trans_out;
         for (const auto &this_ic_trans : entry.second.trans_out) {
@@ -558,9 +561,9 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
 }
 
 Automaton PlanOrderedTLs::productTA(const Automaton &ta1, const Automaton &ta2,
-                                    std::string name) {
+                                    std::string name, bool add_succ_trans) {
 
-  TimeLine product_tas = replaceStatesByTA(ta1, ta2);
+  TimeLine product_tas = replaceStatesByTA(ta1, ta2, add_succ_trans);
   std::vector<Automaton> res_tas;
   std::vector<Transition> res_inner_trans;
   for (const auto merged_entry : product_tas) {

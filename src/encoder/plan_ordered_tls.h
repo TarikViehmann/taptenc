@@ -25,11 +25,14 @@ private:
    * Constructs a product TA by replacing each state of one TA by anoter TA
    * @param source_ta TA where states should be replaced
    * @param ta_to_insert TA that gets inserted to all states of source_ta
+   * @param add_succ_trans if true, adds transitions that simultaniously
+   *                       change states in source_ta and ta_to_insert
    * @return TimeLine representation of the product, with one entry containing
    *         ta_to_insert for each state of source_ta
    */
   static TimeLine replaceStatesByTA(const Automaton &source_ta,
-                                    const Automaton &ta_to_insert);
+                                    const Automaton &ta_to_insert,
+                                    bool add_succ_trans);
 
 public:
   ::std::unique_ptr<TimeLines> tls = ::std::make_unique<TimeLines>();
@@ -182,10 +185,12 @@ public:
    * @param ta1 first ta of the product
    * @param ta2 second ta of the product
    * @param name name of the product ta
+   * @param add_succ_trans if true, adds transitions that simultaniously
+   *                       change states in ta1 and ta2
    * @return Product ta of ta1 and ta2 by replacing each state of ta1
    *         by a copy of ta2
    */
   static Automaton productTA(const Automaton &ta1, const Automaton &ta2,
-                             ::std::string name);
+                             ::std::string name, bool add_succ_trans);
 };
 } // end namespace taptenc
