@@ -1,6 +1,6 @@
 #include "vis_info.h"
-#include "../utils.h"
 #include "../constants.h"
+#include "../utils.h"
 #include "timed_automata.h"
 #include <algorithm>
 #include <cmath>
@@ -18,29 +18,28 @@
 
 using namespace taptenc;
 
-
 stateVisInfo::stateVisInfo(::std::pair<int, int> arg_pos) : pos(arg_pos) {}
 
 transitionVisInfo::transitionVisInfo(::std::pair<int, int> arg_source_pos,
-                    ::std::pair<int, int> arg_dest_pos) {
-    is_self_loop = (arg_source_pos.first == arg_dest_pos.first &&
-                    arg_source_pos.second == arg_dest_pos.second)
-                       ? true
-                       : false;
-    if (is_self_loop) {
-      unit_normal = ::std::make_pair(0.f, -1.f);
-    } else {
-      unit_normal = iUnitNormalFromPoints(arg_source_pos, arg_dest_pos);
-    }
+                                     ::std::pair<int, int> arg_dest_pos) {
+  is_self_loop = (arg_source_pos.first == arg_dest_pos.first &&
+                  arg_source_pos.second == arg_dest_pos.second)
+                     ? true
+                     : false;
+  if (is_self_loop) {
+    unit_normal = ::std::make_pair(0.f, -1.f);
+  } else {
+    unit_normal = iUnitNormalFromPoints(arg_source_pos, arg_dest_pos);
   }
+}
 
 systemVisInfo::systemVisInfo(AutomataSystem &s) {
   for (auto it = s.instances.begin(); it != s.instances.end(); ++it) {
-    state_info.push_back(this->generateStateInfo(it->first.states));
-    transition_info.push_back(
-        this->generateTransitionInfo(it->first.transitions, state_info.back()));
+    m_state_info.push_back(this->generateStateInfo(it->first.states));
+    m_transition_info.push_back(this->generateTransitionInfo(
+        it->first.transitions, m_state_info.back()));
   }
-  transition_counters.resize(s.instances.size());
+  m_transition_counters.resize(s.instances.size());
 }
 
 systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
@@ -48,8 +47,8 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
   int x_offset = 0;
   int y_offset = 0;
   int instances = 0;
-  state_info.resize(1);
-  transition_info.resize(1);
+  m_state_info.resize(1);
+  m_transition_info.resize(1);
   for (auto tl : pa_order) {
     auto search = direct_encoding.find(tl);
     if (search != direct_encoding.end()) {
@@ -61,11 +60,11 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
                                           y_offset);
         max_x_offset = std::max(x_offset, max_x_offset);
         x_offset = min_x_offset;
-        state_info[0].insert(si.begin(), si.end());
+        m_state_info[0].insert(si.begin(), si.end());
         y_offset += 600;
         auto ti = this->generateTransitionInfo(entity.second.ta.transitions,
-                                               state_info.back());
-        transition_info[0].insert(ti.begin(), ti.end());
+                                               m_state_info.back());
+        m_transition_info[0].insert(ti.begin(), ti.end());
       }
       y_offset = 0;
       x_offset = max_x_offset + 200;
@@ -77,27 +76,27 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
       instances++;
       auto si =
           this->generateStateInfo(entity.second.ta.states, x_offset, y_offset);
-      state_info[0].insert(si.begin(), si.end());
+      m_state_info[0].insert(si.begin(), si.end());
       auto ti = this->generateTransitionInfo(entity.second.ta.transitions,
-                                             state_info.back());
-      transition_info[0].insert(ti.begin(), ti.end());
+                                             m_state_info.back());
+      m_transition_info[0].insert(ti.begin(), ti.end());
     }
   }
   for (const auto &tl : direct_encoding) {
     for (const auto &entity : tl.second) {
       auto iti = this->generateTransitionInfo(entity.second.trans_out,
-                                              state_info.back());
-      transition_info[0].insert(iti.begin(), iti.end());
+                                              m_state_info.back());
+      m_transition_info[0].insert(iti.begin(), iti.end());
     }
   }
-  transition_counters.resize(instances);
+  m_transition_counters.resize(instances);
 }
 
 std::pair<int, int> systemVisInfo::getStatePos(int component_index,
                                                std::string id) {
-  auto s_info = state_info[component_index].find(id);
+  auto s_info = m_state_info[component_index].find(id);
   std::pair<int, int> res;
-  if (s_info == state_info[component_index].end()) {
+  if (s_info == m_state_info[component_index].end()) {
     std::cout << "systemVisInfo getStatePos: Could not find StateVisInfo"
               << std::endl;
     res = std::make_pair(0, 0);
@@ -113,15 +112,15 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
                                 std::string dest_id) {
   std::pair<std::string, std::string> spair =
       std::make_pair(source_id, dest_id);
-  if (transition_counters[component_index].find(spair) ==
-      transition_counters[component_index].end()) {
-    transition_counters[component_index][spair] = 1;
+  if (m_transition_counters[component_index].find(spair) ==
+      m_transition_counters[component_index].end()) {
+    m_transition_counters[component_index][spair] = 1;
   } else {
-    transition_counters[component_index][spair]++;
+    m_transition_counters[component_index][spair]++;
   }
-  auto t_info = transition_info[component_index].find(spair);
+  auto t_info = m_transition_info[component_index].find(spair);
   std::vector<std::pair<int, int>> res;
-  if (t_info == transition_info[component_index].end()) {
+  if (t_info == m_transition_info[component_index].end()) {
     std::cout
         << "systemVisInfo getTransitionPos: Could not find TransitionVisInfo"
         << std::endl;
@@ -133,17 +132,17 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
           t_info->second.mid_point.first +
               (int)(t_info->second.unit_normal.first *
                     (float)DUPE_EDGE_DELIMITER *
-                    transition_counters[component_index][spair]),
+                    m_transition_counters[component_index][spair]),
           t_info->second.mid_point.second +
               (int)(t_info->second.unit_normal.second *
                     (float)DUPE_EDGE_DELIMITER *
-                    transition_counters[component_index][spair])));
+                    m_transition_counters[component_index][spair])));
 
     } else {
       t_info->second.poi[0].second +=
-          transition_counters[component_index][spair] * SELF_LOOP_DELIMITER;
+          m_transition_counters[component_index][spair] * SELF_LOOP_DELIMITER;
       t_info->second.poi[1].second +=
-          transition_counters[component_index][spair] * SELF_LOOP_DELIMITER;
+          m_transition_counters[component_index][spair] * SELF_LOOP_DELIMITER;
     }
 
     res.push_back(t_info->second.mid_point);
@@ -187,14 +186,15 @@ systemVisInfo::generateStateInfo(const std::vector<State> &states,
 std::unordered_map<std::pair<std::string, std::string>, TransitionVisInfo>
 systemVisInfo::generateTransitionInfo(
     const std::vector<Transition> &transitions,
-    const std::unordered_map<std::string, StateVisInfo> &state_info) {
+    const std::unordered_map<std::string, StateVisInfo> &m_state_info) {
   std::unordered_map<std::pair<std::string, std::string>, TransitionVisInfo>
       res;
   for (auto it = transitions.begin(); it != transitions.end(); ++it) {
     if (res.find(std::make_pair(it->source_id, it->dest_id)) == res.end()) {
-      auto curr_source = state_info.find(it->source_id);
-      auto curr_dest = state_info.find(it->dest_id);
-      if (curr_source == state_info.end() || curr_dest == state_info.end()) {
+      auto curr_source = m_state_info.find(it->source_id);
+      auto curr_dest = m_state_info.find(it->dest_id);
+      if (curr_source == m_state_info.end() ||
+          curr_dest == m_state_info.end()) {
         std::cout << "generateTransitionInfo: state info not found, source "
                   << it->source_id << " dest " << it->dest_id << std::endl;
         continue;
