@@ -54,10 +54,11 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
                              const std::vector<std::string> &pa_order) {
   int x_offset = 0;
   int y_offset = 0;
-  int instances = 0;
   // the final system consists of only one automaton
   m_state_info.resize(1);
   m_transition_info.resize(1);
+  m_transition_counters.resize(1);
+
   // generate visual info along the given plan order
   for (auto tl : pa_order) {
     auto search = direct_encoding.find(tl);
@@ -65,7 +66,6 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
       int max_x_offset = 0;
       for (const auto &entity : search->second) {
         int min_x_offset = x_offset;
-        instances++;
         auto si = this->generateStateInfo(entity.second.ta.states, x_offset,
                                           y_offset);
         max_x_offset = std::max(x_offset, max_x_offset);
@@ -84,7 +84,6 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
   auto search = direct_encoding.find(constants::QUERY);
   if (search != direct_encoding.end()) {
     for (const auto &entity : search->second) {
-      instances++;
       auto si =
           this->generateStateInfo(entity.second.ta.states, x_offset, y_offset);
       m_state_info[0].insert(si.begin(), si.end());
@@ -100,7 +99,6 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
       m_transition_info[0].insert(iti.begin(), iti.end());
     }
   }
-  m_transition_counters.resize(instances);
 }
 
 std::pair<int, int> systemVisInfo::getStatePos(int component_index,
