@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iostream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #define CONTEXT 2
@@ -752,6 +753,31 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
   s_vis = SystemVisInfo(*(po_tls.tls.get()), *(po_tls.pa_order.get()));
   AutomataSystem res = s;
   res.instances.clear();
+  std::vector<State> last_pruned_states;
+  std::unordered_set<std::string> already_pruned;
+  // prune deadend TLEntries by deleting all transitions to them
+  do {
+    Filter curr_filter(last_pruned_states, true);
+    last_pruned_states.clear();
+    for (auto &curr_tl : *(po_tls.tls.get())) {
+      for (auto &curr_copy : curr_tl.second) {
+        curr_filter.filterTransitionsInPlace(curr_copy.second.trans_out, "",
+                                             false);
+        if (curr_copy.first == constants::QUERY ||
+            curr_copy.second.trans_out.size() > 0) {
+        } else if (already_pruned.find(curr_copy.first) ==
+                   already_pruned.end()) {
+          last_pruned_states.insert(last_pruned_states.end(),
+                                    curr_copy.second.ta.states.begin(),
+                                    curr_copy.second.ta.states.end());
+          already_pruned.insert(curr_copy.first);
+          std::cout << "DirectEncoder createFinalSystem: pruned "
+                    << curr_copy.first << std::endl;
+        }
+      }
+    }
+  } while (last_pruned_states.size() > 0);
+  // merge together the rest
   std::vector<Automaton> automata;
   std::vector<Transition> interconnections;
   for (const auto &curr_tl : *(po_tls.tls.get())) {
@@ -762,7 +788,6 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
         interconnections.insert(interconnections.end(),
                                 curr_copy.second.trans_out.begin(),
                                 curr_copy.second.trans_out.end());
-      } else {
       }
     }
   }
