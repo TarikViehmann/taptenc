@@ -1,3 +1,9 @@
+/****************************************************************************
+ * vis_info.cpp - calculate visual information on timed automata systems    *
+ *                such as state and transition coordinates.                 *
+ *                                                                          *
+ * Author(s): (2019) Tarik Viehmann                                         *
+ ****************************************************************************/
 #include "vis_info.h"
 #include "../constants.h"
 #include "../utils.h"
@@ -15,6 +21,8 @@
 #define COL_DELIMITER 200
 #define LOOP_X_SHIFT -30
 #define LOOP_Y_SHIFT -30
+#define COMPONENT_X_SHIFT 200
+#define COMPONENT_Y_SHIFT 600
 
 using namespace taptenc;
 
@@ -47,8 +55,10 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
   int x_offset = 0;
   int y_offset = 0;
   int instances = 0;
+  // the final system consists of only one automaton
   m_state_info.resize(1);
   m_transition_info.resize(1);
+  // generate visual info along the given plan order
   for (auto tl : pa_order) {
     auto search = direct_encoding.find(tl);
     if (search != direct_encoding.end()) {
@@ -61,15 +71,16 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
         max_x_offset = std::max(x_offset, max_x_offset);
         x_offset = min_x_offset;
         m_state_info[0].insert(si.begin(), si.end());
-        y_offset += 600;
+        y_offset += COMPONENT_Y_SHIFT;
         auto ti = this->generateTransitionInfo(entity.second.ta.transitions,
                                                m_state_info.back());
         m_transition_info[0].insert(ti.begin(), ti.end());
       }
       y_offset = 0;
-      x_offset = max_x_offset + 200;
+      x_offset = max_x_offset + COMPONENT_X_SHIFT;
     }
   }
+  // also generate visual info for the query state (not part of plan order)
   auto search = direct_encoding.find(constants::QUERY);
   if (search != direct_encoding.end()) {
     for (const auto &entity : search->second) {
