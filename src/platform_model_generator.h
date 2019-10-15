@@ -22,6 +22,9 @@ generatePerceptionConstraints(
 generateCommConstraints(const Automaton &comm_ta);
 
 ::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
-generateCalibrationConstraints(const Automaton &comm_ta);
+generateCalibrationConstraints(const Automaton &calib_ta);
+
+::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
+generatePositionConstraints(const Automaton &pos_ta);
 } // end namespace benchmarkgenerator
 } // end namespace taptenc
