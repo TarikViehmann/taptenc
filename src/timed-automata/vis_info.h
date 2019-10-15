@@ -28,11 +28,11 @@ struct systemVisInfo {
 private:
   ::std::vector<
       ::std::unordered_map<::std::pair<::std::string, ::std::string>, int>>
-      transition_counters;
-  ::std::vector<::std::unordered_map<::std::string, StateVisInfo>> state_info;
+      m_transition_counters;
+  ::std::vector<::std::unordered_map<::std::string, StateVisInfo>> m_state_info;
   ::std::vector<::std::unordered_map<::std::pair<::std::string, ::std::string>,
                                      TransitionVisInfo>>
-      transition_info;
+      m_transition_info;
   ::std::unordered_map<::std::string, StateVisInfo>
   generateStateInfo(const ::std::vector<State> &states);
   ::std::unordered_map<::std::string, StateVisInfo>
