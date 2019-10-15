@@ -13,7 +13,7 @@ std::string XMLPrinter::toString(const State &s,
   std::stringstream res;
   res << "<location id=\"" << s.id << "\" x=\"" << pos.first << "\" y=\""
       << pos.second << "\">";
-  if (s.name != "") {
+  if (s.id != "") {
     res << "<name x=\"" << pos.first << "\" y=\"" << pos.second - 20 << "\">"
         << s.id << "</name>";
   }

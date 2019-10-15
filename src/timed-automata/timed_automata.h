@@ -9,18 +9,13 @@
 namespace taptenc {
 
 struct state {
-  static int obj_count;
   ::std::string id;
-  ::std::string name;
   ::std::string inv;
   bool urgent;
   bool initial;
-  state(::std::string arg_name, ::std::string arg_inv, bool arg_urgent = false,
+  state(::std::string arg_id, ::std::string arg_inv, bool arg_urgent = false,
         bool arg_initial = false) {
-    name = arg_name;
-    // name = "id" + ::std::to_string(obj_count);
-    obj_count++;
-    id = arg_name;
+    id = arg_id;
     inv = arg_inv;
     urgent = arg_urgent;
     initial = arg_initial;
@@ -85,7 +80,7 @@ struct automaton {
     states = arg_states;
     if (setTrap == true && states.end() == find_if(states.begin(), states.end(),
                                                    [](const State &s) -> bool {
-                                                     return s.name == "trap";
+                                                     return s.id == "trap";
                                                    })) {
       states.push_back(State("trap", ""));
     }
