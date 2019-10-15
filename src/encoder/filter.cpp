@@ -1,6 +1,7 @@
 #include "filter.h"
-#include "constants.h"
-#include "timed_automata.h"
+#include "../constants.h"
+#include "../timed-automata/timed_automata.h"
+#include "../utils.h"
 #include <algorithm>
 #include <iostream>
 #include <string>
