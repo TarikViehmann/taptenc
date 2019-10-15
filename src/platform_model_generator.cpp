@@ -63,7 +63,7 @@ Automaton benchmarkgenerator::generatePerceptionTA() {
                                    "icp &lt; 10 &amp;&amp; icp &gt; 5",
                                    "icp = 0", "", true));
   transitions.push_back(
-      Transition("icp_end", "cam_on", "icp &gt; 1", "", "", "", true));
+      Transition("icp_end", "cam_on", "", "icp &gt; 1", "", "", true));
   transitions.push_back(
       Transition("cam_on", "idle", "power_off_cam", "", "cam = 0", "", true));
   transitions.push_back(Transition("idle", "puck_sense", "check_puck",
@@ -82,7 +82,7 @@ Automaton benchmarkgenerator::generateCommTA() {
   vector<State> comm_states;
   vector<Transition> comm_transitions;
   comm_states.push_back(State("idle", "", false, true));
-  comm_states.push_back(State("prepare", "send &lt; 30"));
+  comm_states.push_back(State("prepare", "send &lt;= 30"));
   comm_states.push_back(State("prepared", "send &lt;= 0"));
   comm_states.push_back(State("error", "send &lt;= 0"));
   comm_transitions.push_back(
@@ -171,6 +171,26 @@ benchmarkgenerator::generatePerceptionConstraints(
                           // do whatever until end
                           TargetSpecs(full_bounds, perception_ta.states)},
       "endpick"));
+  // until chain to do icp
+  activations["put"].emplace_back(make_unique<ChainInfo>(
+      "icp_chain2", ICType::UntilChain,
+      // start with a booted cam
+      vector<TargetSpecs>{TargetSpecs(vision_bounds, cam_on_filter),
+                          // be done with icp after vision_bounds
+                          TargetSpecs(full_bounds, vision_filter),
+                          // do not do ICP again until pick action is done
+                          TargetSpecs(full_bounds, no_vision_filter)},
+      "endput"));
+  // // until chain to do icp
+  activations["put"].emplace_back(make_unique<ChainInfo>(
+      "pic_chain2", ICType::UntilChain,
+      // start however
+      vector<TargetSpecs>{TargetSpecs(full_bounds, perception_ta.states),
+                          // after unspecified time, save a pic
+                          TargetSpecs(full_bounds, pic_filter),
+                          // do whatever until end
+                          TargetSpecs(full_bounds, perception_ta.states)},
+      "endput"));
   return activations;
 }
 
@@ -235,4 +255,53 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
       vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endput"));
 
   return calib_activations;
+}
+
+unordered_map<string, vector<unique_ptr<EncICInfo>>>
+benchmarkgenerator::generatePositionConstraints(const Automaton &pos_ta) {
+  unordered_map<string, vector<unique_ptr<EncICInfo>>> pos_activations;
+  vector<State> moving_filter;
+  vector<State> standing_filter;
+  auto standing_state = getStateItById(pos_ta.states, "standing");
+  auto moving_state = getStateItById(pos_ta.states, "moving");
+  if (standing_state == pos_ta.states.end() ||
+      moving_state == pos_ta.states.end()) {
+    std::cout << "benchmarkgenerator generatePositionConstraints: cannot find "
+                 "constraint relevant states"
+              << std::endl;
+    return pos_activations;
+  } else {
+    moving_filter.push_back(*moving_state);
+    standing_filter.push_back(*standing_state);
+
+    Bounds no_bounds(0, numeric_limits<int>::max());
+
+    // ---------------------- Until Chain -------------------------------------
+    // until chain to prepare
+    pos_activations["pick"].emplace_back(
+        make_unique<UnaryInfo>("pos_pick", ICType::Invariant,
+                               TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["put"].emplace_back(make_unique<UnaryInfo>(
+        "pos_put", ICType::Invariant, TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["discard"].emplace_back(
+        make_unique<UnaryInfo>("pos_discard", ICType::Invariant,
+                               TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["endpick"].emplace_back(
+        make_unique<UnaryInfo>("pos_pick", ICType::Invariant,
+                               TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["endput"].emplace_back(make_unique<UnaryInfo>(
+        "pos_put", ICType::Invariant, TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["last"].emplace_back(make_unique<UnaryInfo>(
+        "pos_put", ICType::Invariant, TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["enddiscard"].emplace_back(
+        make_unique<UnaryInfo>("pos_discard", ICType::Invariant,
+                               TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["endgoto"].emplace_back(
+        make_unique<UnaryInfo>("pos_discard", ICType::Invariant,
+                               TargetSpecs(no_bounds, standing_filter)));
+    pos_activations["goto"].emplace_back(make_unique<UnaryInfo>(
+        "pos_goto", ICType::Invariant, TargetSpecs(no_bounds, moving_filter)));
+
+    return pos_activations;
+  }
 }
