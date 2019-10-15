@@ -92,12 +92,6 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
     if (source_ta != po_tls.tls->end() && dest_ta != po_tls.tls->end()) {
       std::string source_ta_prefix = toPrefix("", "", pa_trans.source_id);
       std::string dest_ta_prefix = toPrefix("", "", pa_trans.dest_id);
-      std::vector<Transition> succ_trans = createSuccessorTransitionsBetweenTAs(
-          s.instances[base_index].first,
-          source_ta->second.find(source_ta_prefix)->second.ta,
-          dest_ta->second.find(dest_ta_prefix)->second.ta,
-          source_ta->second.find(source_ta_prefix)->second.ta.states,
-          pa_trans.guard, pa_trans.update);
       std::vector<Transition> copy_trans = createCopyTransitionsBetweenTAs(
           source_ta->second.find(source_ta_prefix)->second.ta,
           dest_ta->second.find(dest_ta_prefix)->second.ta,
@@ -111,14 +105,23 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                                         ->second.find(source_ta_prefix)
                                         ->second.trans_out.end(),
                                     copy_trans.begin(), copy_trans.end());
-      po_tls.tls.get()
-          ->find(pa_trans.source_id)
-          ->second.find(source_ta_prefix)
-          ->second.trans_out.insert(po_tls.tls.get()
-                                        ->find(pa_trans.source_id)
-                                        ->second.find(source_ta_prefix)
-                                        ->second.trans_out.end(),
-                                    succ_trans.begin(), succ_trans.end());
+      if (pa_trans.dest_id != constants::END_PA) {
+        std::vector<Transition> succ_trans =
+            createSuccessorTransitionsBetweenTAs(
+                s.instances[base_index].first,
+                source_ta->second.find(source_ta_prefix)->second.ta,
+                dest_ta->second.find(dest_ta_prefix)->second.ta,
+                source_ta->second.find(source_ta_prefix)->second.ta.states,
+                pa_trans.guard, pa_trans.update);
+        po_tls.tls.get()
+            ->find(pa_trans.source_id)
+            ->second.find(source_ta_prefix)
+            ->second.trans_out.insert(po_tls.tls.get()
+                                          ->find(pa_trans.source_id)
+                                          ->second.find(source_ta_prefix)
+                                          ->second.trans_out.end(),
+                                      succ_trans.begin(), succ_trans.end());
+      }
     } else {
       std::cout << "DirectEncoder generateBaseTimeLine: pa "
                 << pa_trans.source_id << " or " << pa_trans.dest_id
