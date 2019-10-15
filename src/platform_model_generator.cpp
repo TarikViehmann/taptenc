@@ -1,7 +1,10 @@
 #include "platform_model_generator.h"
 #include "constants.h"
-#include "enc_interconnection_info.h"
-#include "timed_automata.h"
+#include "encoder/enc_interconnection_info.h"
+#include "timed-automata/timed_automata.h"
+#include "utils.h"
+#include <algorithm>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <time.h>
