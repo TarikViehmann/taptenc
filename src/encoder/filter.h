@@ -5,11 +5,13 @@ namespace taptenc {
 class Filter {
 private:
   ::std::vector<State> filter;
+  bool invert_effect = false;
+  bool isFilterEndIt(const ::std::vector<State>::const_iterator &it) const;
   static bool hasSuffix(::std::string name, ::std::string suffix);
   static bool hasPrefix(::std::string name, ::std::string prefix);
 
 public:
-  Filter(std::vector<State> input);
+  Filter(std::vector<State> input, bool arg_invert_effect = false);
   static bool matchesFilter(::std::string name, ::std::string prefix,
                             ::std::string suffix);
   static ::std::string stripPrefix(::std::string name, ::std::string prefix);

@@ -8,7 +8,18 @@
 
 using namespace taptenc;
 
-Filter::Filter(std::vector<State> arg_filter) { filter = arg_filter; }
+Filter::Filter(std::vector<State> arg_filter, bool arg_invert_effect) {
+  invert_effect = arg_invert_effect;
+  filter = arg_filter;
+}
+
+bool Filter::isFilterEndIt(const std::vector<State>::const_iterator &it) const {
+  bool res = it == filter.end();
+  if (invert_effect) {
+    res = !res;
+  }
+  return res;
+}
 
 std::vector<State> Filter::getFilter() const { return filter; }
 
@@ -67,21 +78,21 @@ std::string Filter::getPrefix(std::string name, char marker) {
 void Filter::filterTransitionsInPlace(std::vector<Transition> &trans,
                                       std::string prefix,
                                       bool filter_source) const {
-  trans.erase(std::remove_if(trans.begin(), trans.end(),
-                             [filter_source, prefix, this](Transition &t) bool {
-                               std::string id =
-                                   ((filter_source) ? t.source_id : t.dest_id);
-                               bool res =
-                                   hasPrefix(id, prefix) &&
-                                   std::find_if(filter.begin(), filter.end(),
-                                                [id, filter_source, prefix,
-                                                 this](const State &s) bool {
-                                                  return Filter::matchesFilter(
-                                                      id, prefix, s.id);
-                                                }) == filter.end();
-                               return res;
-                             }),
-              trans.end());
+  trans.erase(
+      std::remove_if(
+          trans.begin(), trans.end(),
+          [filter_source, prefix, this](Transition &t) bool {
+            std::string id = ((filter_source) ? t.source_id : t.dest_id);
+            bool res =
+                hasPrefix(id, prefix) &&
+                isFilterEndIt(std::find_if(
+                    filter.begin(), filter.end(),
+                    [id, filter_source, prefix, this](const State &s) bool {
+                      return Filter::matchesFilter(id, prefix, s.id);
+                    }));
+            return res;
+          }),
+      trans.end());
 }
 
 void Filter::filterAutomatonInPlace(Automaton &source,
@@ -89,12 +100,11 @@ void Filter::filterAutomatonInPlace(Automaton &source,
   source.states.erase(
       std::remove_if(source.states.begin(), source.states.end(),
                      [prefix, this](State &s) bool {
-                       return std::find_if(
-                                  filter.begin(), filter.end(),
-                                  [prefix, s, this](const State &f_s) bool {
-                                    return Filter::matchesFilter(s.id, prefix,
-                                                                 f_s.id);
-                                  }) == filter.end();
+                       return isFilterEndIt(std::find_if(
+                           filter.begin(), filter.end(),
+                           [prefix, s, this](const State &f_s) bool {
+                             return Filter::matchesFilter(s.id, prefix, f_s.id);
+                           }));
                      }),
       source.states.end());
   filterTransitionsInPlace(source.transitions, prefix, true);
@@ -210,7 +220,7 @@ void Filter::addToTransitions(std::vector<Transition> &trans, std::string guard,
           return Filter::matchesFilter(
               ((filter_source) ? tr.source_id : tr.dest_id), prefix, s.id);
         });
-    if (search != filter.end()) {
+    if (!isFilterEndIt(search)) {
       tr.guard = addConstraint(tr.guard, guard);
       tr.update = addUpdate(tr.update, update);
     }
@@ -248,7 +258,8 @@ Filter Filter::reverseFilter(const Automaton &ta) const {
   return Filter(reverse_filter);
 }
 bool Filter::matchesId(const std::string id) const {
-  return std::find_if(filter.begin(), filter.end(), [id](const State &s) bool {
-           return Filter::matchesFilter(id, "", s.id);
-         }) != filter.end();
+  return !isFilterEndIt(
+      std::find_if(filter.begin(), filter.end(), [id](const State &s) bool {
+        return Filter::matchesFilter(id, "", s.id);
+      }));
 }
