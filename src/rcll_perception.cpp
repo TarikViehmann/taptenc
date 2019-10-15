@@ -27,7 +27,7 @@ using namespace std;
 
 void append_prefix_to_states(vector<State> &arg_states, string prefix) {
   for (auto it = arg_states.begin(); it != arg_states.end(); ++it) {
-    it->name += prefix;
+    it->id += prefix;
   }
 }
 
@@ -74,8 +74,8 @@ Automaton generateSyncPlanAutomaton(
     string guard = "";
     string update = "";
     auto prev_state = (it - 1);
-    if (prev_state->name.substr(0, 5) != "alpha") {
-      sync_op = Filter::getPrefix(prev_state->name, constants::PA_SEP);
+    if (prev_state->id.substr(0, 5) != "alpha") {
+      sync_op = Filter::getPrefix(prev_state->id, constants::PA_SEP);
     } else {
       guard = "cpa &gt; 30";
       update = "cpa = 0";

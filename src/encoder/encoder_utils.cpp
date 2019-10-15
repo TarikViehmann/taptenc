@@ -147,9 +147,8 @@ void encoderutils::addTrapTransitions(Automaton &ta,
                                       const std::vector<State> &sources,
                                       std::string guard, std::string update,
                                       std::string sync, bool passive) {
-  auto trap =
-      std::find_if(ta.states.begin(), ta.states.end(),
-                   [](const State &s) bool { return s.name == "trap"; });
+  auto trap = std::find_if(ta.states.begin(), ta.states.end(),
+                           [](const State &s) bool { return s.id == "trap"; });
   if (trap == ta.states.end()) {
     std::cout << "Encoder addTrapTransitions: trap not found. Abort."
               << std::endl;

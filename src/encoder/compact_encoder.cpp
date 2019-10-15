@@ -19,17 +19,17 @@ void CompactEncoder::encodeNoOp(AutomataSystem &s, std::vector<State> &target,
   auto trap =
       std::find_if(s.instances[base_pos].first.states.begin(),
                    s.instances[base_pos].first.states.end(),
-                   [](const State &s) -> bool { return s.name == "trap"; });
+                   [](const State &s) -> bool { return s.id == "trap"; });
   if (trap == s.instances[base_pos].first.states.end()) {
     std::cout << "CompactEncoder encodeNoOp: trap not found" << std::endl;
     return;
   }
   for (auto it = s.instances[base_pos].first.states.begin();
        it != s.instances[base_pos].first.states.end(); ++it) {
-    std::string key = it->name;
+    std::string key = it->id;
     auto its =
         std::find_if(target.begin(), target.end(),
-                     [key](const State &s) -> bool { return s.name == key; });
+                     [key](const State &s) -> bool { return s.id == key; });
     if (its != target.end()) {
       s.instances[base_pos].first.transitions.push_back(
           Transition(it->id, it->id, "", "", "", opsync, true));
@@ -46,7 +46,7 @@ void CompactEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &target,
   auto trap =
       std::find_if(s.instances[base_pos].first.states.begin(),
                    s.instances[base_pos].first.states.end(),
-                   [](const State &s) -> bool { return s.name == "trap"; });
+                   [](const State &s) -> bool { return s.id == "trap"; });
   int suffix = fresh_suffix();
   std::string boolvar = "bfinally" + std::to_string(suffix);
   std::string clock = "cfinally" + std::to_string(suffix);
@@ -75,12 +75,12 @@ void CompactEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &target,
                      : "");
   for (auto it = s.instances[base_pos].first.states.begin();
        it != s.instances[base_pos].first.states.end(); ++it) {
-    if (it->name == "trap") {
+    if (it->id == "trap") {
       continue;
     }
-    std::string key = it->name;
+    std::string key = it->id;
     auto its = find_if(target.begin(), target.end(),
-                       [key](const State &s) -> bool { return s.name == key; });
+                       [key](const State &s) -> bool { return s.id == key; });
     std::string update_on_activation = "";
     if (its == target.end() || lower_bounded) {
       update_on_activation = boolvar + " = true, " + clock + " = 0";
@@ -109,7 +109,7 @@ void CompactEncoder::encodePast(AutomataSystem &s, std::vector<State> &target,
   auto trap =
       std::find_if(s.instances[base_pos].first.states.begin(),
                    s.instances[base_pos].first.states.end(),
-                   [](const State &s) -> bool { return s.name == "trap"; });
+                   [](const State &s) -> bool { return s.id == "trap"; });
   int suffix = fresh_suffix();
   std::string boolvar = "bpast" + std::to_string(suffix);
   std::string clock = "cpast" + std::to_string(suffix);
@@ -141,12 +141,12 @@ void CompactEncoder::encodePast(AutomataSystem &s, std::vector<State> &target,
                      : "");
   for (auto it = s.instances[base_pos].first.states.begin();
        it != s.instances[base_pos].first.states.end(); ++it) {
-    if (it->name == "trap") {
+    if (it->id == "trap") {
       continue;
     }
-    std::string key = it->name;
+    std::string key = it->id;
     auto its = find_if(target.begin(), target.end(),
-                       [key](const State &s) -> bool { return s.name == key; });
+                       [key](const State &s) -> bool { return s.id == key; });
     std::string update_on_activation = "";
     if (its == target.end() || lower_bounded) {
       update_on_activation = boolvar + " = true," + clock + " = 0";
