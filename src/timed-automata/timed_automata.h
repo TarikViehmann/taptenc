@@ -1,3 +1,10 @@
+/****************************************************************************
+ * timed_automata.h - provides datastructures to represent timed automata   *
+ *                    systems and encodings                                 *
+ *                                                                          *
+ * Author(s): (2019) Tarik Viehmann                                         *
+ ****************************************************************************/
+
 #pragma once
 
 #include "../constraints/constraints.h"
@@ -6,7 +13,12 @@
 #include <vector>
 
 namespace taptenc {
-
+/*
+ * timed automata related declarations
+ *  - State
+ *  - Transition
+ *  - Automaton
+ */
 struct state {
   ::std::string id;
   ::std::string inv;
@@ -25,7 +37,7 @@ struct transition {
   ::std::string guard;
   ::std::string update;
   ::std::string sync;
-  bool passive;
+  bool passive; // true: receiver of sync (?), false: emmitter of sync (!)
   transition(::std::string arg_source_id, ::std::string arg_dest_id,
              std::string arg_action, ::std::string arg_guard,
              ::std::string arg_update, ::std::string arg_sync,
@@ -48,6 +60,13 @@ struct automaton {
 };
 typedef struct automaton Automaton;
 
+/*
+ * TA system related declarations (structure base of uppaal systems)
+ *  - ChanType
+ *  - Channel
+ *  - AutomataGlobals
+ *  - AutomataSystem
+ */
 
 enum ChanType { Binary = 1, Broadcast = 0 };
 struct channel {
@@ -72,6 +91,13 @@ struct automataSystem {
   AutomataGlobals globals;
 };
 typedef struct automataSystem AutomataSystem;
+
+/*
+ * encoding related declarations to store automata copies
+ *  - TlEntry (a TA copy together with outgoing transitions)
+ *  - TimeLine (a set of TlEntries that can be retrieved via keys)
+ *  - TimeLines (a set with TimeLine elements)
+ */
 
 struct tlEntry {
   Automaton ta;
