@@ -9,7 +9,10 @@
 
 using namespace taptenc;
 
-std::string XTAPrinter::toStringXTA(const State &s) {
+namespace taptenc {
+namespace xtaprinterutils {
+
+std::string toStringXTA(const State &s) {
   std::stringstream res;
   res << s.id;
   if (s.inv != "") {
@@ -18,7 +21,7 @@ std::string XTAPrinter::toStringXTA(const State &s) {
   return res.str();
 }
 
-std::string XTAPrinter::toStringXTA(const Transition &t) {
+std::string toStringXTA(const Transition &t) {
   std::stringstream res;
   res << t.source_id << " -> " << t.dest_id << " { ";
   if (t.guard != "")
@@ -35,7 +38,7 @@ std::string XTAPrinter::toStringXTA(const Transition &t) {
   return res.str();
 }
 
-void XTAPrinter::printXTAstart(const AutomataSystem &s, std::string filename) {
+void printXTAstart(const AutomataSystem &s, std::string filename) {
   std::ofstream myfile;
   myfile.open(filename);
   std::unordered_set<std::string> all_clocks;
@@ -123,7 +126,7 @@ void XTAPrinter::printXTAstart(const AutomataSystem &s, std::string filename) {
   myfile.close();
 }
 
-void XTAPrinter::printXTAtemplate(const AutomataSystem &s, int index,
+void printXTAtemplate(const AutomataSystem &s, int index,
                                   std::string filename) {
   std::ofstream myfile;
   myfile.open(filename, std::ios_base::app);
@@ -157,7 +160,7 @@ void XTAPrinter::printXTAtemplate(const AutomataSystem &s, int index,
   myfile.close();
 }
 
-void XTAPrinter::printXTAsystem(
+void printXTAsystem(
     const std::vector<std::pair<Automaton, std::string>> &instances,
     std::string filename) {
   std::ofstream myfile;
@@ -173,14 +176,16 @@ void XTAPrinter::printXTAsystem(
   myfile << system << ";" << std::endl;
   myfile.close();
 }
+} // end namespace xtaprinterutils
+} // end namespace taptenc
 
 void XTAPrinter::print(const AutomataSystem &s, SystemVisInfo &s_vis_info,
                        std::string filename) {
-  printXTAstart(s, filename);
+  xtaprinterutils::printXTAstart(s, filename);
   for (auto it = s.instances.begin(); it != s.instances.end(); ++it) {
-    printXTAtemplate(s, it - s.instances.begin(), filename);
+    xtaprinterutils::printXTAtemplate(s, it - s.instances.begin(), filename);
   }
   std::cout << "useless output: " << s_vis_info.getStatePos(0, "").first
             << std::endl;
-  printXTAsystem(s.instances, filename);
+  xtaprinterutils::printXTAsystem(s.instances, filename);
 }
