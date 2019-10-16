@@ -60,7 +60,7 @@ private:
    * @return state id -> StateVisInfo mapping
    */
   ::std::unordered_map<::std::string, StateVisInfo>
-  generateStateInfo(const ::std::vector<State> &states);
+  generateStateInfo(const ::std::vector<State> &states) const;
 
   /*
    * generate coordinates for the given states with an offset
@@ -74,7 +74,7 @@ private:
    */
   ::std::unordered_map<::std::string, StateVisInfo>
   generateStateInfo(const ::std::vector<State> &states, int &x_offset,
-                    int &y_offset);
+                    int &y_offset) const;
 
   /*
    * generate coordinates for the given transitions.
@@ -86,9 +86,9 @@ private:
    */
   ::std::unordered_map<::std::pair<::std::string, ::std::string>,
                        TransitionVisInfo>
-  generateTransitionInfo(
-      const ::std::vector<Transition> &transitions,
-      const ::std::unordered_map<::std::string, StateVisInfo> &state_info);
+  generateTransitionInfo(const ::std::vector<Transition> &transitions,
+                         const ::std::unordered_map<::std::string, StateVisInfo>
+                             &state_info) const;
 
 public:
   systemVisInfo() = default;
@@ -124,7 +124,8 @@ public:
    * @return <x,y> position of the state (or <0,0> if the state is not known)
    *
    */
-  ::std::pair<int, int> getStatePos(int component_index, ::std::string id);
+  ::std::pair<int, int> getStatePos(int component_index,
+                                    ::std::string id) const;
 
   /*
    * get the endpoint positions of a transition
