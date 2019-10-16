@@ -102,7 +102,7 @@ systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
 }
 
 std::pair<int, int> systemVisInfo::getStatePos(int component_index,
-                                               std::string id) {
+                                               std::string id) const {
   auto s_info = m_state_info[component_index].find(id);
   std::pair<int, int> res;
   if (s_info == m_state_info[component_index].end()) {
@@ -161,7 +161,7 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
 }
 
 std::unordered_map<std::string, StateVisInfo>
-systemVisInfo::generateStateInfo(const std::vector<State> &states) {
+systemVisInfo::generateStateInfo(const std::vector<State> &states) const {
   int x_offset = 0;
   int y_offset = 0;
   return generateStateInfo(states, x_offset, y_offset);
@@ -169,7 +169,7 @@ systemVisInfo::generateStateInfo(const std::vector<State> &states) {
 
 std::unordered_map<std::string, StateVisInfo>
 systemVisInfo::generateStateInfo(const std::vector<State> &states,
-                                 int &x_offset, int &y_offset) {
+                                 int &x_offset, int &y_offset) const {
   int row_length = sqrt(states.size());
   std::unordered_map<std::string, StateVisInfo> res;
   int x = x_offset;
@@ -195,7 +195,7 @@ systemVisInfo::generateStateInfo(const std::vector<State> &states,
 std::unordered_map<std::pair<std::string, std::string>, TransitionVisInfo>
 systemVisInfo::generateTransitionInfo(
     const std::vector<Transition> &transitions,
-    const std::unordered_map<std::string, StateVisInfo> &m_state_info) {
+    const std::unordered_map<std::string, StateVisInfo> &m_state_info) const {
   std::unordered_map<std::pair<std::string, std::string>, TransitionVisInfo>
       res;
   for (auto it = transitions.begin(); it != transitions.end(); ++it) {
