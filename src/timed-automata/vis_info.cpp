@@ -136,8 +136,11 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
     res.push_back(std::make_pair(0, 0));
     return res;
   } else {
+    // add mid point
+    res.push_back(t_info->second.mid_point);
     if (source_id != dest_id) {
-      t_info->second.poi.push_back(std::make_pair(
+      // if the transition is no loop, add a p.o.i. orthogonal to mid point
+      res.push_back(std::make_pair(
           t_info->second.mid_point.first +
               (int)(t_info->second.unit_normal.first *
                     (float)DUPE_EDGE_DELIMITER *
@@ -148,14 +151,18 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
                     m_transition_counters[component_index][spair])));
 
     } else {
-      t_info->second.poi[0].second +=
-          m_transition_counters[component_index][spair] * SELF_LOOP_DELIMITER;
-      t_info->second.poi[1].second +=
-          m_transition_counters[component_index][spair] * SELF_LOOP_DELIMITER;
+      // if the transition is a loop we add left and right p.o.i.
+      res.push_back(
+          std::make_pair(t_info->second.poi[0].first,
+                         t_info->second.poi[0].second +
+                             m_transition_counters[component_index][spair] *
+                                 SELF_LOOP_DELIMITER));
+      res.push_back(
+          std::make_pair(t_info->second.poi[1].first,
+                         t_info->second.poi[1].second +
+                             m_transition_counters[component_index][spair] *
+                                 SELF_LOOP_DELIMITER));
     }
-
-    res.push_back(t_info->second.mid_point);
-    res.insert(res.end(), t_info->second.poi.begin(), t_info->second.poi.end());
     return res;
   }
 }
