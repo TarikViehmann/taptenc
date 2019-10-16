@@ -8,8 +8,15 @@
 
 using namespace taptenc;
 
-std::string XMLPrinter::toString(const State &s,
-                                 const std::pair<int, int> &pos) {
+namespace taptenc {
+namespace xmlprinterutils {
+
+constexpr char XML_HEADER[]{
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?><!DOCTYPE nta PUBLIC "
+    "\'-//Uppaal Team//DTD Flat System 1.1//EN\' "
+    "\'http://www.it.uu.se/research/group/darts/uppaal/flat-1_1.dtd\'><nta>"};
+
+std::string toString(const State &s, const std::pair<int, int> &pos) {
   std::stringstream res;
   res << "<location id=\"" << s.id << "\" x=\"" << pos.first << "\" y=\""
       << pos.second << "\">";
@@ -28,8 +35,8 @@ std::string XMLPrinter::toString(const State &s,
   return res.str();
 }
 
-std::string XMLPrinter::toString(const Transition &t,
-                                 const std::vector<std::pair<int, int>> &v) {
+std::string toString(const Transition &t,
+                     const std::vector<std::pair<int, int>> &v) {
   std::stringstream res;
   if (v.size() == 0) {
     std::cout
@@ -65,10 +72,10 @@ std::string XMLPrinter::toString(const Transition &t,
   return res.str();
 }
 
-void XMLPrinter::printXMLstart(const AutomataGlobals &g, std::string filename) {
+void printXMLstart(const AutomataGlobals &g, std::string filename) {
   std::ofstream myfile;
   myfile.open(filename);
-  myfile << header;
+  myfile << XML_HEADER;
   myfile << "<declaration>";
   if (g.clocks.size() > 0) {
     myfile << "clock ";
@@ -115,16 +122,15 @@ void XMLPrinter::printXMLstart(const AutomataGlobals &g, std::string filename) {
   myfile << "</declaration>" << std::endl;
   myfile.close();
 }
-void XMLPrinter::printXMLend(std::string filename) {
+void printXMLend(std::string filename) {
   std::ofstream myfile;
   myfile.open(filename, std::ios_base::app);
   myfile << "</nta>" << std::endl;
   myfile.close();
 }
 
-void XMLPrinter::printXMLtemplate(const AutomataSystem &s,
-                                  SystemVisInfo &s_vis_info, int index,
-                                  std::string filename) {
+void printXMLtemplate(const AutomataSystem &s, SystemVisInfo &s_vis_info,
+                      int index, std::string filename) {
   std::ofstream myfile;
   myfile.open(filename, std::ios_base::app);
   myfile << "<template>";
@@ -171,7 +177,7 @@ void XMLPrinter::printXMLtemplate(const AutomataSystem &s,
   myfile.close();
 }
 
-void XMLPrinter::printXMLsystem(
+void printXMLsystem(
     const std::vector<std::pair<Automaton, std::string>> &instances,
     std::string filename) {
   std::ofstream myfile;
@@ -192,13 +198,15 @@ void XMLPrinter::printXMLsystem(
   myfile << "</system>" << std::endl;
   myfile.close();
 }
-
+} // end namespace xmlprinterutils
+} // namespace taptenc
 void XMLPrinter::print(const AutomataSystem &s, SystemVisInfo &s_vis_info,
                        std::string filename) {
-  printXMLstart(s.globals, filename);
+  xmlprinterutils::printXMLstart(s.globals, filename);
   for (auto it = s.instances.begin(); it != s.instances.end(); ++it) {
-    printXMLtemplate(s, s_vis_info, it - s.instances.begin(), filename);
+    xmlprinterutils::printXMLtemplate(s, s_vis_info, it - s.instances.begin(),
+                                      filename);
   }
-  printXMLsystem(s.instances, filename);
-  printXMLend(filename);
+  xmlprinterutils::printXMLsystem(s.instances, filename);
+  xmlprinterutils::printXMLend(filename);
 }
