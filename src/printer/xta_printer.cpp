@@ -1,3 +1,14 @@
+/** \file
+ * Printer to produce uppaal 3.0 xta output format.
+ *
+ * xta is an output format that only contains the syntactical definitions of an
+ * automata system. Display information such as state coordinates are printed
+ * to a different file with file extension ugi. This is not implemented yet,
+ * however, newer versions of uppaal do not require an ugi file.
+ *
+ * \author (2019) Tarik Viehmann
+ */
+
 #include "printer.h"
 #include "timed_automata.h"
 #include <fstream>
@@ -12,6 +23,13 @@ using namespace taptenc;
 namespace taptenc {
 namespace xtaprinterutils {
 
+/**
+ * Creates an xta formatted string (according to uppaal 3.0 syntax) that
+ * holds information of a state.
+ *
+ * @param s state to xml format
+ * @return xml formatted string of \a s accoding to uppaal 3.0 xml format
+ */
 std::string toStringXTA(const State &s) {
   std::stringstream res;
   res << s.id;
@@ -21,6 +39,15 @@ std::string toStringXTA(const State &s) {
   return res.str();
 }
 
+/**
+ * Creates an xta formatted string (according to uppaal 3.0 syntax) that holds
+ * information of a transition.
+ *
+ * Nails to shape transitions are not supported.
+ *
+ * @param t transition to xta format
+ * @return xta formatted string of \a s accoding to uppaal 3.0 format
+ */
 std::string toStringXTA(const Transition &t) {
   std::stringstream res;
   res << t.source_id << " -> " << t.dest_id << " { ";
@@ -38,6 +65,13 @@ std::string toStringXTA(const Transition &t) {
   return res.str();
 }
 
+/**
+ * Appends the global definitions formatted according to uppaal 3.0 xta syntax
+ * to a file.
+ *
+ * @param s automata system
+ * @param filename name of file to append the formatted info
+ */
 void printXTAstart(const AutomataSystem &s, std::string filename) {
   std::ofstream myfile;
   myfile.open(filename);
@@ -126,8 +160,18 @@ void printXTAstart(const AutomataSystem &s, std::string filename) {
   myfile.close();
 }
 
+/**
+ * Appends a xml encoded automaton template to a file.
+ *
+ * Currently templates are not really supported, because of the modeling of
+ * AutomataSystem::instances.
+ *
+ * @param s Automata System that contains the template in questiom
+ * @param index template index in AutomataSystem::instances of \a s
+ * @param filename name of file to append the formatted template
+ */
 void printXTAtemplate(const AutomataSystem &s, int index,
-                                  std::string filename) {
+                      std::string filename) {
   std::ofstream myfile;
   myfile.open(filename, std::ios_base::app);
   myfile << "process " << s.instances[index].first.prefix << "("
@@ -160,6 +204,16 @@ void printXTAtemplate(const AutomataSystem &s, int index,
   myfile.close();
 }
 
+/**
+ * Appends xta encoding of a system declaration to file.
+ *
+ * Currently a non-empty parameter list of an entry in \a instances requires
+ * the associated automaton to already contain the assigned parameter values.
+ *
+ * @param instances instances consisting of an automaton and a string
+ *        containing the parameter list.
+ * @param filename name of file to append the formatted system definition
+ */
 void printXTAsystem(
     const std::vector<std::pair<Automaton, std::string>> &instances,
     std::string filename) {
