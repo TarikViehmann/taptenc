@@ -5,9 +5,9 @@
  */
 #pragma once
 
-#include "timed_automata.h"
-#include "utils.h"
-#include "vis_info.h"
+#include "../timed-automata/timed_automata.h"
+#include "../timed-automata/vis_info.h"
+#include "../utils.h"
 #include <string>
 #include <vector>
 

@@ -6,8 +6,8 @@
  * \author (2019) Tarik Viehmann
  */
 
+#include "../timed-automata/timed_automata.h"
 #include "printer.h"
-#include "timed_automata.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
