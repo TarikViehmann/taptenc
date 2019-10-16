@@ -1,9 +1,9 @@
-/****************************************************************************
- * vis_info.cpp - calculate visual information on timed automata systems    *
- *                such as state and transition coordinates.                 *
- *                                                                          *
- * Author(s): (2019) Tarik Viehmann                                         *
- ****************************************************************************/
+/** \file
+ * Calculates visual information on timed automata systems such as state and
+ * transition coordinates.
+ *
+ * \author: (2i019) Tarik Viehmann
+ */
 #include "vis_info.h"
 #include "../constants.h"
 #include "../utils.h"
@@ -15,16 +15,32 @@
 #include <unordered_map>
 #include <vector>
 
-#define DUPE_EDGE_DELIMITER 30
-#define SELF_LOOP_DELIMITER -30
-#define ROW_DELIMITER 200
-#define COL_DELIMITER 200
-#define LOOP_X_SHIFT -30
-#define LOOP_Y_SHIFT -30
-#define COMPONENT_X_SHIFT 200
-#define COMPONENT_Y_SHIFT 600
+namespace taptenc {
+/**
+ * Constants to format spacing of automata, states and transition placements.
+ */
+namespace visinfoconstants {
+/** Spacing between transitions with same target states. */
+constexpr int DUPE_EDGE_DELIMITER = 30;
+/** Spacing between multiple self loops on the same target state. */
+constexpr int SELF_LOOP_DELIMITER = -30;
+/** Spacing between two states that are placed horizontal neighbors. */
+constexpr int ROW_DELIMITER = 200;
+/** Spacing between two states that are placed vertical neighbors. */
+constexpr int COL_DELIMITER = 200;
+/** Horizontal spacing to both ends of a self loop arc. */
+constexpr int LOOP_X_SHIFT = -30;
+/** Vertical spacing of a self loop arc. */
+constexpr int LOOP_Y_SHIFT = -30;
+/** Spacing between two automata that are placed horizontal neighbors. */
+constexpr int COMPONENT_X_SHIFT = 200;
+/** Spacing between two automata that are placed vertical neighbors. */
+constexpr int COMPONENT_Y_SHIFT = 600;
+} // namespace visinfoconstants
+} // namespace taptenc
 
 using namespace taptenc;
+using namespace taptenc::visinfoconstants;
 
 stateVisInfo::stateVisInfo(::std::pair<int, int> arg_pos) : pos(arg_pos) {}
 
@@ -51,7 +67,7 @@ systemVisInfo::systemVisInfo(AutomataSystem &s) {
 }
 
 systemVisInfo::systemVisInfo(const TimeLines &direct_encoding,
-                             const std::vector<std::string> &pa_order) {
+                             const ::std::vector<::std::string> &pa_order) {
   int x_offset = 0;
   int y_offset = 0;
   // the final system consists of only one automaton
@@ -168,14 +184,14 @@ systemVisInfo::getTransitionPos(int component_index, std::string source_id,
 }
 
 std::unordered_map<std::string, StateVisInfo>
-systemVisInfo::generateStateInfo(const std::vector<State> &states) const {
+systemVisInfo::generateStateInfo(const ::std::vector<State> &states) const {
   int x_offset = 0;
   int y_offset = 0;
   return generateStateInfo(states, x_offset, y_offset);
 }
 
 std::unordered_map<std::string, StateVisInfo>
-systemVisInfo::generateStateInfo(const std::vector<State> &states,
+systemVisInfo::generateStateInfo(const ::std::vector<State> &states,
                                  int &x_offset, int &y_offset) const {
   int row_length = sqrt(states.size());
   std::unordered_map<std::string, StateVisInfo> res;
