@@ -1,9 +1,9 @@
-/****************************************************************************
- * timed_automata.cpp - provides datastructures to represent timed automata *
- *                    systems and encodings                                 *
- *                                                                          *
- * Author(s): (2019) Tarik Viehmann                                         *
- ****************************************************************************/
+/** \file
+ * Provides datastructures to represent timed automata systems and encodings.
+ *
+ *
+ * \author: (2019) Tarik Viehmann
+ */
 
 #include "timed_automata.h"
 #include "../utils.h"

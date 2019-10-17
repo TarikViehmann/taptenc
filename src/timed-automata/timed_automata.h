@@ -1,9 +1,9 @@
-/****************************************************************************
- * timed_automata.h - provides datastructures to represent timed automata   *
- *                    systems and encodings                                 *
- *                                                                          *
- * Author(s): (2019) Tarik Viehmann                                         *
- ****************************************************************************/
+/** \file
+ * Provides datastructures to represent timed automata systems and encodings.
+ *
+ *
+ * \author: (2019) Tarik Viehmann
+ */
 
 #pragma once
 
@@ -13,12 +13,13 @@
 #include <vector>
 
 namespace taptenc {
-/*
- * timed automata related declarations
+/**
+ * @name Timed automata related declarations
  *  - State
  *  - Transition
  *  - Automaton
  */
+///@{
 struct state {
   ::std::string id;
   ::std::string inv;
@@ -59,16 +60,18 @@ struct automaton {
             bool setTrap = true);
 };
 typedef struct automaton Automaton;
+///@}
 
-/*
- * TA system related declarations (structure base of uppaal systems)
+enum ChanType { Binary = 1, Broadcast = 0 };
+
+/**
+ * @name TA system related declarations (structure based of uppaal systems)
  *  - ChanType
  *  - Channel
  *  - AutomataGlobals
  *  - AutomataSystem
  */
-
-enum ChanType { Binary = 1, Broadcast = 0 };
+///@{
 struct channel {
   ChanType type;
   ::std::string name;
@@ -78,34 +81,33 @@ struct channel {
   }
 };
 typedef struct channel Channel;
-
 struct automataGlobals {
   ::std::vector<::std::string> clocks;
   ::std::vector<::std::string> bool_vars;
   ::std::vector<Channel> channels;
 };
 typedef struct automataGlobals AutomataGlobals;
-
 struct automataSystem {
   ::std::vector<::std::pair<Automaton, ::std::string>> instances;
   AutomataGlobals globals;
 };
 typedef struct automataSystem AutomataSystem;
+///@}
 
-/*
- * encoding related declarations to store automata copies
+/**
+ * @name Encoding related declarations to store automata copies
  *  - TlEntry (a TA copy together with outgoing transitions)
  *  - TimeLine (a set of TlEntries that can be retrieved via keys)
  *  - TimeLines (a set with TimeLine elements)
  */
-
+///@{
 struct tlEntry {
   Automaton ta;
   ::std::vector<Transition> trans_out;
   tlEntry(Automaton &arg_ta, ::std::vector<Transition> arg_trans_out);
 };
 typedef struct tlEntry TlEntry;
-
 typedef ::std::unordered_map<::std::string, TlEntry> TimeLine;
 typedef ::std::unordered_map<::std::string, TimeLine> TimeLines;
+///@}
 } // end namespace taptenc
