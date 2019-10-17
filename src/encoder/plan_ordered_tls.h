@@ -1,3 +1,8 @@
+/** \file
+ * Provides a utility class for TimeLines modifications.
+ *
+ * \author: (2019) Tarik Viehmann
+ */
 #pragma once
 #include "filter.h"
 #include "timed_automata.h"
@@ -8,10 +13,15 @@
 
 namespace taptenc {
 typedef ::std::unordered_map<::std::string, ::std::string> OrigMap;
+/**
+ * Bundles functionalities to manipulate TimeLines.
+ *
+ * This class realizes the atomic steps required to construct a direct encoding.
+ */
 class PlanOrderedTLs {
 private:
-  /*
-   * merge all TAs of a timeline together.
+  /**
+   * Merges all TAs of a timeline together.
    * @param tl timeline to collaps
    * @param tl_name name of the tl (key within TimeLines)
    * @param outgoing all outgoing transitions of the timeline get pushed back
@@ -21,8 +31,8 @@ private:
   static Automaton collapseTL(const TimeLine &tl, ::std::string tl_name,
                               ::std::vector<Transition> &outgoing);
 
-  /*
-   * Constructs a product TA by replacing each state of one TA by anoter TA
+  /**
+   * Constructs a product TA by replacing each state of one TA by anoter TA.
    * @param source_ta TA where states should be replaced
    * @param ta_to_insert TA that gets inserted to all states of source_ta
    * @param add_succ_trans if true, adds transitions that simultaniously
@@ -35,20 +45,26 @@ private:
                                     bool add_succ_trans);
 
 public:
+  /** Unique access to a TimeLines instance. */
   ::std::unique_ptr<TimeLines> tls = ::std::make_unique<TimeLines>();
+  /**
+   * Unique access to a vector representing a sequential plan ordering.
+   * The entries of \a pa_order are keys of \a tls.
+   * */
   ::std::unique_ptr<::std::vector<::std::string>> pa_order =
       ::std::make_unique<::std::vector<::std::string>>();
 
-  /*
-   * add an invariant to all states within a window in the timelines
+  /**
+   * Adds an invariant to all states within a window in the timelines.
    * @param start_pa plan action name to specify the start of window
    * @param end_pa plan action name to specify the end of window
    * @param inv invariant to add
    */
   void addStateInvariantToWindow(::std::string start_pa, ::std::string end_pa,
                                  ::std::string inv);
-  /*
-   * adds outgoing transitions of the original timeline to a copied timeline
+  /**
+   * Adds outgoing transitions of the original timeline to a copied timeline.
+   * ~~~
    * Example:                     TL
    *                              |
    *                              v
@@ -56,7 +72,7 @@ public:
    *                  new:      y-y
    *          Result: orig:   x-x-x-x-x
    *                  new:      y-y/
-   *
+   * ~~~
    * @param orig_tl original timeline
    * @param new_tl copied timeline
    * @param to_orig map from new_tl keys to original keys in orig_tl
@@ -65,8 +81,8 @@ public:
   static void addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
                                        TimeLine &new_tl, const OrigMap &to_orig,
                                        ::std::string guard = "");
-  /*
-   * copies a vector of transitions and adds a prefix to the copies
+  /**
+   * Copies a vector of transitions and adds a prefix to the copies.
    * @param trans original transitions
    * @param prefix prefix to add
    * @param on_inner_trans if false do not copy inner transitions of a timeline
@@ -79,13 +95,13 @@ public:
                            ::std::string prefix, bool on_inner_trans = true,
                            bool on_outgoing_trans = true);
 
-  /*
-   * adds guards, updates and sync annotations to outgoing transitions
-   * can also modify the destination of outgoing transitions by adding a prefix
-   *
-   * example usage: x-x-x-x  ->  x x-x-x
+  /**
+   * Adds guards, updates and sync annotations to outgoing transitions.
+   * Can also modify the destination of outgoing transitions by adding a prefix.
+   * ~~~
+   * Example usage: x-x-x-x  ->  x x-x-x
    *                  y-y         \y-y
-   *
+   * ~~~
    * @param trans transitions to modify
    * @param curr_pa current plan action (to determine outgoing transitions)
    *        TODO can be refactored away
@@ -96,35 +112,36 @@ public:
    * @param guard guard to add
    * @param update update to add
    * @param sync sync to add
-   * @param prefix prefix to add to the destination states of outgoing
-   *        transitions
+   * @param op_name add an operator to the prefix of the dest states
    */
   static void modifyTransitionsToNextTl(
       ::std::vector<Transition> &trans, ::std::string curr_pa,
       const ::std::vector<State> &target_states, ::std::string guard,
       ::std::string update, ::std::string sync, ::std::string op_name = "");
 
-  /*
-   * removes transitions to next timeline
+  /**
+   * Removes transitions to next timeline.
+   * ~~~
    * Example:  x-x-x-x-x  -> x-x-x x-x
    *             y-y           y-y
+   * ~~~
    * @param trans outgoing transition
    * @param curr_pa current plan action
    *        TODO refactor this away
    */
   static void removeTransitionsToNextTl(::std::vector<Transition> &trans,
                                         ::std::string curr_pa);
-  /*
-   * creates a map from each automata name in tls to the same name added by a
-   * prefix
-   * @param prefix_add additional prefix part
+  /**
+   * Creates a map from each automata name (added by a prefix) in tls to the
+   * same name
+   * @param prefix prefix to add to the map keys
    * @return OrigMap for each TA in tls: TA.id -> addToPrefix(TA.id, prefix_add)
    */
   OrigMap createOrigMapping(::std::string prefix) const;
 
-  /*
-   * creates copies of the timelines in tls within an interval specified
-   * by plan acttion names
+  /**
+   * Creates copies of the timelines in tls within an interval specified
+   * by plan acttion names.
    * @param start_pa plan action name that starts the window of tls to copy
    * @param end_pa plan action name that ends the window of tls to copy
    * @param target_filter state filter to apply on all copied automata
@@ -135,8 +152,8 @@ public:
   PlanOrderedTLs createWindow(::std::string start_pa, ::std::string end_pa,
                               const Filter &target_filter,
                               ::std::string prefix_add) const;
-  /*
-   * create successor and copy transitions to other timelines
+  /**
+   * Creates successor and copy transitions to other timelines.
    * @param base_ta the full automaton where all automata copies originated from
    * @param dest_tls target timelines
    * @param map_to_orig Mapping to match copies of target timelines to timeline
@@ -154,8 +171,8 @@ public:
       ::std::string start_pa, ::std::string end_pa, const Filter &target_filter,
       ::std::string guard, ::std::string update);
 
-  /*
-   * merge a timeline window into tls
+  /**
+   * Merges a timeline window into tls.
    * @param to_add timeline window
    * @param overwrite false: skip entries of to_add that have the same prefix as
    *                         a TL in tls
@@ -165,23 +182,23 @@ public:
    */
   void mergeWindow(const TimeLines &to_add, bool overwrite = false);
 
-  /* prints the content of tls to std::cout, sorted by plan order.
-   * TimeLines where the key does not match a plan action are listed afterwads
+  /** Prints the content of tls to std::cout, sorted by plan order.
+   * TimeLines where the key does not match a plan action are listed afterwads.
    */
   void printTLs() const;
 
-  /*
-   * merge togehter two direct encodings
+  /**
+   * Merges togehter two direct encodings.
    * Caution: the merged result does not follow the typical pattern of
-   * <map_id> -> TA with prefix <map_id> in the timelines
+   * 'map_id' -> TA with prefix 'map_id' in the timelines
    * @param other other direct encoding
    *        Assumes other pa_order is equal to this pa_order
    * @return merge of this tls and other tls
    */
   PlanOrderedTLs mergePlanOrderedTLs(const PlanOrderedTLs &other) const;
 
-  /*
-   * Constructs a product TA between two TAs
+  /**
+   * Constructs a product TA between two TAs.
    * @param ta1 first ta of the product
    * @param ta2 second ta of the product
    * @param name name of the product ta
