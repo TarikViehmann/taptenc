@@ -1,3 +1,9 @@
+/** \file
+ * Encodes temporal constraints by creating copies of the platform TA to
+ * represent different timelines.
+ *
+ * \author: (2019) Tarik Viehmann
+ */
 #include "direct_encoder.h"
 #include "constants.h"
 #include "enc_interconnection_info.h"
@@ -798,9 +804,16 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
       std::make_pair(mergeAutomata(automata, interconnections, "direct"), ""));
   return res;
 }
-
+/**
+ * \internal
+ * Appends a plan automata to the automata system and stores a copy of the
+ * plan extended by a start and end action.
+ *
+ * Then the base timeline is created to initialize the PlanOrderedTLs member.
+ * \endinternal
+ */
 DirectEncoder::DirectEncoder(AutomataSystem &s,
-                             const std::vector<PlanAction> &plan,
+                             const ::std::vector<PlanAction> &plan,
                              const int base_pos) {
   Automaton plan_ta = generatePlanAutomaton(plan, constants::PLAN_TA_NAME);
   this->plan = plan;

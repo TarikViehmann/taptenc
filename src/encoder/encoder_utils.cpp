@@ -1,3 +1,9 @@
+/** \file
+ * Utility functions to modify automata.
+ *
+ * \author: (2019) Tarik Viehmann
+ */
+
 #include "encoder_utils.h"
 #include "constants.h"
 #include "filter.h"
