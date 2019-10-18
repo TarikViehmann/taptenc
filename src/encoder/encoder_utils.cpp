@@ -5,10 +5,10 @@
  */
 
 #include "encoder_utils.h"
-#include "constants.h"
+#include "../constants.h"
+#include "../timed-automata/timed_automata.h"
+#include "../utils.h"
 #include "filter.h"
-#include "timed_automata.h"
-#include "utils.h"
 #include <algorithm>
 #include <iostream>
 #include <set>
