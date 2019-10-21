@@ -15,8 +15,6 @@
 #include <string>
 #include <vector>
 
-#define BASE_SYNC_CONNECTIVE "XtoX"
-
 using namespace taptenc;
 Automaton
 encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
@@ -180,7 +178,7 @@ void encoderutils::addTrapTransitions(Automaton &ta,
 void encoderutils::addBaseSyncs(AutomataSystem &s, const int base_pos) {
   for (auto &trans : s.instances[base_pos].first.transitions) {
     if (trans.sync == "") {
-      trans.sync = trans.source_id + BASE_SYNC_CONNECTIVE + trans.dest_id;
+      trans.sync = trans.source_id + constants::SYNC_SEP + trans.dest_id;
       trans.passive = false;
       s.globals.channels.push_back(Channel(ChanType::Broadcast, trans.sync));
     } else {
