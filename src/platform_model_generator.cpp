@@ -1,3 +1,8 @@
+/** \file
+ * Hand-crafted benchmark generator utils.
+ *
+ * \author (2019) Tarik Viehmann
+ */
 #include "platform_model_generator.h"
 #include "constants.h"
 #include "encoder/enc_interconnection_info.h"
@@ -14,6 +19,25 @@
 
 using namespace taptenc;
 using namespace std;
+
+/**
+ * Returns an iterator pointing to the state with matching id.
+ *
+ * @param states states to search
+ * @param id id to find
+ * @return iterator pointing to the state (or iterator to end)
+ */
+std::vector<State>::const_iterator
+getStateItById(const std::vector<State> &states, std::string id) {
+  return std::find_if(states.begin(), states.end(),
+                      [id](const State &s) bool { return s.id == id; });
+}
+
+/**
+ * Adds clock updates of special state clock to each transition.
+ *
+ * @param trans transitions to add clock updates to
+ */
 void addStateClock(vector<Transition> &trans) {
   for (auto &t : trans) {
     t.update = addUpdate(t.update, string(constants::STATE_CLOCK) + " = 0");
