@@ -1,12 +1,19 @@
+/** \file
+ * XML parser utilizing the utap lib parser
+ *
+ * \author (2019) Tarik Viehmann
+ */
 #include "utap_xml_parser.h"
-#include "timed_automata.h"
+#include "../timed-automata/timed_automata.h"
 #include "utap/typechecker.h"
 #include "utap/utap.h"
 #include "utils.h"
 #include <iostream>
 #include <string>
+
 using namespace taptenc;
-AutomataSystem utapxmlparser::readXMLSystem(std::string filename) {
+
+AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
   if (filename.find(".xml") == std::string::npos) {
     filename += ".xml";
   }
