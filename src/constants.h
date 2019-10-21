@@ -7,6 +7,7 @@ constexpr char CONSTRAINT_SEP{'Y'};
 constexpr char BASE_SEP{'Z'};
 constexpr char COMPONENT_SEP{'C'};
 constexpr char ACTION_SEP{'B'};
+constexpr char SYNC_SEP{'S'};
 constexpr char START_PA[]{"AstartA"};
 constexpr char END_PA[]{"AendA"};
 constexpr char QUERY[]{"AqueryA"};
