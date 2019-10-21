@@ -1,12 +1,18 @@
+/** \file
+ * Parser for uppaal symbolic traces (.trace files).
+ *
+ * \author (2019) Tarik Viehmann
+ */
 #include "utap_trace_parser.h"
-#include "constants.h"
-#include "filter.h"
-#include "timed_automata.h"
-#include "utils.h"
+#include "../constants.h"
+#include "../encoder/filter.h"
+#include "../timed-automata/timed_automata.h"
+#include "../utils.h"
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <stdlib.h>
 #include <string>
 #include <unordered_map>
@@ -101,21 +107,12 @@ SpecialClocksInfo determineSpecialClockBounds(
   return res;
 }
 
-void replaceStringInPlace(std::string &subject, const std::string &search,
-                          const std::string &replace) {
-  size_t pos = 0;
-  while ((pos = subject.find(search, pos)) != std::string::npos) {
-    subject.replace(pos, search.length(), replace);
-    pos += replace.length();
-  }
-}
-
-string convertCharsToHTML(std::string str) {
-  replaceStringInPlace(str, "&", "&amp;");
-  replaceStringInPlace(str, "<", "&lt;");
-  replaceStringInPlace(str, ">", "&gt;");
-  return str;
-}
+/**
+ * Parse a line from a .trace file (output of uppaal) containing a state.
+ *
+ * @param currentReadLine line from a .trace file containing state info
+ * @return global time lower bound of the parsed state
+ */
 int parseState(std::string &currentReadLine) {
   unordered_map<pair<string, string>, int> closed_dbm;
   size_t eow = currentReadLine.find_first_of(" \t");
@@ -151,6 +148,14 @@ int parseState(std::string &currentReadLine) {
   return gci.global_clock.first;
 }
 
+/**
+ * Parse a line from a .trace file (output of uppaal) containing a transition.
+ *
+ * @param currentReadLine line from a .trace file containing transition info
+ * @param base_ta Platform model TA
+ * @param plan_ta plan TA
+ * @return all action labels belonging to the parsed transition
+ */
 std::vector<std::string> parseTransition(std::string &currentReadLine,
                                          const Automaton &base_ta,
                                          const Automaton &plan_ta) {
