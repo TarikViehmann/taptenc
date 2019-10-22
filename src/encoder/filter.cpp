@@ -69,11 +69,25 @@ bool Filter::matchesFilter(std::string name, std::string prefix,
 }
 
 std::string Filter::getSuffix(std::string name, char marker) {
-  return name.substr(name.find_last_of(marker) + 1);
+  size_t pos = name.find_last_of(marker);
+  if (pos != std::string::npos) {
+    return name.substr(pos + 1);
+  } else {
+    std::cout << "Filter getSuffix: marker " << marker << " in " << name
+              << std::endl;
+    return name;
+  }
 }
 
 std::string Filter::getPrefix(std::string name, char marker) {
-  return name.substr(0, name.find_first_of(marker));
+  size_t pos = name.find_first_of(marker);
+  if (pos != std::string::npos) {
+    return name.substr(0, pos);
+  } else {
+    std::cout << "Filter getPrefix: marker " << marker << " in " << name
+              << std::endl;
+    return name;
+  }
 }
 
 void Filter::filterTransitionsInPlace(std::vector<Transition> &trans,
