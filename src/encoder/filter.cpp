@@ -1,3 +1,9 @@
+/** \file
+ * Manipulation of TA states and transition by the means of a filter that
+ * sieves out a subset of states and transitions.
+ *
+ * \author (2019) Tarik Viehmann
+ */
 #include "filter.h"
 #include "../constants.h"
 #include "../timed-automata/timed_automata.h"
