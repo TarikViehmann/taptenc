@@ -6,6 +6,7 @@
 #include "printer.h"
 #include "timed_automata.h"
 #include "utap_trace_parser.h"
+#include "utap_xml_parser.h"
 #include "vis_info.h"
 #include <algorithm>
 #include <assert.h>
@@ -242,11 +243,11 @@ void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta) {
   myfile << "E<> sys_direct." << constants::QUERY;
   myfile.close();
   string call_get_if = "UPPAAL_COMPILE_ONLY=1 " + getEnvVar("VERIFYTA_DIR") +
-                       "/verifyta " + file_name + ".xml - > " + file_name +
+                       "/verifyta -C " + file_name + ".xml - > " + file_name +
                        ".if";
   std::system(call_get_if.c_str());
-  string call_get_trace = getEnvVar("VERIFYTA_DIR") + "/verifyta -t 1 -f " +
-                          file_name + " " + file_name + ".xml " + file_name +
+  string call_get_trace = getEnvVar("VERIFYTA_DIR") + "/verifyta -C -t 1 -f " +
+                          file_name + " -Y " + file_name + ".xml " + file_name +
                           ".q";
   std::system(call_get_trace.c_str());
   deleteEmptyLines(file_name + "-1.xtr");
@@ -343,15 +344,22 @@ int main() {
   DirectEncoder enc2 = createDirectEncoding(
       comm_system, plan, benchmarkgenerator::generateCommConstraints(comm_ta));
   // --------------- Calibration ----------------------------------
-  Automaton calib_ta = benchmarkgenerator::generateCalibrationTA();
-  for (const auto &s : calib_ta.states) {
-    std::cout << s.id << std::endl;
-  }
-  AutomataSystem calib_system;
-  calib_system.instances.push_back(make_pair(calib_ta, ""));
+  // Automaton calib_ta = benchmarkgenerator::generateCalibrationTA();
+  AutomataSystem calib_system =
+      utapxmlparser::readXMLSystem("platform_models/calibration.xml");
+  Automaton calib_ta = calib_system.instances[0].first;
+  // calib_system.instances.push_back(make_pair(calib_ta, ""));
   DirectEncoder enc3 = createDirectEncoding(
       calib_system, plan,
       benchmarkgenerator::generateCalibrationConstraints(calib_ta));
+  // --------------- Positioning ----------------------------------
+  AutomataSystem pos_system =
+      utapxmlparser::readXMLSystem("platform_models/position.xml");
+  Automaton pos_ta = pos_system.instances[0].first;
+  // pos_system.instances.push_back(make_pair(pos_ta, ""));
+  DirectEncoder pos_enc = createDirectEncoding(
+      pos_system, plan,
+      benchmarkgenerator::generatePositionConstraints(pos_ta));
   // --------------- Merge ----------------------------------------
   AutomataSystem merged_system;
   merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
@@ -366,6 +374,7 @@ int main() {
   merged_system.instances = base_system.instances;
   DirectEncoder enc4 = enc1.mergeEncodings(enc2);
   enc4 = enc4.mergeEncodings(enc3);
+  enc4 = enc4.mergeEncodings(pos_enc);
   // --------------- Print XMLs -----------------------------------
   SystemVisInfo direct_system_vis_info;
   AutomataSystem direct_system =
@@ -380,12 +389,17 @@ int main() {
       enc3.createFinalSystem(calib_system, calib_system_vis_info);
   printer.print(direct_system3, calib_system_vis_info, "calib_direct.xml");
   SystemVisInfo merged_system_vis_info;
+  SystemVisInfo pos_system_vis_info;
+  AutomataSystem pos_system2 =
+      pos_enc.createFinalSystem(pos_system, pos_system_vis_info);
+  printer.print(pos_system2, pos_system_vis_info, "pos_direct.xml");
   AutomataSystem direct_system4 =
       enc4.createFinalSystem(merged_system, merged_system_vis_info);
   printer.print(direct_system4, merged_system_vis_info, "merged_direct.xml");
   Automaton product_ta =
-      PlanOrderedTLs::productTA(perception_ta, comm_ta, "product");
-  product_ta = PlanOrderedTLs::productTA(product_ta, calib_ta, "product");
+      PlanOrderedTLs::productTA(perception_ta, comm_ta, "product", true);
+  product_ta = PlanOrderedTLs::productTA(product_ta, calib_ta, "product", true);
+  product_ta = PlanOrderedTLs::productTA(product_ta, pos_ta, "product", true);
   solve("merged_direct", product_ta,
         base_system.instances[enc3.getPlanTAIndex()].first);
 

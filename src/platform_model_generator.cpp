@@ -133,7 +133,8 @@ Automaton benchmarkgenerator::generateCommTA() {
 
 unordered_map<string, vector<unique_ptr<EncICInfo>>>
 benchmarkgenerator::generatePerceptionConstraints(
-    const Automaton &perception_ta, const unordered_set<string> &pa_names) {
+    const Automaton &perception_ta,
+    const ::std::unordered_set<::std::string> &pa_names) {
   unordered_set<string> cam_off_exceptions{"pick", "put", "endpick", "endput"};
   vector<State> pic_filter;
   vector<State> vision_filter;
