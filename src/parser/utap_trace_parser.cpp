@@ -202,7 +202,7 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
     auto pa_trans =
         ::std::find_if(plan_ta.transitions.begin(), plan_ta.transitions.end(),
                        [pa_source_id, pa_dest_id, guard, sync,
-                        update](const Transition &t) bool {
+                        update](const Transition &t)  {
                          return t.source_id == pa_source_id &&
                                 t.dest_id == pa_dest_id &&
                                 guard.find(t.guard) != string::npos &&
@@ -225,7 +225,7 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
   auto base_trans = ::std::find_if(
       base_ta.transitions.begin(), base_ta.transitions.end(),
       [base_source_id, base_dest_id, guard, sync,
-       update](const Transition &t) bool {
+       update](const Transition &t)  {
         return t.source_id == base_source_id &&
                t.dest_id.find(base_dest_id) != string::npos &&
                isPiecewiseContained(t.guard, guard,

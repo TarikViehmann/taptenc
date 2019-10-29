@@ -30,7 +30,7 @@ using namespace std;
 std::vector<State>::const_iterator
 getStateItById(const std::vector<State> &states, std::string id) {
   return std::find_if(states.begin(), states.end(),
-                      [id](const State &s) bool { return s.id == id; });
+                      [id](const State &s) { return s.id == id; });
 }
 
 /**

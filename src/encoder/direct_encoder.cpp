@@ -37,7 +37,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
         s.instances[base_index].first, ta_prefix, "", false);
     if (pa.initial) {
       auto search = std::find_if(ta_copy.states.begin(), ta_copy.states.end(),
-                                 [](const State &s) bool { return s.initial; });
+                                 [](const State &s) { return s.initial; });
       if (search != ta_copy.states.end()) {
         search->initial = true;
         std::cout << "DirectEncoder generateBaseTimeLine: Set initial state: "
@@ -720,7 +720,7 @@ void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
                     tl_entry.second.trans_out.begin(),
                     tl_entry.second.trans_out.end(),
                     [to_orig, pre_target_filter,
-                     this](const Transition &t) bool {
+                     this](const Transition &t) {
                       std::string prefix =
                           Filter::getPrefix(t.dest_id, constants::BASE_SEP);
                       prefix.push_back(constants::BASE_SEP);

@@ -172,7 +172,7 @@ void PlanOrderedTLs::createTransitionsToWindow(
         auto dest_entry = std::find_if(
             dest_tl->second.begin(), dest_tl->second.end(),
             [source_entry,
-             map_to_orig](const std::pair<std::string, TlEntry> &d) bool {
+             map_to_orig](const std::pair<std::string, TlEntry> &d)  {
               auto orig_source_entry = map_to_orig.find(source_entry.first);
               auto orig_dest_entry = map_to_orig.find(d.first);
               return orig_source_entry != map_to_orig.end() &&
@@ -246,7 +246,7 @@ void PlanOrderedTLs::addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
             const auto &source_state = std::find_if(
                 tl_entry.second.ta.states.begin(),
                 tl_entry.second.ta.states.end(),
-                [source_base_name](const State &s) bool {
+                [source_base_name](const State &s)  {
                   return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                          source_base_name;
                 });
@@ -307,11 +307,11 @@ void PlanOrderedTLs::modifyTransitionsToNextTl(
   trans.erase(
       std::remove_if(
           trans.begin(), trans.end(),
-          [target_states, curr_pa](const Transition &t) bool {
+          [target_states, curr_pa](const Transition &t)  {
             return (Filter::getPrefix(t.dest_id, constants::TL_SEP) !=
                     curr_pa) &&
                    (std::find_if(target_states.begin(), target_states.end(),
-                                 [t](const State &s) bool {
+                                 [t](const State &s)  {
                                    return Filter::matchesFilter(t.dest_id, "",
                                                                 s.id);
                                  }) == target_states.end());
@@ -322,7 +322,7 @@ void PlanOrderedTLs::modifyTransitionsToNextTl(
 void PlanOrderedTLs::removeTransitionsToNextTl(std::vector<Transition> &trans,
                                                std::string curr_pa) {
   trans.erase(std::remove_if(trans.begin(), trans.end(),
-                             [curr_pa](Transition &t) bool {
+                             [curr_pa](Transition &t)  {
                                return Filter::getPrefix(t.dest_id,
                                                         constants::TL_SEP) !=
                                       curr_pa;
@@ -378,7 +378,7 @@ Automaton PlanOrderedTLs::collapseTL(const TimeLine &tl, std::string tl_name,
   }
   std::copy_if(interconnections.begin(), interconnections.end(),
                std::back_inserter(outgoing),
-               [tl_name](const Transition &tr) bool {
+               [tl_name](const Transition &tr) {
                  return (not Filter::matchesFilter(tr.dest_id, tl_name, ""));
                });
   PlanOrderedTLs::removeTransitionsToNextTl(interconnections, tl_name);

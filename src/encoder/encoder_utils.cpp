@@ -40,7 +40,7 @@ encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
   }
   auto find_initial =
       std::find_if(plan_states.begin(), plan_states.end(),
-                   [](const State &s) bool { return s.initial; });
+                   [](const State &s) { return s.initial; });
   if (find_initial == plan_states.end()) {
     std::cout << "generatePlanAutomaton: no initial state found" << std::endl;
   } else {
@@ -100,12 +100,12 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
   for (const auto &f_state : filter) {
     auto c_source = std::find_if(
         source.states.begin(), source.states.end(),
-        [f_state](const State &s) bool {
+        [f_state](const State &s) {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(f_state.id, constants::BASE_SEP);
         });
     auto c_dest = std::find_if(
-        dest.states.begin(), dest.states.end(), [f_state](const State &s) bool {
+        dest.states.begin(), dest.states.end(), [f_state](const State &s) {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(f_state.id, constants::BASE_SEP);
         });
@@ -124,16 +124,16 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
   std::vector<Transition> res_transitions;
   for (const auto &trans : base.transitions) {
     auto search = std::find_if(
-        filter.begin(), filter.end(), [trans](const State &s) bool {
+        filter.begin(), filter.end(), [trans](const State &s) {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(trans.source_id, constants::BASE_SEP);
         });
     if (search != filter.end()) {
       auto source_state = std::find_if(
           source.states.begin(), source.states.end(),
-          [search](const State &s) bool { return s.id == search->id; });
+          [search](const State &s) { return s.id == search->id; });
       auto dest_state = std::find_if(
-          dest.states.begin(), dest.states.end(), [trans](const State &s) bool {
+          dest.states.begin(), dest.states.end(), [trans](const State &s) {
             return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                    Filter::getSuffix(trans.dest_id, constants::BASE_SEP);
           });
@@ -154,7 +154,7 @@ void encoderutils::addTrapTransitions(Automaton &ta,
                                       ::std::string guard, ::std::string update,
                                       ::std::string sync, bool passive) {
   auto trap = std::find_if(ta.states.begin(), ta.states.end(),
-                           [](const State &s) bool { return s.id == "trap"; });
+                           [](const State &s) { return s.id == "trap"; });
   if (trap == ta.states.end()) {
     std::cout << "Encoder addTrapTransitions: trap not found. Abort."
               << std::endl;
@@ -163,7 +163,7 @@ void encoderutils::addTrapTransitions(Automaton &ta,
   for (const auto &source : sources) {
     auto search = std::find_if(
         ta.states.begin(), ta.states.end(),
-        [source](const State &s) bool { return source.id == s.id; });
+        [source](const State &s) { return source.id == s.id; });
     if (search != ta.states.end()) {
       ta.transitions.push_back(
           Transition(search->id, trap->id, "", guard, update, sync, passive));
@@ -194,7 +194,7 @@ void encoderutils::addInvariants(Automaton &ta,
                                  ::std::string inv) {
   for (const auto &f_state : filter) {
     auto target = std::find_if(
-        ta.states.begin(), ta.states.end(), [f_state](const State &s) bool {
+        ta.states.begin(), ta.states.end(), [f_state](const State &s) {
           return Filter::matchesFilter(s.id, "", f_state.id);
         });
     if (target != ta.states.end()) {
