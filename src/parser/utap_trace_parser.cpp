@@ -21,7 +21,7 @@
 #include <boost/graph/exterior_property.hpp>
 #include <boost/graph/floyd_warshall_shortest.hpp>
 
-typedef int t_weight;
+typedef timepoint t_weight;
 
 // define the graph type
 typedef boost::property<boost::edge_weight_t, t_weight> EdgeWeightProperty;
@@ -47,14 +47,14 @@ namespace UTAPTraceParser {
 // type for weight/distance on each edge
 
 SpecialClocksInfo determineSpecialClockBounds(
-    unordered_map<pair<string, string>, int> differences) {
+    unordered_map<pair<string, string>, timepoint> differences) {
   Graph g;
-  unordered_map<string, int> ids;
+  unordered_map<string, timepoint> ids;
   SpecialClocksInfo res;
-  int x = 0;
-  int t0 = 0;
-  int glob = 0;
-  int state = 0;
+  timepoint x = 0;
+  timepoint t0 = 0;
+  timepoint glob = 0;
+  timepoint state = 0;
   for (const auto &edge : differences) {
     auto ins_source = ids.insert(::std::make_pair(edge.first.first, x));
     if (ins_source.second) {
@@ -261,8 +261,9 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
 }
 
 // vector<pair<Transition,size_t>>
-void parseTraceInfo(const std::string &file, const Automaton &base_ta,
-                    const Automaton &plan_ta) {
+::std::vector<::std::pair<timepoint, ::std::vector<::std::string>>>
+parseTraceInfo(const std::string &file, const Automaton &base_ta,
+               const Automaton &plan_ta) {
 
   // file
   std::fstream fileStream;
@@ -271,7 +272,7 @@ void parseTraceInfo(const std::string &file, const Automaton &base_ta,
   cout << "----------------------------------" << endl;
   cout << "---------Final Plan---------------" << endl;
   cout << "----------------------------------" << endl;
-  std::vector<std::pair<int, std::vector<std::string>>> info;
+  std::vector<std::pair<timepoint, std::vector<std::string>>> info;
   if (!getline(fileStream, currentReadLine)) {
     std::cout << "UTAPTraceParser parseTraceInfo: trace not valid" << std::endl;
   }
@@ -311,6 +312,7 @@ void parseTraceInfo(const std::string &file, const Automaton &base_ta,
       }
     }
   }
+  return info;
 }
 
 } // end namespace UTAPTraceParser

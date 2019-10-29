@@ -7,14 +7,16 @@
 #include <string>
 #include <unordered_map>
 
+/** Type to specify action times. */
+using timepoint = int;
 namespace taptenc {
 namespace UTAPTraceParser {
 /**
  * Wrapper for bounds on global time and state time clocks.
  */
 struct specialClocksInfo {
-  ::std::pair<int, int> global_clock;
-  ::std::pair<int, int> state_clock;
+  ::std::pair<timepoint, timepoint> global_clock;
+  ::std::pair<timepoint, timepoint> state_clock;
 };
 typedef specialClocksInfo SpecialClocksInfo;
 
@@ -38,7 +40,8 @@ SpecialClocksInfo determineSpecialClockBounds(
  * @param base_ta Platform model TA
  * @param plan_ta plan TA
  */
-void parseTraceInfo(const ::std::string &file, const Automaton &base_ta,
-                    const Automaton &plan_ta);
+::std::vector<::std::pair<timepoint, ::std::vector<::std::string>>>
+parseTraceInfo(const ::std::string &file, const Automaton &base_ta,
+               const Automaton &plan_ta);
 } // end namespace UTAPTraceParser
 } // end namespace taptenc
