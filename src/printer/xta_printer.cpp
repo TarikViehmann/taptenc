@@ -33,8 +33,8 @@ namespace xtaprinterutils {
 std::string toStringXTA(const State &s) {
   std::stringstream res;
   res << s.id;
-  if (s.inv != "") {
-    res << " {" << s.inv << "}";
+  if (s.inv.get()->type != CCType::TRUE) {
+    res << " {" << s.inv.get()->toString() << "}";
   }
   return res.str();
 }
@@ -51,8 +51,8 @@ std::string toStringXTA(const State &s) {
 std::string toStringXTA(const Transition &t) {
   std::stringstream res;
   res << t.source_id << " -> " << t.dest_id << " { ";
-  if (t.guard != "")
-    res << "guard " << t.guard << "; ";
+  if (t.guard.get()->type != CCType::TRUE)
+    res << "guard " << t.guard.get()->toString() << "; ";
   if (t.sync != "" && t.passive)
     res << "sync " << t.sync << "?"
         << "; ";
