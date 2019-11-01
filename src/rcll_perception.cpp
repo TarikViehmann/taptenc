@@ -55,34 +55,39 @@ Automaton generateSyncPlanAutomaton(
   }
   full_plan.push_back(constants::END_PA);
   full_plan.insert(full_plan.begin(), constants::START_PA);
+  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>("cpa");
   vector<State> plan_states;
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
     bool urgent = false;
     if (it->substr(0, 5) != "alpha") {
       urgent = true;
     }
-    plan_states.push_back(
-        State(*it + constants::PA_SEP + to_string(it - full_plan.begin()),
-              ((*it == constants::END_PA || *it == constants::START_PA)
-                   ? ""
-                   : "cpa &lt; 60"),
-              urgent));
+    if (*it == constants::END_PA || *it == constants::START_PA) {
+      plan_states.push_back(
+          State(*it + constants::PA_SEP + to_string(it - full_plan.begin()),
+                TrueCC(), urgent));
+    } else {
+      plan_states.push_back(
+          State(*it + constants::PA_SEP + to_string(it - full_plan.begin()),
+                ComparisonCC(clock_ptr, ComparisonOp::LT, 60), urgent));
+    }
   }
   vector<Transition> plan_transitions;
   int i = 0;
   for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
     string sync_op = "";
-    string guard = "";
+    std::unique_ptr<ClockConstraint> guard;
     string update = "";
     auto prev_state = (it - 1);
     if (prev_state->id.substr(0, 5) != "alpha") {
       sync_op = Filter::getPrefix(prev_state->id, constants::PA_SEP);
+      guard = std::make_unique<TrueCC>();
     } else {
-      guard = "cpa &gt; 30";
       update = "cpa = 0";
+      guard = std::make_unique<ComparisonCC>(clock_ptr, ComparisonOp::GT, 30);
     }
-    plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
-                                          update, sync_op, false));
+    plan_transitions.push_back(Transition(
+        prev_state->id, it->id, it->id, *guard.get(), update, sync_op, false));
     i++;
   }
   Automaton res = Automaton(plan_states, plan_transitions, arg_name, false);
@@ -183,26 +188,27 @@ createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
   return enc;
 }
 
-CompactEncoder
-createCompactEncoding(AutomataSystem &system, const AutomataGlobals g,
-                      unordered_map<string, vector<State>> &targets, Bounds b) {
-  CompactEncoder enc;
-  for (const auto chan : g.channels) {
-    auto search = targets.find(chan.name);
-    if (search != targets.end()) {
-      if (chan.name.substr(0, 5) == "snoop") {
-        enc.encodeNoOp(system, search->second, chan.name);
-      }
-      if (chan.name.substr(0, 5) == "spast") {
-        enc.encodePast(system, search->second, chan.name, b);
-      }
-      if (chan.name.substr(0, 8) == "sfinally") {
-        enc.encodeFuture(system, search->second, chan.name, b);
-      }
-    }
-  }
-  return enc;
-}
+// CompactEncoder
+// createCompactEncoding(AutomataSystem &system, const AutomataGlobals g,
+//                       unordered_map<string, vector<State>> &targets, Bounds
+//                       b) {
+//   CompactEncoder enc;
+//   for (const auto chan : g.channels) {
+//     auto search = targets.find(chan.name);
+//     if (search != targets.end()) {
+//       if (chan.name.substr(0, 5) == "snoop") {
+//         enc.encodeNoOp(system, search->second, chan.name);
+//       }
+//       if (chan.name.substr(0, 5) == "spast") {
+//         enc.encodePast(system, search->second, chan.name, b);
+//       }
+//       if (chan.name.substr(0, 8) == "sfinally") {
+//         enc.encodeFuture(system, search->second, chan.name, b);
+//       }
+//     }
+//   }
+//   return enc;
+// }
 
 void deleteEmptyLines(const std::string &filePath) {
   std::string bufferString = "";
