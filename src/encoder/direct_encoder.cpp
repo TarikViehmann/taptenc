@@ -484,9 +484,9 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   ComparisonCC guard_upper_bound_crossed(
       clock_ptr, computils::inverseOp(info.specs.bounds.r_op),
       info.specs.bounds.upper_bound);
-  ComparisonCC lower_bound_reached(
-      clock_ptr, computils::reverseOp(info.specs.bounds.l_op),
-      info.specs.bounds.lower_bound);
+  ComparisonCC lower_bound_reached(clock_ptr,
+                                   computils::reverseOp(info.specs.bounds.l_op),
+                                   info.specs.bounds.lower_bound);
   ComparisonCC below_upper_bound(clock_ptr, info.specs.bounds.r_op,
                                  info.specs.bounds.upper_bound);
   ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
@@ -619,9 +619,9 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   ComparisonCC guard_upper_bound_crossed(
       clock_ptr, computils::inverseOp(info.specs.bounds.r_op),
       info.specs.bounds.upper_bound);
-  ComparisonCC lower_bound_reached(
-      clock_ptr, computils::reverseOp(info.specs.bounds.l_op),
-      info.specs.bounds.lower_bound);
+  ComparisonCC lower_bound_reached(clock_ptr,
+                                   computils::reverseOp(info.specs.bounds.l_op),
+                                   info.specs.bounds.lower_bound);
   ComparisonCC below_upper_bound(clock_ptr, info.specs.bounds.r_op,
                                  info.specs.bounds.upper_bound);
   ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
