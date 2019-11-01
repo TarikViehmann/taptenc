@@ -6,28 +6,124 @@
  */
 
 #include "timed_automata.h"
+#include "../constraints/constraints.h"
 #include "../utils.h"
+
 #include <algorithm>
 
 using namespace taptenc;
 
-state::state(::std::string arg_id, ::std::string arg_inv, bool arg_urgent,
-             bool arg_initial)
-    : id(arg_id), inv(arg_inv), urgent(arg_urgent), initial(arg_initial) {}
+/**
+ * Helpers to help implementing move constructors.
+ */
+namespace moveutils {
+/**
+ * Swaps the members of two states using std::swap().
+ *
+ * @param first first state participating in the swap
+ * @param second second state participating in the swap
+ */
+void swap(state &first, state &second) {
+  std::swap(first.id, second.id);
+  std::swap(first.inv, second.inv);
+  std::swap(first.urgent, second.urgent);
+  std::swap(first.initial, second.initial);
+}
 
-bool state::operator<(const state &r) const { return id + inv < r.id + r.inv; }
+/**
+ * Swaps the members of two transitions using std::swap().
+ *
+ * @param first first transition participating in the swap
+ * @param second second transition participating in the swap
+ */
+void swap(transition &first, transition &second) {
+  std::swap(first.source_id, second.source_id);
+  std::swap(first.dest_id, second.dest_id);
+  std::swap(first.action, second.action);
+  std::swap(first.guard, second.guard);
+  std::swap(first.update, second.update);
+  std::swap(first.sync, second.sync);
+  std::swap(first.passive, second.passive);
+}
+} // end namespace moveutils
+
+using namespace moveutils;
+
+state::state(::std::string arg_id, const ClockConstraint &arg_inv,
+             bool arg_urgent, bool arg_initial)
+    : id(arg_id), urgent(arg_urgent), initial(arg_initial) {
+  inv = arg_inv.createCopy();
+}
+
+state::state(const state &other) {
+  id = other.id;
+  inv = other.inv->createCopy();
+  urgent = other.urgent;
+  initial = other.initial;
+}
+state::state(state &&other) noexcept {
+  id = std::move(other.id);
+  inv = std::move(other.inv->createCopy());
+  urgent = std::move(other.urgent);
+  initial = std::move(other.initial);
+}
+
+state &state::operator=(const state &other) {
+  *this = state(other);
+  return *this;
+}
+
+state &state::operator=(state &&other) noexcept {
+  swap(*this, other);
+  return *this;
+}
+
+transition::transition(const transition &other) {
+  source_id = other.source_id;
+  dest_id = other.dest_id;
+  action = other.action;
+  guard = other.guard->createCopy();
+  update = other.update;
+  sync = other.sync;
+  passive = other.passive;
+}
+
+transition::transition(transition &&other) noexcept {
+  source_id = std::move(other.source_id);
+  dest_id = std::move(other.dest_id);
+  action = std::move(other.action);
+  guard = std::move(other.guard);
+  update = std::move(other.update);
+  sync = std::move(other.sync);
+  passive = std::move(other.passive);
+}
+
+transition &transition::operator=(const transition &other) {
+  *this = transition(other);
+  return *this;
+}
+
+transition &transition::operator=(transition &&other) noexcept {
+  swap(*this, other);
+  return *this;
+}
+
+bool state::operator<(const state &r) const {
+  return id + inv->toString() < r.id + r.inv->toString();
+}
 
 transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
-                       std::string arg_action, ::std::string arg_guard,
+                       std::string arg_action, const ClockConstraint &arg_guard,
                        ::std::string arg_update, ::std::string arg_sync,
                        bool arg_passive)
     : source_id(arg_source_id), dest_id(arg_dest_id), action(arg_action),
-      guard(arg_guard), update(arg_update), sync(arg_sync),
-      passive(arg_passive) {}
+      update(arg_update), sync(arg_sync), passive(arg_passive) {
+  guard = arg_guard.createCopy();
+}
 
 bool transition::operator<(const transition &r) const {
-  return source_id + dest_id + guard + update + sync <
-         r.source_id + r.dest_id + r.guard + r.update + r.sync;
+  return source_id + dest_id + guard->toString() + update + sync <
+         r.source_id + r.dest_id + r.guard->toString() + r.update + r.sync;
 }
 
 automaton::automaton(::std::vector<State> arg_states,
@@ -38,7 +134,8 @@ automaton::automaton(::std::vector<State> arg_states,
                                                  [](const State &s) -> bool {
                                                    return s.id == "trap";
                                                  })) {
-    states.push_back(State("trap", ""));
+    TrueCC true_cc = TrueCC();
+    states.push_back(State("trap", true_cc));
   }
   transitions = arg_transitions;
   prefix = arg_prefix;
