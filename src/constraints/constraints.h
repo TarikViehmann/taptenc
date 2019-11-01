@@ -232,6 +232,17 @@ struct bounds {
    */
   bounds(timepoint l, timepoint u, ComparisonOp arg_l_op,
          ComparisonOp arg_r_op);
+
+  /**
+   * Creates a constraint stating that the given clock is  within the bounds.
+   *
+   * Substitutes trivial lower and upper bound by TrueCC().
+   *
+   * @param clock_ptr clock to formulate constraint over
+   * @return conjunction stating that the \a clock_ptr is within the bounds
+   */
+  ConjunctionCC
+  createConstraintBoundsSat(const ::std::shared_ptr<Clock> &clock_ptr) const;
 };
 typedef struct bounds Bounds;
 
