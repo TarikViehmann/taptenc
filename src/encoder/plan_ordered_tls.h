@@ -61,7 +61,7 @@ public:
    * @param inv invariant to add
    */
   void addStateInvariantToWindow(::std::string start_pa, ::std::string end_pa,
-                                 ::std::string inv);
+                                 const ClockConstraint &inv);
   /**
    * Adds outgoing transitions of the original timeline to a copied timeline.
    * ~~~
@@ -80,7 +80,7 @@ public:
    */
   static void addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
                                        TimeLine &new_tl, const OrigMap &to_orig,
-                                       ::std::string guard = "");
+                                       const ClockConstraint &guard);
   /**
    * Copies a vector of transitions and adds a prefix to the copies.
    * @param trans original transitions
@@ -116,7 +116,7 @@ public:
    */
   static void modifyTransitionsToNextTl(
       ::std::vector<Transition> &trans, ::std::string curr_pa,
-      const ::std::vector<State> &target_states, ::std::string guard,
+      const ::std::vector<State> &target_states, const ClockConstraint &guard,
       ::std::string update, ::std::string sync, ::std::string op_name = "");
 
   /**
@@ -169,7 +169,7 @@ public:
       const Automaton &base_ta, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
       ::std::string start_pa, ::std::string end_pa, const Filter &target_filter,
-      ::std::string guard, ::std::string update);
+      const ClockConstraint &guard, ::std::string update);
 
   /**
    * Merges a timeline window into tls.

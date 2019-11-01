@@ -26,21 +26,21 @@ encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
                    PlanAction(constants::START_PA,
                               Bounds(0, std::numeric_limits<int>::max())));
   std::vector<State> plan_states;
+  std::shared_ptr<Clock> cpa = std::make_shared<Clock>("cpa");
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
-    plan_states.push_back(
-        State((it->name == constants::END_PA || it->name == constants::START_PA)
-                  ? it->name
-                  : it->name + constants::PA_SEP +
-                        std::to_string(it - full_plan.begin()),
-              (it->name == constants::END_PA || it->name == constants::START_PA)
-                  ? ""
-                  : ("cpa " + it->duration.r_op + " " +
-                     std::to_string(it->duration.upper_bound)),
-              false, (it->name == constants::START_PA) ? true : false));
+    if ((it->name == constants::END_PA || it->name == constants::START_PA)) {
+      plan_states.push_back(
+          State(it->name, TrueCC(), false,
+                (it->name == constants::START_PA) ? true : false));
+    } else {
+      plan_states.push_back(State(
+          it->name + constants::PA_SEP + std::to_string(it - full_plan.begin()),
+          ComparisonCC(cpa, it->duration.r_op, it->duration.upper_bound), false,
+          false));
+    }
   }
-  auto find_initial =
-      std::find_if(plan_states.begin(), plan_states.end(),
-                   [](const State &s) { return s.initial; });
+  auto find_initial = std::find_if(plan_states.begin(), plan_states.end(),
+                                   [](const State &s) { return s.initial; });
   if (find_initial == plan_states.end()) {
     std::cout << "generatePlanAutomaton: no initial state found" << std::endl;
   } else {
@@ -51,12 +51,12 @@ encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
   int i = 0;
   for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
     std::string sync_op = "";
-    std::string guard = "";
     std::string update = "";
     auto prev_state = (it - 1);
     int pa_index = prev_state - plan_states.begin();
-    guard = "cpa " + reverse_op(full_plan[pa_index].duration.l_op) + " " +
-            std::to_string(full_plan[pa_index].duration.lower_bound);
+    ComparisonCC guard(cpa,
+                       computils::reverseOp(full_plan[pa_index].duration.l_op),
+                       full_plan[pa_index].duration.lower_bound);
     update = "cpa = 0";
     plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
                                           update, sync_op, false));
@@ -94,13 +94,12 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 
 ::std::vector<Transition> encoderutils::createCopyTransitionsBetweenTAs(
     const Automaton &source, const Automaton &dest,
-    const ::std::vector<State> &filter, ::std::string guard,
+    const ::std::vector<State> &filter, const ClockConstraint &guard,
     ::std::string update, ::std::string sync, bool passive) {
   std::vector<Transition> res_transitions;
   for (const auto &f_state : filter) {
     auto c_source = std::find_if(
-        source.states.begin(), source.states.end(),
-        [f_state](const State &s) {
+        source.states.begin(), source.states.end(), [f_state](const State &s) {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(f_state.id, constants::BASE_SEP);
         });
@@ -119,19 +118,19 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 
 ::std::vector<Transition> encoderutils::createSuccessorTransitionsBetweenTAs(
     const Automaton &base, const Automaton &source, const Automaton &dest,
-    const ::std::vector<State> &filter, ::std::string guard,
+    const ::std::vector<State> &filter, const ClockConstraint &guard,
     ::std::string update) {
   std::vector<Transition> res_transitions;
   for (const auto &trans : base.transitions) {
-    auto search = std::find_if(
-        filter.begin(), filter.end(), [trans](const State &s) {
+    auto search =
+        std::find_if(filter.begin(), filter.end(), [trans](const State &s) {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                  Filter::getSuffix(trans.source_id, constants::BASE_SEP);
         });
     if (search != filter.end()) {
-      auto source_state = std::find_if(
-          source.states.begin(), source.states.end(),
-          [search](const State &s) { return s.id == search->id; });
+      auto source_state =
+          std::find_if(source.states.begin(), source.states.end(),
+                       [search](const State &s) { return s.id == search->id; });
       auto dest_state = std::find_if(
           dest.states.begin(), dest.states.end(), [trans](const State &s) {
             return Filter::getSuffix(s.id, constants::BASE_SEP) ==
@@ -141,7 +140,7 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
           dest_state != dest.states.end()) {
         res_transitions.push_back(
             Transition(source_state->id, dest_state->id, trans.action,
-                       addConstraint(trans.guard, guard),
+                       *addConstraint(*trans.guard.get(), guard).get(),
                        addUpdate(trans.update, update), trans.sync, true));
       }
     }
@@ -151,8 +150,9 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 
 void encoderutils::addTrapTransitions(Automaton &ta,
                                       const ::std::vector<State> &sources,
-                                      ::std::string guard, ::std::string update,
-                                      ::std::string sync, bool passive) {
+                                      const ClockConstraint &guard,
+                                      ::std::string update, ::std::string sync,
+                                      bool passive) {
   auto trap = std::find_if(ta.states.begin(), ta.states.end(),
                            [](const State &s) { return s.id == "trap"; });
   if (trap == ta.states.end()) {
@@ -161,9 +161,9 @@ void encoderutils::addTrapTransitions(Automaton &ta,
     return;
   }
   for (const auto &source : sources) {
-    auto search = std::find_if(
-        ta.states.begin(), ta.states.end(),
-        [source](const State &s) { return source.id == s.id; });
+    auto search =
+        std::find_if(ta.states.begin(), ta.states.end(),
+                     [source](const State &s) { return source.id == s.id; });
     if (search != ta.states.end()) {
       ta.transitions.push_back(
           Transition(search->id, trap->id, "", guard, update, sync, passive));
@@ -191,14 +191,14 @@ void encoderutils::addBaseSyncs(AutomataSystem &s, const int base_pos) {
 
 void encoderutils::addInvariants(Automaton &ta,
                                  const ::std::vector<State> filter,
-                                 ::std::string inv) {
+                                 const ClockConstraint &inv) {
   for (const auto &f_state : filter) {
     auto target = std::find_if(
         ta.states.begin(), ta.states.end(), [f_state](const State &s) {
           return Filter::matchesFilter(s.id, "", f_state.id);
         });
     if (target != ta.states.end()) {
-      target->inv = addConstraint(target->inv, inv);
+      target->inv = addConstraint(*target->inv, inv);
     }
   }
 }
