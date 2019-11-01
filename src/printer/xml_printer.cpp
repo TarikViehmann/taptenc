@@ -6,6 +6,7 @@
  * \author (2019) Tarik Viehmann
  */
 
+#include "../constraints/constraints.h"
 #include "../timed-automata/timed_automata.h"
 #include "printer.h"
 #include <fstream>
@@ -49,9 +50,9 @@ std::string toString(const State &s, const std::pair<int, int> &pos) {
     res << "<name x=\"" << pos.first << "\" y=\"" << pos.second - 20 << "\">"
         << s.id << "</name>";
   }
-  if (s.inv != "") {
+  if (s.inv.get()->type != CCType::TRUE) {
     res << "<label kind=\"invariant\" x=\"" << pos.first << "\" y=\""
-        << pos.second + 10 << "\">" << s.inv << "</label>";
+        << pos.second + 10 << "\">" << s.inv.get()->toString() << "</label>";
   }
   if (s.urgent) {
     res << "<urgent/>" << std::endl;
@@ -91,9 +92,10 @@ std::string toString(const Transition &t,
     res << "<label kind=\"synchronisation\" x=\"" << v[0].first << "\" y=\""
         << v[0].second + 10 << "\">" << t.sync << "!"
         << "</label>" << std::endl;
-  if (t.guard != "")
+  if (t.guard.get()->type != CCType::TRUE)
     res << "<label kind=\"guard\" x=\"" << v[0].first << "\" y=\""
-        << v[0].second - 20 << "\">" << t.guard << "</label>" << std::endl;
+        << v[0].second - 20 << "\">" << t.guard.get()->toString() << "</label>"
+        << std::endl;
   if (t.update != "")
     res << "<label kind=\"assignment\" x=\"" << v[0].first << "\" y=\""
         << v[0].second - 40 << "\">" << t.update << "</label>" << std::endl;
