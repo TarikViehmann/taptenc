@@ -22,11 +22,21 @@ namespace taptenc {
 ///@{
 struct state {
   ::std::string id;
-  ::std::string inv;
+  ::std::unique_ptr<ClockConstraint> inv;
   bool urgent;
   bool initial;
-  state(::std::string arg_id, ::std::string arg_inv, bool arg_urgent = false,
-        bool arg_initial = false);
+  state(::std::string arg_id, const ClockConstraint &inv,
+        bool arg_urgent = false, bool arg_initial = false);
+  ~state() = default;
+  /** Copy constructor that clones the uniquely managed resources. */
+  state(const state &other);
+  /** Move constructor that steals the uniquely managed resources. */
+  state(state &&other) noexcept;
+  /** Copy assignment using the copy constructor. */
+  state &operator=(const state &other);
+  /** Move assignment swapping all member contents. */
+  state &operator=(state &&other) noexcept;
+  /** Ordering operator determined by comparing string representations. */
   bool operator<(const state &r) const;
 };
 typedef struct state State;
@@ -35,15 +45,24 @@ struct transition {
   ::std::string source_id;
   ::std::string dest_id;
   ::std::string action;
-  ::std::string guard;
+  ::std::unique_ptr<ClockConstraint> guard;
   ::std::string update;
   ::std::string sync;
   bool passive; // true: receiver of sync (?), false: emmitter of sync (!)
   transition(::std::string arg_source_id, ::std::string arg_dest_id,
-             std::string arg_action, ::std::string arg_guard,
+             std::string arg_action, const ClockConstraint &guard,
              ::std::string arg_update, ::std::string arg_sync,
              bool arg_passive = false);
-
+  ~transition() = default;
+  /** Copy constructor that clones the uniquely managed resources. */
+  transition(const transition &other);
+  /** Move constructor that steals the uniquely managed resources. */
+  transition(transition &&other) noexcept;
+  /** Copy assignment using the copy constructor. */
+  transition &operator=(const transition &other);
+  /** Move assignment swapping all member contents. */
+  transition &operator=(transition &&other) noexcept;
+  /** Ordering operator determined by comparing string representations. */
   bool operator<(const transition &r) const;
 };
 typedef struct transition Transition;
