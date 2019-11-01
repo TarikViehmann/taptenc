@@ -4,14 +4,143 @@
  * \author (2019) Tarik Viehmann
  */
 #include "utap_xml_parser.h"
+#include "../constraints/constraints.h"
 #include "../timed-automata/timed_automata.h"
 #include "utap/typechecker.h"
 #include "utap/utap.h"
 #include "utils.h"
 #include <iostream>
+#include <memory>
 #include <string>
 
 using namespace taptenc;
+/**
+ * Utility functions to convert utap constraints to taptenc clock constraints.
+ */
+namespace constraintconverterutils {
+
+/**
+ * Obtain a taptenc comparison operator from a utap kind_t operator.
+ *
+ * @param op utap kind_t operator encoding
+ * @return taptenc comparison operator corresponding to \a op.
+ *         If kind_t is not a recognized comparison operator a warning is
+ *         generated and ComparisonOp::LT is returned.
+ */
+ComparisonOp getComparisonOpFromUtapKind(UTAP::Constants::kind_t op) {
+  switch (op) {
+  case UTAP::Constants::LT:
+    return ComparisonOp::LT;
+  case UTAP::Constants::LE:
+    return ComparisonOp::LTE;
+  case UTAP::Constants::GT:
+    return ComparisonOp::GT;
+  case UTAP::Constants::GE:
+    return ComparisonOp::GTE;
+  case UTAP::Constants::EQ:
+    return ComparisonOp::EQ;
+  case UTAP::Constants::NEQ:
+    return ComparisonOp::NEQ;
+  default:
+    std::cout << "unknown Utap operator" << std::endl;
+    return ComparisonOp::LT;
+  }
+}
+
+/**
+ * Tries to parse an utap expression_t into a taptenc clock constraint.
+ *
+ * @param expr utap expression representing a clock constraint
+ * @return clock constraint of \a expr. If the parsing fails for any reason,
+ *         a pointer to a TrueCC constraint is returned.
+ */
+std::unique_ptr<ClockConstraint> parseUtapConstraint(UTAP::expression_t expr) {
+  if (expr.toString() == "" || expr.toString() == "1") {
+    return std::make_unique<TrueCC>(TrueCC());
+  } else {
+    switch (expr.getKind()) {
+    case UTAP::Constants::LT:
+    case UTAP::Constants::LE:
+    case UTAP::Constants::GT:
+    case UTAP::Constants::GE:
+    case UTAP::Constants::EQ:
+    case UTAP::Constants::NEQ: {
+      if (expr.getSize() != 2) {
+        std::cout << "error parsing utap expression, expected 2 "
+                     "subexpressions, but got "
+                  << expr.getSize() << std::endl;
+        return std::make_unique<TrueCC>(TrueCC());
+      }
+      std::shared_ptr<Clock> occ1;
+      std::shared_ptr<Clock> occ2;
+      timepoint rhs = 0;
+      size_t clock_expr_count = 0;
+      size_t constants_count = 0;
+      bool flip_comparison_op;
+      for (size_t i = 0; i < expr.getSize(); i++) {
+        if (expr[i].getKind() == UTAP::Constants::MINUS) {
+          if (expr.getSize() != 2) {
+            std::cout << "error parsing utap difference expression, expected 2 "
+                         "subexpressions, but got "
+                      << expr.getSize() << std::endl;
+            return std::make_unique<TrueCC>(TrueCC());
+          }
+          clock_expr_count++;
+          if (expr[i][0].getType().isClock() &&
+              expr[i][1].getType().isClock()) {
+            occ1 = std::make_shared<Clock>(expr[i][0].toString());
+            occ2 = std::make_shared<Clock>(expr[i][1].toString());
+          } else {
+            std::cout << "error parsing difference expression, expected 2 "
+                         "clocks, but got "
+                      << expr[i][0].getType() << " and " << expr[i][1].getType()
+                      << std::endl;
+            return std::make_unique<TrueCC>(TrueCC());
+          }
+        } else if (expr[i].getType().isClock()) {
+          clock_expr_count++;
+          occ1 = std::make_shared<Clock>(expr[i].toString());
+        } else if (expr[i].getKind() == UTAP::Constants::CONSTANT) {
+          rhs = expr.getValue();
+          if (i != expr.getSize() - 1) {
+            flip_comparison_op = true;
+          }
+          constants_count++;
+        } else {
+          std::cout << "error parsing comparison constraint" << std::endl;
+          return std::make_unique<TrueCC>(TrueCC());
+        }
+      }
+      if (constants_count != 1 || clock_expr_count != 1) {
+        std::cout << "error parsing comparison constraint. Only Comparisons "
+                     "beteen constants and clock expressions are supported."
+                  << std::endl;
+        return std::make_unique<TrueCC>(TrueCC());
+      }
+      ComparisonOp op = getComparisonOpFromUtapKind(expr.getKind());
+      if (flip_comparison_op) {
+        op = computils::reverseOp(op);
+      }
+      if (occ2.get() == nullptr) {
+        return std::make_unique<ComparisonCC>(ComparisonCC(occ1, op, rhs));
+      } else {
+        return std::make_unique<DifferenceCC>(
+            DifferenceCC(occ1, occ2, op, rhs));
+      }
+      break;
+    }
+    case UTAP::Constants::AND:
+      return std::make_unique<ConjunctionCC>(
+          ConjunctionCC(*parseUtapConstraint(expr[0]).get(),
+                        *parseUtapConstraint(expr[1]).get()));
+    default:
+      return std::make_unique<TrueCC>(TrueCC());
+    }
+  }
+}
+} // end namespace constraintconverterutils
+
+using namespace constraintconverterutils;
 
 AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
   if (filename.find(".xml") == std::string::npos) {
@@ -56,18 +185,14 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
                   << s.uid.getName() << " converted to " << state_name;
       }
       states.push_back(State(s.uid.getName(),
-                             convertCharsToHTML(s.invariant.toString()), false,
+                             *parseUtapConstraint(s.invariant).get(), false,
                              is_init));
     }
     for (const auto &tr : t.templ->edges) {
-      std::string guard = convertCharsToHTML(tr.guard.toString());
-      if (guard.substr(0, 1) == "1" && guard.size() == 1) {
-        guard = "";
-      }
       std::string source_id = toLowerCase(tr.src->uid.getName());
       std::string dest_id = toLowerCase(tr.dst->uid.getName());
       transitions.push_back(Transition(
-          source_id, dest_id, "", guard,
+          source_id, dest_id, "", *parseUtapConstraint(tr.guard).get(),
           (tr.assign.toString().size() == 1) ? "" : tr.assign.toString(),
           tr.sync.toString()));
     }

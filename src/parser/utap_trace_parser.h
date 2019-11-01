@@ -3,6 +3,7 @@
  *
  * \author (2019) Tarik Viehmann
  */
+#include "../constraints/constraints.h"
 #include "../timed-automata/timed_automata.h"
 #include <string>
 #include <unordered_map>

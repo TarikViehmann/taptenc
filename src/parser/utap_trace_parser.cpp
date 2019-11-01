@@ -199,16 +199,14 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
     return res;
   }
   if (pa_source_id != pa_dest_id) {
-    auto pa_trans =
-        ::std::find_if(plan_ta.transitions.begin(), plan_ta.transitions.end(),
-                       [pa_source_id, pa_dest_id, guard, sync,
-                        update](const Transition &t)  {
-                         return t.source_id == pa_source_id &&
-                                t.dest_id == pa_dest_id &&
-                                guard.find(t.guard) != string::npos &&
-                                sync.find(t.sync) != string::npos &&
-                                update.find(t.update) != string::npos;
-                       });
+    auto pa_trans = ::std::find_if(
+        plan_ta.transitions.begin(), plan_ta.transitions.end(),
+        [pa_source_id, pa_dest_id, guard, sync, update](const Transition &t) {
+          return t.source_id == pa_source_id && t.dest_id == pa_dest_id &&
+                 guard.find(t.guard.get()->toString()) != string::npos &&
+                 sync.find(t.sync) != string::npos &&
+                 update.find(t.update) != string::npos;
+        });
     if (pa_trans == plan_ta.transitions.end()) {
       cout << "ERROR:  cannot find plan ta transition: " << pa_source_id
            << " -> " << pa_dest_id << " {" << guard << "; " << sync << "; "
@@ -224,11 +222,10 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
   string base_dest_id = Filter::getSuffix(dest_id, constants::BASE_SEP);
   auto base_trans = ::std::find_if(
       base_ta.transitions.begin(), base_ta.transitions.end(),
-      [base_source_id, base_dest_id, guard, sync,
-       update](const Transition &t)  {
+      [base_source_id, base_dest_id, guard, sync, update](const Transition &t) {
         return t.source_id == base_source_id &&
                t.dest_id.find(base_dest_id) != string::npos &&
-               isPiecewiseContained(t.guard, guard,
+               isPiecewiseContained(t.guard.get()->toString(), guard,
                                     constants::CC_CONJUNCTION) &&
                sync.find(t.sync) != string::npos &&
                isPiecewiseContained(t.update, update,
