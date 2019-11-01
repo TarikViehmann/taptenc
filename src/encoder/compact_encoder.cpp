@@ -1,3 +1,4 @@
+#include "../constraints/constraints.h"
 #include "encoders.h"
 #include "timed_automata.h"
 #include "utils.h"
@@ -32,10 +33,10 @@ void CompactEncoder::encodeNoOp(AutomataSystem &s, std::vector<State> &target,
                      [key](const State &s) -> bool { return s.id == key; });
     if (its != target.end()) {
       s.instances[base_pos].first.transitions.push_back(
-          Transition(it->id, it->id, "", "", "", opsync, true));
+          Transition(it->id, it->id, "", TrueCC(), "", opsync, true));
     } else if (it->id != trap->id) {
       s.instances[base_pos].first.transitions.push_back(
-          Transition(it->id, trap->id, "", "", "", opsync, true));
+          Transition(it->id, trap->id, "", TrueCC(), "", opsync, true));
     }
   }
 }
@@ -63,13 +64,13 @@ void CompactEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &target,
   }
   bool upper_bounded = (bounds.upper_bound != std::numeric_limits<int>::max());
   bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
-  std::string guard_upper_bound_crossed = clock + inverse_op(bounds.r_op) +
+  std::string guard_upper_bound_crossed = clock + inverseOp(bounds.r_op) +
                                           std::to_string(bounds.upper_bound) +
                                           " &amp;&amp; " + boolvar + "==true";
   std::string guard_constraint_sat =
-      (lower_bounded ? clock + reverse_op(bounds.l_op) +
-                           std::to_string(bounds.lower_bound)
-                     : "") +
+      (lower_bounded
+           ? clock + reverseOp(bounds.l_op) + std::to_string(bounds.lower_bound)
+           : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
       (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
                      : "");
@@ -86,8 +87,8 @@ void CompactEncoder::encodeFuture(AutomataSystem &s, std::vector<State> &target,
       update_on_activation = boolvar + " = true, " + clock + " = 0";
     }
     // self loop that triggers upon constraint activation
-    s.instances[base_pos].first.transitions.push_back(
-        Transition(it->id, it->id, "", "", update_on_activation, opsync, true));
+    s.instances[base_pos].first.transitions.push_back(Transition(
+        it->id, it->id, "", TrueCC(), update_on_activation, opsync, true));
     // transitions to trap once above y
     if (upper_bounded) {
       s.instances[base_pos].first.transitions.push_back(Transition(
@@ -126,16 +127,16 @@ void CompactEncoder::encodePast(AutomataSystem &s, std::vector<State> &target,
   }
   bool upper_bounded = (bounds.upper_bound != std::numeric_limits<int>::max());
   bool lower_bounded = (bounds.lower_bound != 0 || bounds.l_op != "&lt;=");
-  std::string guard_upper_bound_crossed = clock + inverse_op(bounds.r_op) +
+  std::string guard_upper_bound_crossed = clock + inverseOp(bounds.r_op) +
                                           std::to_string(bounds.upper_bound) +
                                           " &amp;&amp; " + boolvar + "==true";
   std::string guard_lower_bound_not_reached =
-      clock + inverse_op(reverse_op(bounds.l_op)) +
+      clock + inverseOp(reverseOp(bounds.l_op)) +
       std::to_string(bounds.lower_bound);
   std::string guard_constraint_sat =
-      (lower_bounded ? clock + reverse_op(bounds.l_op) +
-                           std::to_string(bounds.lower_bound)
-                     : "") +
+      (lower_bounded
+           ? clock + reverseOp(bounds.l_op) + std::to_string(bounds.lower_bound)
+           : "") +
       ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
       (upper_bounded ? clock + bounds.r_op + std::to_string(bounds.upper_bound)
                      : "");
