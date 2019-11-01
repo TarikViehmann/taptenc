@@ -81,7 +81,7 @@ ComparisonOp computils::inverseOp(ComparisonOp op) {
 // TrueCC
 trueCC::trueCC() { type = CCType::TRUE; }
 
-::std::string trueCC::toString() const { return "1"; }
+::std::string trueCC::toString() const { return ""; }
 
 ::std::unique_ptr<ClockConstraint> trueCC::createCopy() const {
   return std::make_unique<TrueCC>(TrueCC());
@@ -98,8 +98,15 @@ conjunctionCC::conjunctionCC(const ClockConstraint &first,
 }
 
 ::std::string conjunctionCC::toString() const {
-  return content.first->toString() + " &amp;&amp; " +
-         content.second->toString();
+  std::string res = "";
+  std::string lhs = content.first->toString();
+  std::string rhs = content.second->toString();
+  res += lhs;
+  if (lhs.size() > 0 && rhs.size() > 0) {
+    res += " &amp;&amp; ";
+  }
+  res += rhs;
+  return res;
 }
 
 ::std::unique_ptr<ClockConstraint> conjunctionCC::createCopy() const {
@@ -162,6 +169,25 @@ bounds::bounds(timepoint l, timepoint u, ComparisonOp arg_l_op,
   r_op = arg_r_op;
   lower_bound = l;
   upper_bound = u;
+}
+
+ConjunctionCC bounds::createConstraintBoundsSat(
+    const ::std::shared_ptr<Clock> &clock_ptr) const {
+  bool lower_bounded = (lower_bound == 0 && l_op == ComparisonOp::LTE);
+  bool upper_bounded = (upper_bound != std::numeric_limits<int>::max());
+  std::unique_ptr<ClockConstraint> below_upper_bound =
+      std::make_unique<TrueCC>(TrueCC());
+  std::unique_ptr<ClockConstraint> lower_bound_reached =
+      std::make_unique<TrueCC>(TrueCC());
+  if (upper_bounded) {
+    below_upper_bound =
+        std::make_unique<ComparisonCC>(clock_ptr, r_op, upper_bound);
+  }
+  if (lower_bounded) {
+    lower_bound_reached = std::make_unique<ComparisonCC>(
+        clock_ptr, computils::reverseOp(l_op), lower_bound);
+  }
+  return ConjunctionCC(*below_upper_bound.get(), *lower_bound_reached.get());
 }
 
 // Plan Action

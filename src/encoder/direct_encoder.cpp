@@ -387,12 +387,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     ComparisonCC guard_upper_bound_crossed(
         clock_ptr, computils::inverseOp(specs->bounds.r_op),
         specs->bounds.upper_bound);
-    ComparisonCC lower_bound_reached(clock_ptr,
-                                     computils::reverseOp(specs->bounds.l_op),
-                                     specs->bounds.lower_bound);
-    ComparisonCC below_upper_bound(clock_ptr, specs->bounds.r_op,
-                                   specs->bounds.upper_bound);
-    ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
+    ConjunctionCC guard_constraint_sat =
+        specs->bounds.createConstraintBoundsSat(clock_ptr);
     std::string op_name = info.name + "F" + std::to_string(encode_counter);
     encode_counter++;
     Filter target_filter(specs->targets);
@@ -484,12 +480,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   ComparisonCC guard_upper_bound_crossed(
       clock_ptr, computils::inverseOp(info.specs.bounds.r_op),
       info.specs.bounds.upper_bound);
-  ComparisonCC lower_bound_reached(clock_ptr,
-                                   computils::reverseOp(info.specs.bounds.l_op),
-                                   info.specs.bounds.lower_bound);
-  ComparisonCC below_upper_bound(clock_ptr, info.specs.bounds.r_op,
-                                 info.specs.bounds.upper_bound);
-  ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
+  ConjunctionCC guard_constraint_sat =
+      info.specs.bounds.createConstraintBoundsSat(clock_ptr);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
@@ -619,12 +611,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   ComparisonCC guard_upper_bound_crossed(
       clock_ptr, computils::inverseOp(info.specs.bounds.r_op),
       info.specs.bounds.upper_bound);
-  ComparisonCC lower_bound_reached(clock_ptr,
-                                   computils::reverseOp(info.specs.bounds.l_op),
-                                   info.specs.bounds.lower_bound);
-  ComparisonCC below_upper_bound(clock_ptr, info.specs.bounds.r_op,
-                                 info.specs.bounds.upper_bound);
-  ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
+  ConjunctionCC guard_constraint_sat =
+      info.specs.bounds.createConstraintBoundsSat(clock_ptr);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
