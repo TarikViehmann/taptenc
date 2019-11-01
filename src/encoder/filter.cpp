@@ -99,35 +99,35 @@ std::string Filter::getPrefix(std::string name, char marker) {
 void Filter::filterTransitionsInPlace(std::vector<Transition> &trans,
                                       std::string prefix,
                                       bool filter_source) const {
-  trans.erase(
-      std::remove_if(
-          trans.begin(), trans.end(),
-          [filter_source, prefix, this](Transition &t)  {
-            std::string id = ((filter_source) ? t.source_id : t.dest_id);
-            bool res =
-                hasPrefix(id, prefix) &&
-                isFilterEndIt(std::find_if(
-                    filter.begin(), filter.end(),
-                    [id, filter_source, prefix, this](const State &s)  {
-                      return Filter::matchesFilter(id, prefix, s.id);
-                    }));
-            return res;
-          }),
-      trans.end());
+  trans.erase(std::remove_if(
+                  trans.begin(), trans.end(),
+                  [filter_source, prefix, this](Transition &t) {
+                    std::string id =
+                        ((filter_source) ? t.source_id : t.dest_id);
+                    bool res =
+                        hasPrefix(id, prefix) &&
+                        isFilterEndIt(std::find_if(
+                            filter.begin(), filter.end(),
+                            [id, filter_source, prefix, this](const State &s) {
+                              return Filter::matchesFilter(id, prefix, s.id);
+                            }));
+                    return res;
+                  }),
+              trans.end());
 }
 
 void Filter::filterAutomatonInPlace(Automaton &source,
                                     std::string prefix) const {
-  source.states.erase(
-      std::remove_if(source.states.begin(), source.states.end(),
-                     [prefix, this](State &s)  {
-                       return isFilterEndIt(std::find_if(
-                           filter.begin(), filter.end(),
-                           [prefix, s, this](const State &f_s)  {
-                             return Filter::matchesFilter(s.id, prefix, f_s.id);
-                           }));
-                     }),
-      source.states.end());
+  source.states.erase(std::remove_if(source.states.begin(), source.states.end(),
+                                     [prefix, this](State &s) {
+                                       return isFilterEndIt(std::find_if(
+                                           filter.begin(), filter.end(),
+                                           [prefix, s, this](const State &f_s) {
+                                             return Filter::matchesFilter(
+                                                 s.id, prefix, f_s.id);
+                                           }));
+                                     }),
+                      source.states.end());
   filterTransitionsInPlace(source.transitions, prefix, true);
   filterTransitionsInPlace(source.transitions, prefix, false);
 }
@@ -137,19 +137,25 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
   std::vector<State> res_states;
   std::vector<Transition> res_transitions;
   for (const auto &s : source.states) {
-    res_states.push_back(
-        State(ta_prefix + Filter::getSuffix(s.id, constants::BASE_SEP),
-              strip_constraints ? "" : s.inv, s.urgent, s.initial));
+    if (strip_constraints) {
+      res_states.push_back(
+          State(ta_prefix + Filter::getSuffix(s.id, constants::BASE_SEP),
+                TrueCC(), s.urgent, s.initial));
+    } else {
+      res_states.push_back(
+          State(ta_prefix + Filter::getSuffix(s.id, constants::BASE_SEP),
+                *s.inv.get(), s.urgent, s.initial));
+    }
   }
   for (const auto &trans : source.transitions) {
     auto source = std::find_if(res_states.begin(), res_states.end(),
-                               [trans, ta_prefix](const State &s)  {
+                               [trans, ta_prefix](const State &s) {
                                  return Filter::matchesFilter(
                                      trans.source_id, "",
                                      Filter::stripPrefix(s.id, ta_prefix));
                                });
     auto dest = std::find_if(res_states.begin(), res_states.end(),
-                             [trans, ta_prefix](const State &s)  {
+                             [trans, ta_prefix](const State &s) {
                                return Filter::matchesFilter(
                                    trans.dest_id, "",
                                    Filter::stripPrefix(s.id, ta_prefix));
@@ -157,10 +163,10 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
     if (source != res_states.end() && dest != res_states.end()) {
       if (strip_constraints) {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
-                                             "", "", trans.sync, true));
+                                             TrueCC(), "", trans.sync, true));
       } else {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
-                                             trans.guard, trans.update,
+                                             *trans.guard.get(), trans.update,
                                              trans.sync, true));
       }
     }
@@ -182,16 +188,21 @@ Automaton Filter::filterAutomaton(const Automaton &source,
   std::vector<State> res_states;
   std::vector<Transition> res_transitions;
   for (const auto &f_state : filter) {
-    auto search = std::find_if(
-        source.states.begin(), source.states.end(),
-        [f_state, filter_prefix, this](const State &s)  {
-          return Filter::matchesFilter(s.id, filter_prefix, f_state.id);
-        });
+    auto search = std::find_if(source.states.begin(), source.states.end(),
+                               [f_state, filter_prefix, this](const State &s) {
+                                 return Filter::matchesFilter(
+                                     s.id, filter_prefix, f_state.id);
+                               });
     if (search != source.states.end()) {
-      res_states.push_back(
-          State(ta_prefix + Filter::getSuffix(search->id, constants::BASE_SEP),
-                strip_constraints ? "" : search->inv, search->urgent,
-                search->initial));
+      if (strip_constraints) {
+        res_states.push_back(State(
+            ta_prefix + Filter::getSuffix(search->id, constants::BASE_SEP),
+            TrueCC(), search->urgent, search->initial));
+      } else {
+        res_states.push_back(State(
+            ta_prefix + Filter::getSuffix(search->id, constants::BASE_SEP),
+            *search->inv.get(), search->urgent, search->initial));
+      }
     } else {
       std::cout << "Filter filterAutomaton: filter state not found (id "
                 << f_state.id << ")" << std::endl;
@@ -200,23 +211,23 @@ Automaton Filter::filterAutomaton(const Automaton &source,
   for (const auto &trans : source.transitions) {
     auto source = std::find_if(
         res_states.begin(), res_states.end(),
-        [trans, this, filter_prefix, ta_prefix](const State &s)  {
+        [trans, this, filter_prefix, ta_prefix](const State &s) {
           return Filter::matchesFilter(trans.source_id, filter_prefix,
                                        Filter::stripPrefix(s.id, ta_prefix));
         });
     auto dest = std::find_if(
         res_states.begin(), res_states.end(),
-        [trans, this, filter_prefix, ta_prefix](const State &s)  {
+        [trans, this, filter_prefix, ta_prefix](const State &s) {
           return Filter::matchesFilter(trans.dest_id, filter_prefix,
                                        Filter::stripPrefix(s.id, ta_prefix));
         });
     if (source != res_states.end() && dest != res_states.end()) {
       if (strip_constraints) {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
-                                             "", "", trans.sync, true));
+                                             TrueCC(), "", trans.sync, true));
       } else {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
-                                             trans.guard, trans.update,
+                                             *trans.guard.get(), trans.update,
                                              trans.sync, true));
       }
     }
@@ -231,18 +242,18 @@ Automaton Filter::filterAutomaton(const Automaton &source,
   return res;
 }
 
-void Filter::addToTransitions(std::vector<Transition> &trans, std::string guard,
-                              std::string update, std::string prefix,
-                              bool filter_source) const {
+void Filter::addToTransitions(std::vector<Transition> &trans,
+                              const ClockConstraint &guard, std::string update,
+                              std::string prefix, bool filter_source) const {
   for (auto &tr : trans) {
     auto search = std::find_if(
         filter.begin(), filter.end(),
-        [filter_source, tr, prefix, this](const State &s)  {
+        [filter_source, tr, prefix, this](const State &s) {
           return Filter::matchesFilter(
               ((filter_source) ? tr.source_id : tr.dest_id), prefix, s.id);
         });
     if (!isFilterEndIt(search)) {
-      tr.guard = addConstraint(tr.guard, guard);
+      tr.guard = addConstraint(*tr.guard.get(), guard);
       tr.update = addUpdate(tr.update, update);
     }
   }
@@ -250,11 +261,10 @@ void Filter::addToTransitions(std::vector<Transition> &trans, std::string guard,
 Filter Filter::updateFilter(const Automaton &ta) const {
   std::vector<State> update_filter;
   for (const auto &f_state : filter) {
-    auto search =
-        std::find_if(ta.states.begin(), ta.states.end(),
-                     [f_state, this](const State &s)  {
-                       return Filter::matchesFilter(s.id, "", f_state.id);
-                     });
+    auto search = std::find_if(
+        ta.states.begin(), ta.states.end(), [f_state, this](const State &s) {
+          return Filter::matchesFilter(s.id, "", f_state.id);
+        });
     if (search != ta.states.end()) {
       update_filter.push_back(*search);
     } else {
@@ -268,8 +278,8 @@ Filter Filter::updateFilter(const Automaton &ta) const {
 Filter Filter::reverseFilter(const Automaton &ta) const {
   std::vector<State> reverse_filter;
   for (const auto &ta_state : ta.states) {
-    auto search = std::find_if(
-        filter.begin(), filter.end(), [ta_state](const State &s)  {
+    auto search =
+        std::find_if(filter.begin(), filter.end(), [ta_state](const State &s) {
           return Filter::matchesFilter(ta_state.id, "", s.id);
         });
     if (search == filter.end()) {
@@ -280,7 +290,7 @@ Filter Filter::reverseFilter(const Automaton &ta) const {
 }
 bool Filter::matchesId(const std::string id) const {
   return !isFilterEndIt(
-      std::find_if(filter.begin(), filter.end(), [id](const State &s)  {
+      std::find_if(filter.begin(), filter.end(), [id](const State &s) {
         return Filter::matchesFilter(id, "", s.id);
       }));
 }

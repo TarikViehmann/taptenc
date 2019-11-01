@@ -1,4 +1,5 @@
 #include "plan_ordered_tls.h"
+#include "../constraints/constraints.h"
 #include "constants.h"
 #include "encoder_utils.h"
 #include "filter.h"
@@ -144,7 +145,7 @@ void PlanOrderedTLs::createTransitionsToWindow(
     const Automaton &base_ta, TimeLines &dest_tls,
     const std::unordered_map<std::string, std::string> &map_to_orig,
     std::string start_pa, std::string end_pa, const Filter &target_filter,
-    std::string guard, std::string update) {
+    const ClockConstraint &guard, std::string update) {
   auto start_pa_entry =
       std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
   if (start_pa_entry == pa_order.get()->end()) {
@@ -172,7 +173,7 @@ void PlanOrderedTLs::createTransitionsToWindow(
         auto dest_entry = std::find_if(
             dest_tl->second.begin(), dest_tl->second.end(),
             [source_entry,
-             map_to_orig](const std::pair<std::string, TlEntry> &d)  {
+             map_to_orig](const std::pair<std::string, TlEntry> &d) {
               auto orig_source_entry = map_to_orig.find(source_entry.first);
               auto orig_dest_entry = map_to_orig.find(d.first);
               return orig_source_entry != map_to_orig.end() &&
@@ -232,7 +233,7 @@ void PlanOrderedTLs::mergeWindow(const TimeLines &to_add, bool overwrite) {
 void PlanOrderedTLs::addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
                                               TimeLine &new_tl,
                                               const OrigMap &to_orig,
-                                              std::string guard) {
+                                              const ClockConstraint &guard) {
   for (auto &tl_entry : new_tl) {
     auto orig_name = to_orig.find(tl_entry.first);
     if (orig_name != to_orig.end()) {
@@ -246,7 +247,7 @@ void PlanOrderedTLs::addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
             const auto &source_state = std::find_if(
                 tl_entry.second.ta.states.begin(),
                 tl_entry.second.ta.states.end(),
-                [source_base_name](const State &s)  {
+                [source_base_name](const State &s) {
                   return Filter::getSuffix(s.id, constants::BASE_SEP) ==
                          source_base_name;
                 });
@@ -254,8 +255,9 @@ void PlanOrderedTLs::addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
               tl_entry.second.trans_out.push_back(Transition(
                   tl_entry.first +
                       Filter::getSuffix(tr.source_id, constants::BASE_SEP),
-                  tr.dest_id, tr.action, addConstraint(tr.guard, guard),
-                  tr.update, tr.sync));
+                  tr.dest_id, tr.action,
+                  *addConstraint(*tr.guard.get(), guard).get(), tr.update,
+                  tr.sync));
             }
           }
         }
@@ -283,7 +285,7 @@ std::vector<Transition> PlanOrderedTLs::addToPrefixOnTransitions(
     if ((is_inner && on_inner_trans) || (!is_inner && on_outgoing_trans)) {
       res.push_back(Transition(encoderutils::addToPrefix(tr.source_id, to_add),
                                encoderutils::addToPrefix(tr.dest_id, to_add),
-                               tr.action, tr.guard, tr.update, tr.sync));
+                               tr.action, *tr.guard.get(), tr.update, tr.sync));
     }
   }
   return res;
@@ -291,11 +293,11 @@ std::vector<Transition> PlanOrderedTLs::addToPrefixOnTransitions(
 
 void PlanOrderedTLs::modifyTransitionsToNextTl(
     std::vector<Transition> &trans, std::string curr_pa,
-    const std::vector<State> &target_states, std::string guard,
+    const std::vector<State> &target_states, const ClockConstraint &guard,
     std::string update, std::string sync, std::string op_name) {
   for (auto &t : trans) {
     if (Filter::getPrefix(t.dest_id, constants::TL_SEP) != curr_pa) {
-      t.guard = addConstraint(t.guard, guard);
+      t.guard = addConstraint(*t.guard.get(), guard);
       t.update = addUpdate(t.update, update);
       if (sync != "")
         t.sync = sync;
@@ -307,11 +309,11 @@ void PlanOrderedTLs::modifyTransitionsToNextTl(
   trans.erase(
       std::remove_if(
           trans.begin(), trans.end(),
-          [target_states, curr_pa](const Transition &t)  {
+          [target_states, curr_pa](const Transition &t) {
             return (Filter::getPrefix(t.dest_id, constants::TL_SEP) !=
                     curr_pa) &&
                    (std::find_if(target_states.begin(), target_states.end(),
-                                 [t](const State &s)  {
+                                 [t](const State &s) {
                                    return Filter::matchesFilter(t.dest_id, "",
                                                                 s.id);
                                  }) == target_states.end());
@@ -322,7 +324,7 @@ void PlanOrderedTLs::modifyTransitionsToNextTl(
 void PlanOrderedTLs::removeTransitionsToNextTl(std::vector<Transition> &trans,
                                                std::string curr_pa) {
   trans.erase(std::remove_if(trans.begin(), trans.end(),
-                             [curr_pa](Transition &t)  {
+                             [curr_pa](Transition &t) {
                                return Filter::getPrefix(t.dest_id,
                                                         constants::TL_SEP) !=
                                       curr_pa;
@@ -332,7 +334,7 @@ void PlanOrderedTLs::removeTransitionsToNextTl(std::vector<Transition> &trans,
 
 void PlanOrderedTLs::addStateInvariantToWindow(std::string start_pa,
                                                std::string end_pa,
-                                               std::string inv) {
+                                               const ClockConstraint &inv) {
   auto start_pa_entry =
       std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
   if (start_pa_entry == pa_order.get()->end()) {
@@ -377,8 +379,7 @@ Automaton PlanOrderedTLs::collapseTL(const TimeLine &tl, std::string tl_name,
                             curr_copy.second.trans_out.end());
   }
   std::copy_if(interconnections.begin(), interconnections.end(),
-               std::back_inserter(outgoing),
-               [tl_name](const Transition &tr) {
+               std::back_inserter(outgoing), [tl_name](const Transition &tr) {
                  return (not Filter::matchesFilter(tr.dest_id, tl_name, ""));
                });
   PlanOrderedTLs::removeTransitionsToNextTl(interconnections, tl_name);
@@ -424,7 +425,8 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
         make_pair(ta_state.id, TlEntry(state_ta, std::vector<Transition>())));
     if (emp.second == true) {
       encoderutils::addInvariants(emp.first->second.ta,
-                                  emp.first->second.ta.states, ta_state.inv);
+                                  emp.first->second.ta.states,
+                                  *ta_state.inv.get());
     } else {
       std::cout << "PlanOrderedTLs replaceStatesByTA: error while creating TA "
                    "copy. Another copy with this name already exists: "
@@ -457,7 +459,8 @@ TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
               encoderutils::mergeIds(ta_trans.source_id, tr.source_id);
           succ_trans.dest_id =
               encoderutils::mergeIds(ta_trans.dest_id, tr.dest_id);
-          succ_trans.guard = addConstraint(succ_trans.guard, tr.guard);
+          succ_trans.guard =
+              addConstraint(*succ_trans.guard.get(), *tr.guard.get());
           succ_trans.update = addUpdate(succ_trans.update, tr.update);
           succ_trans.action =
               encoderutils::mergeActions(succ_trans.action, tr.action);
@@ -522,7 +525,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
                   encoderutils::mergeIds(this_ic_trans.source_id, tr.source_id);
               succ_tr.dest_id =
                   encoderutils::mergeIds(this_ic_trans.dest_id, tr.dest_id);
-              succ_tr.guard = addConstraint(succ_tr.guard, this_ic_trans.guard);
+              succ_tr.guard = addConstraint(*succ_tr.guard.get(),
+                                            *this_ic_trans.guard.get());
               succ_tr.update = addUpdate(succ_tr.update, this_ic_trans.update);
               succ_tr.action = encoderutils::mergeActions(succ_tr.action,
                                                           this_ic_trans.action);
@@ -538,7 +542,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
                 out_tr.dest_id = encoderutils::mergeIds(this_ic_trans.dest_id,
                                                         other_ic_trans.dest_id);
               }
-              out_tr.guard = addConstraint(out_tr.guard, this_ic_trans.guard);
+              out_tr.guard = addConstraint(*out_tr.guard.get(),
+                                           *this_ic_trans.guard.get());
               out_tr.update = addUpdate(out_tr.update, this_ic_trans.update);
               out_tr.action = encoderutils::mergeActions(out_tr.action,
                                                          this_ic_trans.action);

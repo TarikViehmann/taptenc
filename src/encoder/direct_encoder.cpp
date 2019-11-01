@@ -55,7 +55,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
         std::make_pair(ta_prefix, TlEntry(ta_copy, std::vector<Transition>())));
     if (emp_ta.second == true) {
       addInvariants(emp_ta.first->second.ta, emp_ta.first->second.ta.states,
-                    pa.inv);
+                    *pa.inv.get());
     } else {
       std::cout << "DirectEncoder generateBaseTimeLine: plan automaton has non "
                    "unique id (id "
@@ -73,7 +73,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
   TimeLine query_tl;
   Automaton query_ta(std::vector<State>(), std::vector<Transition>(),
                      constants::QUERY, false);
-  query_ta.states.push_back(State(constants::QUERY, ""));
+  query_ta.states.push_back(State(constants::QUERY, TrueCC()));
   query_tl.emplace(std::make_pair(
       constants::QUERY, TlEntry(query_ta, std::vector<Transition>())));
   auto emp_tl = po_tls.tls->emplace(std::make_pair(constants::QUERY, query_tl));
@@ -88,7 +88,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
            ->second) {
     for (auto &s : last_tl.second.ta.states) {
       last_tl.second.trans_out.push_back(
-          Transition(s.id, constants::QUERY, "", "", "", ""));
+          Transition(s.id, constants::QUERY, "", TrueCC(), "", ""));
     }
   }
   // generate connections between TLs according to plan TA transitions
@@ -102,7 +102,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
           source_ta->second.find(source_ta_prefix)->second.ta,
           dest_ta->second.find(dest_ta_prefix)->second.ta,
           source_ta->second.find(source_ta_prefix)->second.ta.states,
-          pa_trans.guard, pa_trans.update, "");
+          *pa_trans.guard.get(), pa_trans.update, "");
       po_tls.tls.get()
           ->find(pa_trans.source_id)
           ->second.find(source_ta_prefix)
@@ -118,7 +118,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                 source_ta->second.find(source_ta_prefix)->second.ta,
                 dest_ta->second.find(dest_ta_prefix)->second.ta,
                 source_ta->second.find(source_ta_prefix)->second.ta.states,
-                pa_trans.guard, pa_trans.update);
+                *pa_trans.guard.get(), pa_trans.update);
         po_tls.tls.get()
             ->find(pa_trans.source_id)
             ->second.find(source_ta_prefix)
@@ -304,6 +304,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
   }
   Filter base_filter = Filter(s.instances[base_index].first.states);
   std::string clock = "clX" + info.name;
+  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>(clock);
   if (std::find(s.globals.clocks.begin(), s.globals.clocks.end(), clock) ==
       s.globals.clocks.end()) {
     s.globals.clocks.push_back(clock);
@@ -354,8 +355,6 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
   if (end_pa == constants::END_PA) {
     po_tls.tls.get()->find(*end_pa_entry)->second.clear();
   }
-  std::string prev_window_guard_constraint_sat = "";
-  std::string guard_constraint_sat = "";
   // init curr_to_orig
   for (const auto &pa_tl : *(orig_tls.tls.get())) {
     for (const auto &pa_entry : pa_tl.second) {
@@ -367,7 +366,6 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
        ++specs) {
     // init round by backing up data from the previous round
     prev_window.tls = std::move(curr_window.tls);
-    prev_window_guard_constraint_sat = guard_constraint_sat;
     prev_to_orig = curr_to_orig;
     curr_to_orig.clear();
     // curr_window.tls->clear();
@@ -383,21 +381,18 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     std::string context_pa_end =
         *(po_tls.pa_order.get()->begin() + context_end);
     // formulate constraints based on the given bounds
+    TrueCC prev_window_guard_constraint_sat = TrueCC();
     bool upper_bounded =
-        (specs->bounds.upper_bound != std::numeric_limits<int>::max());
-    bool lower_bounded =
-        (specs->bounds.lower_bound != 0 || specs->bounds.l_op != "&lt;=");
-    std::string guard_upper_bound_crossed =
-        clock + inverse_op(specs->bounds.r_op) +
-        std::to_string(specs->bounds.upper_bound);
-    guard_constraint_sat =
-        (lower_bounded ? clock + reverse_op(specs->bounds.l_op) +
-                             std::to_string(specs->bounds.lower_bound)
-                       : "") +
-        ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-        (upper_bounded ? clock + specs->bounds.r_op +
-                             std::to_string(specs->bounds.upper_bound)
-                       : "");
+        (specs->bounds.upper_bound != std::numeric_limits<timepoint>::max());
+    ComparisonCC guard_upper_bound_crossed(
+        clock_ptr, computils::inverseOp(specs->bounds.r_op),
+        specs->bounds.upper_bound);
+    ComparisonCC lower_bound_reached(clock_ptr,
+                                     computils::reverseOp(specs->bounds.l_op),
+                                     specs->bounds.lower_bound);
+    ComparisonCC below_upper_bound(clock_ptr, specs->bounds.r_op,
+                                   specs->bounds.upper_bound);
+    ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
     std::string op_name = info.name + "F" + std::to_string(encode_counter);
     encode_counter++;
     Filter target_filter(specs->targets);
@@ -406,8 +401,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     if (upper_bounded) {
       curr_window.addStateInvariantToWindow(
           context_pa_start, context_pa_end,
-          clock + specs->bounds.r_op +
-              std::to_string(specs->bounds.upper_bound));
+          ComparisonCC(clock_ptr, specs->bounds.r_op,
+                       specs->bounds.upper_bound));
     }
     if (specs == info.specs_list.begin()) {
       // connect TL before start pa to the first window
@@ -417,7 +412,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
         for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
           PlanOrderedTLs::modifyTransitionsToNextTl(
               prev_pa_entry.second.trans_out, prev_pa,
-              target_filter.getFilter(), "", clock + " = 0", "", op_name);
+              target_filter.getFilter(), TrueCC(), clock + " = 0", "", op_name);
         }
       }
     }
@@ -468,8 +463,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   }
   // maps to obtain the original tl entry id given the prefix of
   // new window prefix id
-  std::string guard_constraint_sat = "";
   std::string clock = "clX" + info.name;
+  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>(clock);
   if (std::find(s.globals.clocks.begin(), s.globals.clocks.end(), clock) ==
       s.globals.clocks.end()) {
     s.globals.clocks.push_back(clock);
@@ -486,19 +481,15 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   // formulate constraints based on the given bounds
   bool upper_bounded =
       (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
-  bool lower_bounded =
-      (info.specs.bounds.lower_bound != 0 || info.specs.bounds.l_op != "&lt;=");
-  std::string guard_upper_bound_crossed =
-      clock + inverse_op(info.specs.bounds.r_op) +
-      std::to_string(info.specs.bounds.upper_bound);
-  guard_constraint_sat =
-      (lower_bounded ? clock + reverse_op(info.specs.bounds.l_op) +
-                           std::to_string(info.specs.bounds.lower_bound)
-                     : "") +
-      ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded ? clock + info.specs.bounds.r_op +
-                           std::to_string(info.specs.bounds.upper_bound)
-                     : "");
+  ComparisonCC guard_upper_bound_crossed(
+      clock_ptr, computils::inverseOp(info.specs.bounds.r_op),
+      info.specs.bounds.upper_bound);
+  ComparisonCC lower_bound_reached(
+      clock_ptr, computils::reverseOp(info.specs.bounds.l_op),
+      info.specs.bounds.lower_bound);
+  ComparisonCC below_upper_bound(clock_ptr, info.specs.bounds.r_op,
+                                 info.specs.bounds.upper_bound);
+  ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
@@ -510,7 +501,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
     for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
           prev_pa_entry.second.trans_out, prev_pa, target_filter.getFilter(),
-          "", clock + " = 0", "");
+          TrueCC(), clock + " = 0", "");
     }
   }
   OrigMap orig_id = po_tls.createOrigMapping("");
@@ -519,8 +510,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   if (upper_bounded) {
     po_tls.addStateInvariantToWindow(
         context_pa_start, context_pa_end,
-        clock + info.specs.bounds.r_op +
-            std::to_string(info.specs.bounds.upper_bound));
+        ComparisonCC(clock_ptr, info.specs.bounds.r_op,
+                     info.specs.bounds.upper_bound));
   }
   po_tls.createTransitionsToWindow(s.instances[base_index].first,
                                    *(curr_window.tls.get()), to_orig,
@@ -529,7 +520,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
       po_tls.tls.get()->find(last_pa)->second,
-      curr_window.tls.get()->find(last_pa)->second, to_orig, "");
+      curr_window.tls.get()->find(last_pa)->second, to_orig, TrueCC());
   for (auto &tl_entry : po_tls.tls.get()->find(last_pa)->second) {
     PlanOrderedTLs::removeTransitionsToNextTl(tl_entry.second.trans_out,
                                               last_pa);
@@ -603,8 +594,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   }
   // maps to obtain the original tl entry id given the prefix of
   // new window prefix id
-  std::string guard_constraint_sat = "";
   std::string clock = "clX" + info.name;
+  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>(clock);
   if (std::find(s.globals.clocks.begin(), s.globals.clocks.end(), clock) ==
       s.globals.clocks.end()) {
     s.globals.clocks.push_back(clock);
@@ -621,21 +612,19 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   std::string constraint_end_pa =
       *(po_tls.pa_order.get()->begin() + constraint_end);
   // formulate constraints based on the given bounds
+  bool lower_bounded = (info.specs.bounds.lower_bound == 0 &&
+                        info.specs.bounds.l_op == ComparisonOp::LTE);
   bool upper_bounded =
       (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
-  bool lower_bounded =
-      (info.specs.bounds.lower_bound != 0 || info.specs.bounds.l_op != "&lt;=");
-  std::string guard_upper_bound_crossed =
-      clock + inverse_op(info.specs.bounds.r_op) +
-      std::to_string(info.specs.bounds.upper_bound);
-  guard_constraint_sat =
-      (lower_bounded ? clock + reverse_op(info.specs.bounds.l_op) +
-                           std::to_string(info.specs.bounds.lower_bound)
-                     : "") +
-      ((lower_bounded && upper_bounded) ? "&amp;&amp;" : "") +
-      (upper_bounded ? clock + info.specs.bounds.r_op +
-                           std::to_string(info.specs.bounds.upper_bound)
-                     : "");
+  ComparisonCC guard_upper_bound_crossed(
+      clock_ptr, computils::inverseOp(info.specs.bounds.r_op),
+      info.specs.bounds.upper_bound);
+  ComparisonCC lower_bound_reached(
+      clock_ptr, computils::reverseOp(info.specs.bounds.l_op),
+      info.specs.bounds.lower_bound);
+  ComparisonCC below_upper_bound(clock_ptr, info.specs.bounds.r_op,
+                                 info.specs.bounds.upper_bound);
+  ConjunctionCC guard_constraint_sat(lower_bound_reached, below_upper_bound);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
@@ -649,17 +638,18 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
           *(po_tls.pa_order.get()->begin() + context_end + 1);
       po_tls.addStateInvariantToWindow(
           past_context_pa, constraint_end_pa,
-          clock + info.specs.bounds.r_op +
-              std::to_string(info.specs.bounds.upper_bound));
+          ComparisonCC(clock_ptr, info.specs.bounds.r_op,
+                       info.specs.bounds.upper_bound));
     }
   }
-  po_tls.createTransitionsToWindow(
-      s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
-      context_pa_start, context_pa_end, target_filter, "", clock + " = 0");
+  po_tls.createTransitionsToWindow(s.instances[base_index].first,
+                                   *(curr_window.tls.get()), to_orig,
+                                   context_pa_start, context_pa_end,
+                                   target_filter, TrueCC(), clock + " = 0");
   std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
       po_tls.tls.get()->find(last_pa)->second,
-      curr_window.tls.get()->find(last_pa)->second, to_orig, "");
+      curr_window.tls.get()->find(last_pa)->second, to_orig, TrueCC());
   for (auto &tl_entry : po_tls.tls.get()->find(last_pa)->second) {
     PlanOrderedTLs::removeTransitionsToNextTl(tl_entry.second.trans_out,
                                               last_pa);
@@ -719,8 +709,7 @@ void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
                 std::remove_if(
                     tl_entry.second.trans_out.begin(),
                     tl_entry.second.trans_out.end(),
-                    [to_orig, pre_target_filter,
-                     this](const Transition &t) {
+                    [to_orig, pre_target_filter, this](const Transition &t) {
                       std::string prefix =
                           Filter::getPrefix(t.dest_id, constants::BASE_SEP);
                       prefix.push_back(constants::BASE_SEP);
