@@ -5,8 +5,10 @@
  */
 #include "utils.h"
 #include "constants.h"
+#include "constraints/constraints.h"
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -38,15 +40,16 @@ taptenc::iUnitNormalFromPoints(const ::std::pair<int, int> &a,
   return normal;
 }
 
-std::string taptenc::addConstraint(::std::string old_con,
-                                   ::std::string to_add) {
-  if (old_con.length() == 0) {
-    return to_add;
+::std::unique_ptr<ClockConstraint>
+taptenc::addConstraint(const ClockConstraint &old_con,
+                       const ClockConstraint &to_add) {
+  if (old_con.type == CCType::TRUE) {
+    return to_add.createCopy();
   }
-  if (to_add.length() == 0) {
-    return old_con;
+  if (to_add.type == CCType::TRUE) {
+    return old_con.createCopy();
   }
-  return old_con + "&amp;&amp; " + to_add;
+  return ConjunctionCC(old_con, to_add).createCopy();
 }
 
 std::string taptenc::addUpdate(::std::string old_con, ::std::string to_add) {

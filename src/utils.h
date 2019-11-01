@@ -5,7 +5,10 @@
  */
 
 #pragma once
+
+#include "constraints/constraints.h"
 #include <limits>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -62,9 +65,10 @@ float fDotProduct(const ::std::pair<float, float> &a,
  *
  * @param old_con constraint1
  * @param to_add constraint2
- * @return concatenation of constraint1 and constraint2
+ * @return conjunction of constraint1 and constraint2
  */
-::std::string addConstraint(::std::string old_con, ::std::string to_add);
+::std::unique_ptr<ClockConstraint> addConstraint(const ClockConstraint &old_con,
+                                                 const ClockConstraint &to_add);
 
 /**
  * Concatenates two clock updates.
