@@ -61,7 +61,7 @@ SpecialClocksInfo determineSpecialClockBounds(
       if (edge.first.first.find(constants::STATE_CLOCK) != string::npos) {
         state = x;
       }
-      if (edge.first.first.find("globtime") != string::npos) {
+      if (edge.first.first.find(constants::GLOBAL_CLOCK) != string::npos) {
         glob = x;
       }
       if (edge.first.first.find("t(0)") != string::npos) {
@@ -74,7 +74,7 @@ SpecialClocksInfo determineSpecialClockBounds(
       if (edge.first.second.find(constants::STATE_CLOCK) != string::npos) {
         state = x;
       }
-      if (edge.first.second.find("globtime") != string::npos) {
+      if (edge.first.second.find(constants::GLOBAL_CLOCK) != string::npos) {
         glob = x;
       }
       if (edge.first.second.find("t(0)") != string::npos) {
@@ -205,7 +205,7 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
           return t.source_id == pa_source_id && t.dest_id == pa_dest_id &&
                  guard.find(t.guard.get()->toString()) != string::npos &&
                  sync.find(t.sync) != string::npos &&
-                 update.find(t.update) != string::npos;
+                 update.find(t.updateToString()) != string::npos;
         });
     if (pa_trans == plan_ta.transitions.end()) {
       cout << "ERROR:  cannot find plan ta transition: " << pa_source_id
@@ -228,7 +228,7 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
                isPiecewiseContained(t.guard.get()->toString(), guard,
                                     constants::CC_CONJUNCTION) &&
                sync.find(t.sync) != string::npos &&
-               isPiecewiseContained(t.update, update,
+               isPiecewiseContained(t.updateToString(), update,
                                     constants::UPDATE_CONJUNCTION);
       });
   if (base_trans == base_ta.transitions.end()) {

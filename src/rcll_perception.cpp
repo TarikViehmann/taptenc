@@ -77,13 +77,13 @@ Automaton generateSyncPlanAutomaton(
   for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
     string sync_op = "";
     std::unique_ptr<ClockConstraint> guard;
-    string update = "";
+    update_t update = {};
     auto prev_state = (it - 1);
     if (prev_state->id.substr(0, 5) != "alpha") {
       sync_op = Filter::getPrefix(prev_state->id, constants::PA_SEP);
       guard = std::make_unique<TrueCC>();
     } else {
-      update = "cpa = 0";
+      update.insert(clock_ptr);
       guard = std::make_unique<ComparisonCC>(clock_ptr, ComparisonOp::GT, 30);
     }
     plan_transitions.push_back(Transition(
@@ -91,7 +91,7 @@ Automaton generateSyncPlanAutomaton(
     i++;
   }
   Automaton res = Automaton(plan_states, plan_transitions, arg_name, false);
-  res.clocks.push_back("cpa");
+  res.clocks.insert(clock_ptr);
   return res;
 }
 
@@ -368,14 +368,11 @@ int main() {
       benchmarkgenerator::generatePositionConstraints(pos_ta));
   // --------------- Merge ----------------------------------------
   AutomataSystem merged_system;
-  merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
-                                      comm_system.globals.clocks.begin(),
+  merged_system.globals.clocks.insert(comm_system.globals.clocks.begin(),
                                       comm_system.globals.clocks.end());
-  merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
-                                      base_system.globals.clocks.begin(),
+  merged_system.globals.clocks.insert(base_system.globals.clocks.begin(),
                                       base_system.globals.clocks.end());
-  merged_system.globals.clocks.insert(merged_system.globals.clocks.end(),
-                                      calib_system.globals.clocks.begin(),
+  merged_system.globals.clocks.insert(calib_system.globals.clocks.begin(),
                                       calib_system.globals.clocks.end());
   merged_system.instances = base_system.instances;
   DirectEncoder enc4 = enc1.mergeEncodings(enc2);

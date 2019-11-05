@@ -10,6 +10,7 @@
 
 #include "../constraints/constraints.h"
 #include "../timed-automata/timed_automata.h"
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,17 @@ namespace taptenc {
  * Contains utility functions to modify automatas.
  */
 namespace encoderutils {
+/**
+ * Adds a fresh clock pointer to a set, if no existing pointer leads to a clock
+ * with the same id.
+ *
+ * @param update the update set to be extended
+ * @param clock_id id of the clock that should be added to \a update
+ * @return shared pointer copy of an entry in \a update with leading to a clock
+ *         with id \a clock_id
+ */
+::std::shared_ptr<Clock> addClock(update_t &update,
+                                  const ::std::string clock_id);
 
 /**
  * Merges multiple automata together, states with identical names are melted
@@ -51,7 +63,7 @@ Automaton mergeAutomata(const ::std::vector<Automaton> &automata,
 ::std::vector<Transition> createCopyTransitionsBetweenTAs(
     const Automaton &source, const Automaton &dest,
     const ::std::vector<State> &filter, const ClockConstraint &guard,
-    ::std::string update, ::std::string sync, bool passive = true);
+    const update_t &update, ::std::string sync, bool passive = true);
 
 /**
  * Creates transitions from a TA to one of its copies by adding transitions from
@@ -72,7 +84,7 @@ Automaton mergeAutomata(const ::std::vector<Automaton> &automata,
 ::std::vector<Transition> createSuccessorTransitionsBetweenTAs(
     const Automaton &base, const Automaton &source, const Automaton &dest,
     const ::std::vector<State> &filter, const ClockConstraint &guard,
-    ::std::string update);
+    const update_t &update);
 
 /**
  * Adds transitions to the trap state.
@@ -85,7 +97,7 @@ Automaton mergeAutomata(const ::std::vector<Automaton> &automata,
  * @param passive is the sync emitting or receiving?
  */
 void addTrapTransitions(Automaton &ta, const ::std::vector<State> &sources,
-                        const ClockConstraint &guard, ::std::string update,
+                        const ClockConstraint &guard, const update_t &update,
                         ::std::string sync, bool passive = true);
 
 /**

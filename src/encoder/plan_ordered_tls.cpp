@@ -145,7 +145,7 @@ void PlanOrderedTLs::createTransitionsToWindow(
     const Automaton &base_ta, TimeLines &dest_tls,
     const std::unordered_map<std::string, std::string> &map_to_orig,
     std::string start_pa, std::string end_pa, const Filter &target_filter,
-    const ClockConstraint &guard, std::string update) {
+    const ClockConstraint &guard, const update_t &update) {
   auto start_pa_entry =
       std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
   if (start_pa_entry == pa_order.get()->end()) {
@@ -294,7 +294,7 @@ std::vector<Transition> PlanOrderedTLs::addToPrefixOnTransitions(
 void PlanOrderedTLs::modifyTransitionsToNextTl(
     std::vector<Transition> &trans, std::string curr_pa,
     const std::vector<State> &target_states, const ClockConstraint &guard,
-    std::string update, std::string sync, std::string op_name) {
+    const update_t &update, std::string sync, std::string op_name) {
   for (auto &t : trans) {
     if (Filter::getPrefix(t.dest_id, constants::TL_SEP) != curr_pa) {
       t.guard = addConstraint(*t.guard.get(), guard);
@@ -551,11 +551,9 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
             }
           }
         }
-        merged_res_ta.clocks.insert(merged_res_ta.clocks.end(),
-                                    entry.second.ta.clocks.begin(),
+        merged_res_ta.clocks.insert(entry.second.ta.clocks.begin(),
                                     entry.second.ta.clocks.end());
-        merged_res_ta.clocks.insert(merged_res_ta.clocks.end(),
-                                    merged_other_ta.clocks.begin(),
+        merged_res_ta.clocks.insert(merged_other_ta.clocks.begin(),
                                     merged_other_ta.clocks.end());
         (*res.tls.get())[curr_tl.first].emplace(std::make_pair(
             entry.first, TlEntry(merged_res_ta, product_trans_out)));

@@ -13,6 +13,7 @@
 #include "printer.h"
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -59,8 +60,8 @@ std::string toStringXTA(const Transition &t) {
   if (t.sync != "" && t.passive == false)
     res << "sync " << t.sync << "!"
         << "; ";
-  if (t.update != "")
-    res << "assign " << t.update << "; ";
+  if (t.update.size() > 0)
+    res << "assign " << t.updateToString() << "; ";
   res << "}";
   return res.str();
 }
@@ -75,7 +76,7 @@ std::string toStringXTA(const Transition &t) {
 void printXTAstart(const AutomataSystem &s, std::string filename) {
   std::ofstream myfile;
   myfile.open(filename);
-  std::unordered_set<std::string> all_clocks;
+  std::unordered_set<std::shared_ptr<Clock>> all_clocks;
   for (auto it = s.globals.clocks.begin(); it != s.globals.clocks.end(); ++it) {
     auto emplaced = all_clocks.emplace(*it);
     if (emplaced.second == false) {

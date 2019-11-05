@@ -39,9 +39,10 @@ getStateItById(const std::vector<State> &states, std::string id) {
  *
  * @param trans transitions to add clock updates to
  */
-void addStateClock(vector<Transition> &trans) {
+void addStateClock(vector<Transition> &trans,
+                   const ::std::shared_ptr<Clock> &clock_ptr) {
   for (auto &t : trans) {
-    t.update = addUpdate(t.update, string(constants::STATE_CLOCK) + " = 0");
+    t.update = addUpdate(t.update, {clock_ptr});
   }
 }
 
@@ -55,21 +56,24 @@ Automaton benchmarkgenerator::generateCalibrationTA() {
   states.push_back(
       State("calibrated", ComparisonCC(cal_clock, ComparisonOp::LTE, 30)));
   transitions.push_back(Transition("uncalibrated", "calibrating", "calibrate",
-                                   TrueCC(), "cal = 0", "", true));
+                                   TrueCC(), {cal_clock}, "", true));
   transitions.push_back(Transition("calibrating", "calibrated", "",
                                    ComparisonCC(cal_clock, ComparisonOp::GT, 7),
-                                   "cal = 0", "", true));
+                                   {cal_clock}, "", true));
   transitions.push_back(Transition(
       "calibrated", "uncalibrated", "",
-      ComparisonCC(cal_clock, ComparisonOp::EQ, 30), "cal = 0", "", true));
+      ComparisonCC(cal_clock, ComparisonOp::EQ, 30), {cal_clock}, "", true));
   transitions.push_back(Transition(
       "calibrated", "uncalibrated", "uncalibrate",
-      ComparisonCC(cal_clock, ComparisonOp::LT, 30), "cal = 0", "", true));
-  addStateClock(transitions);
+      ComparisonCC(cal_clock, ComparisonOp::LT, 30), {cal_clock}, "", true));
+  std::shared_ptr<Clock> state_clock =
+      std::make_shared<Clock>(constants::STATE_CLOCK);
+  addStateClock(transitions, state_clock);
   Automaton test(states, transitions, "main", false);
 
-  test.clocks.insert(test.clocks.end(),
-                     {"cal", "globtime", constants::STATE_CLOCK});
+  test.clocks.insert({cal_clock,
+                      std::make_shared<Clock>(constants::GLOBAL_CLOCK),
+                      state_clock});
   return test;
 }
 
@@ -93,38 +97,41 @@ Automaton benchmarkgenerator::generatePerceptionTA() {
   states.push_back(
       State("puck_sense", ComparisonCC(sense_clock, ComparisonOp::LT, 5)));
   transitions.push_back(Transition("idle", "cam_boot", "power_on_cam", TrueCC(),
-                                   "cam = 0", "", true));
+                                   {cam_clock}, "", true));
   transitions.push_back(Transition("cam_boot", "cam_on", "",
                                    ComparisonCC(cam_clock, ComparisonOp::GT, 2),
-                                   "cam = 0", "", true));
+                                   {cam_clock}, "", true));
   transitions.push_back(Transition("cam_on", "save_pic", "store_pic", TrueCC(),
-                                   "pic = 0", "", true));
+                                   {pic_clock}, "", true));
   transitions.push_back(Transition("save_pic", "cam_on", "",
                                    ComparisonCC(pic_clock, ComparisonOp::GT, 1),
-                                   "", "", true));
+                                   {}, "", true));
   transitions.push_back(Transition("cam_on", "icp_start", "start_icp", TrueCC(),
-                                   "icp = 0", "", true));
+                                   {icp_clock}, "", true));
   transitions.push_back(
       Transition("icp_start", "icp_end", "",
                  ConjunctionCC(ComparisonCC(icp_clock, ComparisonOp::LT, 10),
                                ComparisonCC(icp_clock, ComparisonOp::GT, 5)),
-                 "icp = 0", "", true));
+                 {icp_clock}, "", true));
   transitions.push_back(Transition("icp_end", "cam_on", "",
                                    ComparisonCC(icp_clock, ComparisonOp::GT, 1),
-                                   "", "", true));
+                                   {}, "", true));
   transitions.push_back(Transition("cam_on", "idle", "power_off_cam", TrueCC(),
-                                   "cam = 0", "", true));
+                                   {cam_clock}, "", true));
   transitions.push_back(Transition("idle", "puck_sense", "check_puck",
                                    ComparisonCC(cam_clock, ComparisonOp::GT, 2),
-                                   "sense = 0", "", true));
+                                   {sense_clock}, "", true));
   transitions.push_back(
       Transition("puck_sense", "idle", "",
-                 ComparisonCC(sense_clock, ComparisonOp::GT, 1), "", "", true));
-  addStateClock(transitions);
+                 ComparisonCC(sense_clock, ComparisonOp::GT, 1), {}, "", true));
+  std::shared_ptr<Clock> state_clock =
+      std::make_shared<Clock>(constants::STATE_CLOCK);
+  addStateClock(transitions, state_clock);
   Automaton test(states, transitions, "main", false);
 
-  test.clocks.insert(test.clocks.end(), {"icp", "cam", "pic", "sense",
-                                         "globtime", constants::STATE_CLOCK});
+  test.clocks.insert({icp_clock, cam_clock, pic_clock, sense_clock,
+                      std::make_shared<Clock>(constants::GLOBAL_CLOCK),
+                      state_clock});
   return test;
 }
 
@@ -140,25 +147,28 @@ Automaton benchmarkgenerator::generateCommTA() {
   comm_states.push_back(
       State("error", ComparisonCC(send_clock, ComparisonOp::LTE, 0)));
   comm_transitions.push_back(Transition("idle", "prepare", "send_prepare",
-                                        TrueCC(), "send = 0", "", true));
+                                        TrueCC(), {send_clock}, "", true));
   comm_transitions.push_back(
       Transition("prepare", "prepared", "",
                  ConjunctionCC(ComparisonCC(send_clock, ComparisonOp::LT, 30),
                                ComparisonCC(send_clock, ComparisonOp::GT, 10)),
-                 "send = 0", "", true));
+                 {send_clock}, "", true));
   comm_transitions.push_back(Transition(
       "prepare", "error", "", ComparisonCC(send_clock, ComparisonOp::EQ, 30),
-      "send = 0", "", true));
+      {send_clock}, "", true));
   comm_transitions.push_back(
       Transition("error", "idle", "",
-                 ComparisonCC(send_clock, ComparisonOp::EQ, 30), "", "", true));
+                 ComparisonCC(send_clock, ComparisonOp::EQ, 30), {}, "", true));
   comm_transitions.push_back(
-      Transition("prepared", "idle", "", TrueCC(), "", "", true));
-  addStateClock(comm_transitions);
+      Transition("prepared", "idle", "", TrueCC(), {}, "", true));
+  std::shared_ptr<Clock> state_clock =
+      std::make_shared<Clock>(constants::STATE_CLOCK);
+  addStateClock(comm_transitions, state_clock);
   Automaton comm_ta =
       Automaton(comm_states, comm_transitions, "comm_ta", false);
-  comm_ta.clocks.insert(comm_ta.clocks.end(),
-                        {"send", "globtime", constants::STATE_CLOCK});
+  comm_ta.clocks.insert({send_clock,
+                         std::make_shared<Clock>(constants::GLOBAL_CLOCK),
+                         state_clock});
   return comm_ta;
 }
 

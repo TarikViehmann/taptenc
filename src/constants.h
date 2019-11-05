@@ -13,6 +13,7 @@ constexpr char END_PA[]{"AendA"};
 constexpr char QUERY[]{"AqueryA"};
 constexpr char PLAN_TA_NAME[]{"AplanA"};
 constexpr char STATE_CLOCK[]{"AstateClockA"};
+constexpr char GLOBAL_CLOCK[]{"AglobalclockA"};
 constexpr char CC_CONJUNCTION[]{"&amp;&amp;"};
 constexpr char UPDATE_CONJUNCTION[]{","};
 } // end namespace constants

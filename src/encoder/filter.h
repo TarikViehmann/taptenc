@@ -154,7 +154,7 @@ public:
    *                      \a trans, else filter the dest ids
    */
   void addToTransitions(::std::vector<Transition> &trans,
-                        const ClockConstraint &guard, ::std::string update,
+                        const ClockConstraint &guard, const update_t &update,
                         ::std::string prefix, bool filter_source) const;
   /**
    * Gets a copy of the filter states.

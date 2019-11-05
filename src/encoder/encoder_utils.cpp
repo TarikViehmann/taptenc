@@ -11,11 +11,28 @@
 #include "filter.h"
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
 using namespace taptenc;
+
+::std::shared_ptr<Clock> encoderutils::addClock(update_t &update,
+                                                const std::string clock_id) {
+  auto clock_search =
+      std::find_if(update.begin(), update.end(), [clock_id](const auto &cl) {
+        return clock_id == cl.get()->id;
+      });
+  if (clock_search != update.end()) {
+    std::cout << "encoderutils: clock name already in use: " << clock_id
+              << std::endl;
+    return *clock_search;
+  } else {
+    return std::make_shared<Clock>(clock_id);
+  }
+}
+
 Automaton
 encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
                                     ::std::string name) {
@@ -51,19 +68,19 @@ encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
   int i = 0;
   for (auto it = plan_states.begin() + 1; it < plan_states.end(); ++it) {
     std::string sync_op = "";
-    std::string update = "";
+    update_t update;
     auto prev_state = (it - 1);
     int pa_index = prev_state - plan_states.begin();
     ComparisonCC guard(cpa,
                        computils::reverseOp(full_plan[pa_index].duration.l_op),
                        full_plan[pa_index].duration.lower_bound);
-    update = "cpa = 0";
+    update.insert(cpa);
     plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
                                           update, sync_op, false));
     i++;
   }
   Automaton res = Automaton(plan_states, plan_transitions, name, false);
-  res.clocks.push_back("cpa");
+  res.clocks.insert(cpa);
   return res;
 }
 
@@ -74,7 +91,7 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
   std::set<State> res_states;
   std::set<Transition> res_transitions(interconnections.begin(),
                                        interconnections.end());
-  std::set<std::string> res_clocks;
+  std::set<std::shared_ptr<Clock>> res_clocks;
   std::set<std::string> res_bool_vars;
   for (const auto &ta : automata) {
     res_states.insert(ta.states.begin(), ta.states.end());
@@ -86,7 +103,8 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
       std::vector<State>(res_states.begin(), res_states.end()),
       std::vector<Transition>(res_transitions.begin(), res_transitions.end()),
       prefix, false);
-  res.clocks = std::vector<std::string>(res_clocks.begin(), res_clocks.end());
+  res.clocks =
+      std::set<std::shared_ptr<Clock>>(res_clocks.begin(), res_clocks.end());
   res.bool_vars =
       std::vector<std::string>(res_bool_vars.begin(), res_bool_vars.end());
   return res;
@@ -95,7 +113,7 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 ::std::vector<Transition> encoderutils::createCopyTransitionsBetweenTAs(
     const Automaton &source, const Automaton &dest,
     const ::std::vector<State> &filter, const ClockConstraint &guard,
-    ::std::string update, ::std::string sync, bool passive) {
+    const update_t &update, ::std::string sync, bool passive) {
   std::vector<Transition> res_transitions;
   for (const auto &f_state : filter) {
     auto c_source = std::find_if(
@@ -119,7 +137,7 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 ::std::vector<Transition> encoderutils::createSuccessorTransitionsBetweenTAs(
     const Automaton &base, const Automaton &source, const Automaton &dest,
     const ::std::vector<State> &filter, const ClockConstraint &guard,
-    ::std::string update) {
+    const update_t &update) {
   std::vector<Transition> res_transitions;
   for (const auto &trans : base.transitions) {
     auto search =
@@ -151,8 +169,8 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 void encoderutils::addTrapTransitions(Automaton &ta,
                                       const ::std::vector<State> &sources,
                                       const ClockConstraint &guard,
-                                      ::std::string update, ::std::string sync,
-                                      bool passive) {
+                                      const update_t &update,
+                                      ::std::string sync, bool passive) {
   auto trap = std::find_if(ta.states.begin(), ta.states.end(),
                            [](const State &s) { return s.id == "trap"; });
   if (trap == ta.states.end()) {

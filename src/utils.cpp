@@ -51,15 +51,10 @@ taptenc::addConstraint(const ClockConstraint &old_con,
   }
   return ConjunctionCC(old_con, to_add).createCopy();
 }
-
-std::string taptenc::addUpdate(::std::string old_con, ::std::string to_add) {
-  if (old_con.length() == 0) {
-    return to_add;
-  }
-  if (to_add.length() == 0) {
-    return old_con;
-  }
-  return old_con + ", " + to_add;
+update_t taptenc::addUpdate(const update_t &old_con, const update_t &to_add) {
+  update_t res(old_con);
+  res.insert(to_add.begin(), to_add.end());
+  return {res};
 }
 
 std::string taptenc::trim(const ::std::string &str,

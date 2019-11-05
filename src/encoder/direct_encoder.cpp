@@ -48,8 +48,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
         s.initial = false;
       }
     }
-    ta_copy.clocks.insert(ta_copy.clocks.end(),
-                          s.instances[plan_index].first.clocks.begin(),
+    ta_copy.clocks.insert(s.instances[plan_index].first.clocks.begin(),
                           s.instances[plan_index].first.clocks.end());
     auto emp_ta = tl.emplace(
         std::make_pair(ta_prefix, TlEntry(ta_copy, std::vector<Transition>())));
@@ -88,7 +87,7 @@ void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
            ->second) {
     for (auto &s : last_tl.second.ta.states) {
       last_tl.second.trans_out.push_back(
-          Transition(s.id, constants::QUERY, "", TrueCC(), "", ""));
+          Transition(s.id, constants::QUERY, "", TrueCC(), {}, ""));
     }
   }
   // generate connections between TLs according to plan TA transitions
@@ -304,11 +303,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
   }
   Filter base_filter = Filter(s.instances[base_index].first.states);
   std::string clock = "clX" + info.name;
-  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>(clock);
-  if (std::find(s.globals.clocks.begin(), s.globals.clocks.end(), clock) ==
-      s.globals.clocks.end()) {
-    s.globals.clocks.push_back(clock);
-  }
+  std::shared_ptr<Clock> clock_ptr =
+      encoderutils::addClock(s.globals.clocks, clock);
   auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
                                   po_tls.pa_order.get()->end(), start_pa);
   if (start_pa_entry == po_tls.pa_order.get()->end()) {
@@ -408,7 +404,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
         for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
           PlanOrderedTLs::modifyTransitionsToNextTl(
               prev_pa_entry.second.trans_out, prev_pa,
-              target_filter.getFilter(), TrueCC(), clock + " = 0", "", op_name);
+              target_filter.getFilter(), TrueCC(), {clock_ptr}, "", op_name);
         }
       }
     }
@@ -420,7 +416,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     prev_window.createTransitionsToWindow(
         s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
         context_pa_start, context_pa_end, base_filter,
-        prev_window_guard_constraint_sat, clock + " = 0");
+        prev_window_guard_constraint_sat, {clock_ptr});
     // add transitions back to original TLs
     if (specs + 1 == info.specs_list.end()) {
       std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
@@ -460,11 +456,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   // maps to obtain the original tl entry id given the prefix of
   // new window prefix id
   std::string clock = "clX" + info.name;
-  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>(clock);
-  if (std::find(s.globals.clocks.begin(), s.globals.clocks.end(), clock) ==
-      s.globals.clocks.end()) {
-    s.globals.clocks.push_back(clock);
-  }
+  std::shared_ptr<Clock> clock_ptr =
+      encoderutils::addClock(s.globals.clocks, clock);
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "");
   std::size_t context_start = context.first;
@@ -493,7 +486,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
     for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
           prev_pa_entry.second.trans_out, prev_pa, target_filter.getFilter(),
-          TrueCC(), clock + " = 0", "");
+          TrueCC(), {clock_ptr}, "");
     }
   }
   OrigMap orig_id = po_tls.createOrigMapping("");
@@ -508,7 +501,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   po_tls.createTransitionsToWindow(s.instances[base_index].first,
                                    *(curr_window.tls.get()), to_orig,
                                    context_pa_start, context_pa_end,
-                                   target_filter, guard_constraint_sat, "");
+                                   target_filter, guard_constraint_sat, {});
   std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
       po_tls.tls.get()->find(last_pa)->second,
@@ -587,11 +580,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   // maps to obtain the original tl entry id given the prefix of
   // new window prefix id
   std::string clock = "clX" + info.name;
-  std::shared_ptr<Clock> clock_ptr = std::make_shared<Clock>(clock);
-  if (std::find(s.globals.clocks.begin(), s.globals.clocks.end(), clock) ==
-      s.globals.clocks.end()) {
-    s.globals.clocks.push_back(clock);
-  }
+  std::shared_ptr<Clock> clock_ptr =
+      encoderutils::addClock(s.globals.clocks, clock);
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "", false);
   std::size_t context_end = context.first;
@@ -630,10 +620,9 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
                        info.specs.bounds.upper_bound));
     }
   }
-  po_tls.createTransitionsToWindow(s.instances[base_index].first,
-                                   *(curr_window.tls.get()), to_orig,
-                                   context_pa_start, context_pa_end,
-                                   target_filter, TrueCC(), clock + " = 0");
+  po_tls.createTransitionsToWindow(
+      s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
+      context_pa_start, context_pa_end, target_filter, TrueCC(), {clock_ptr});
   std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
       po_tls.tls.get()->find(last_pa)->second,
@@ -652,7 +641,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
     for (auto &last_entry : *last_tl) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
           last_entry.second.trans_out, constraint_end_pa,
-          target_filter.getFilter(), guard_constraint_sat, "", "");
+          target_filter.getFilter(), guard_constraint_sat, {}, "");
     }
   }
   po_tls.mergeWindow(*(curr_window.tls.get()), true);
