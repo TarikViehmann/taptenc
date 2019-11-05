@@ -80,7 +80,7 @@ void printXTAstart(const AutomataSystem &s, std::string filename) {
   for (auto it = s.globals.clocks.begin(); it != s.globals.clocks.end(); ++it) {
     auto emplaced = all_clocks.emplace(*it);
     if (emplaced.second == false) {
-      std::cout << "XTAPrinter: Clock " << *it
+      std::cout << "XTAPrinter: Clock " << it->get()->id
                 << " was defined multiple times in system globals "
                 << std::endl;
     }
@@ -90,7 +90,7 @@ void printXTAstart(const AutomataSystem &s, std::string filename) {
          ++cl) {
       auto emplaced = all_clocks.emplace(*cl);
       if (emplaced.second == false) {
-        std::cout << "XTAPrinter: Clock " << *cl
+        std::cout << "XTAPrinter: Clock " << cl->get()->id
                   << " was defined multiple times (redefinition in "
                   << it->first.prefix << ")" << std::endl;
       }
@@ -102,7 +102,7 @@ void printXTAstart(const AutomataSystem &s, std::string filename) {
       if (it != all_clocks.begin()) {
         myfile << ", ";
       }
-      myfile << *it;
+      myfile << it->get()->id;
     }
     myfile << "; " << std::endl;
   }

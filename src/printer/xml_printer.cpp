@@ -130,7 +130,7 @@ void printXMLstart(const AutomataGlobals &g, std::string filename) {
       if (it != g.clocks.begin()) {
         myfile << ", ";
       }
-      myfile << *it;
+      myfile << it->get()->id;
     }
     myfile << "; " << std::endl;
   }
@@ -206,7 +206,7 @@ void printXMLtemplate(const AutomataSystem &s, SystemVisInfo &s_vis_info,
   myfile << "<declaration>" << std::endl;
   for (auto toplevelit = s.instances[index].first.clocks.begin();
        toplevelit != s.instances[index].first.clocks.end(); ++toplevelit) {
-    myfile << "clock " << *toplevelit << ";" << std::endl;
+    myfile << "clock " << toplevelit->get()->id << ";" << std::endl;
   }
   for (auto toplevelit = s.instances[index].first.bool_vars.begin();
        toplevelit != s.instances[index].first.bool_vars.end(); ++toplevelit) {
