@@ -25,8 +25,8 @@ using namespace taptenc;
         return clock_id == cl.get()->id;
       });
   if (clock_search != update.end()) {
-    std::cout << "encoderutils: clock name already in use: " << clock_id
-              << std::endl;
+    // std::cout << "encoderutils: clock name already in use: " << clock_id
+    //           << std::endl;
     return *clock_search;
   } else {
     auto clock_res = std::make_shared<Clock>(clock_id);

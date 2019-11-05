@@ -79,8 +79,8 @@ std::string Filter::getSuffix(std::string name, char marker) {
   if (pos != std::string::npos) {
     return name.substr(pos + 1);
   } else {
-    std::cout << "Filter getSuffix: marker " << marker << " in " << name
-              << std::endl;
+    // std::cout << "Filter getSuffix: marker " << marker << " in " << name
+    //           << std::endl;
     return name;
   }
 }
@@ -90,8 +90,8 @@ std::string Filter::getPrefix(std::string name, char marker) {
   if (pos != std::string::npos) {
     return name.substr(0, pos);
   } else {
-    std::cout << "Filter getPrefix: marker " << marker << " in " << name
-              << std::endl;
+    // std::cout << "Filter getPrefix: marker " << marker << " in " << name
+    //           << std::endl;
     return name;
   }
 }
