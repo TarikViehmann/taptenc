@@ -117,7 +117,7 @@ public:
   static void modifyTransitionsToNextTl(
       ::std::vector<Transition> &trans, ::std::string curr_pa,
       const ::std::vector<State> &target_states, const ClockConstraint &guard,
-      ::std::string update, ::std::string sync, ::std::string op_name = "");
+      const update_t &update, ::std::string sync, ::std::string op_name = "");
 
   /**
    * Removes transitions to next timeline.
@@ -169,7 +169,7 @@ public:
       const Automaton &base_ta, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
       ::std::string start_pa, ::std::string end_pa, const Filter &target_filter,
-      const ClockConstraint &guard, ::std::string update);
+      const ClockConstraint &guard, const update_t &update);
 
   /**
    * Merges a timeline window into tls.

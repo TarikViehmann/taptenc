@@ -7,6 +7,7 @@
 #pragma once
 
 #include "constraints/constraints.h"
+#include "timed-automata/timed_automata.h"
 #include <limits>
 #include <memory>
 #include <string>
@@ -77,7 +78,7 @@ float fDotProduct(const ::std::pair<float, float> &a,
  * @param to_add update2
  * @return concatenation of update1 and update2
  */
-::std::string addUpdate(::std::string old_con, ::std::string to_add);
+update_t addUpdate(const update_t &old_con, const update_t &to_add);
 
 /**
  * Removes leading and trailing whitespaces and tabs.

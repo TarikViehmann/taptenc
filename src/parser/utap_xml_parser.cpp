@@ -193,8 +193,9 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
       std::string dest_id = toLowerCase(tr.dst->uid.getName());
       transitions.push_back(Transition(
           source_id, dest_id, "", *parseUtapConstraint(tr.guard).get(),
-          (tr.assign.toString().size() == 1) ? "" : tr.assign.toString(),
-          tr.sync.toString()));
+          // TODO fix this
+          //(tr.assign.toString().size() == 1) ? {} : tr.assign.toString(),
+          {}, tr.sync.toString()));
     }
     Automaton curr_ta(states, transitions, t.uid.getName(), false);
     for (const auto &tr : t.templ->variables) {
@@ -208,7 +209,7 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
                       << " THIS IS NOT SUPPORTED and will lead to errors."
                       << std::endl;
           }
-          curr_ta.clocks.push_back(curr_clock);
+          curr_ta.clocks.insert(std::make_shared<Clock>(curr_clock));
         }
       } else {
         std::cout << "UTAPSystemParser readXMLSystem: process declarations "
@@ -222,7 +223,7 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
   for (const auto &tr : vars) {
     if (tr.uid.getType().isClock()) {
       if (tr.uid.getName() != "t(0)") {
-        res.globals.clocks.push_back(tr.uid.getName());
+        res.globals.clocks.insert(std::make_shared<Clock>(tr.uid.getName()));
       }
     } else {
       std::cout << "UTAPSystemParser readXMLSystem: global declarations must "

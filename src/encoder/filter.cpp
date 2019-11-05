@@ -163,7 +163,7 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
     if (source != res_states.end() && dest != res_states.end()) {
       if (strip_constraints) {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
-                                             TrueCC(), "", trans.sync, true));
+                                             TrueCC(), {}, trans.sync, true));
       } else {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
                                              *trans.guard.get(), trans.update,
@@ -173,8 +173,7 @@ Automaton Filter::copyAutomaton(const Automaton &source, std::string ta_prefix,
   }
   Automaton res(res_states, res_transitions, ta_prefix, false);
   if (!strip_constraints) {
-    res.clocks.insert(res.clocks.end(), source.clocks.begin(),
-                      source.clocks.end());
+    res.clocks.insert(source.clocks.begin(), source.clocks.end());
     res.bool_vars.insert(res.bool_vars.end(), source.bool_vars.begin(),
                          source.bool_vars.end());
   }
@@ -224,7 +223,7 @@ Automaton Filter::filterAutomaton(const Automaton &source,
     if (source != res_states.end() && dest != res_states.end()) {
       if (strip_constraints) {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
-                                             TrueCC(), "", trans.sync, true));
+                                             TrueCC(), {}, trans.sync, true));
       } else {
         res_transitions.push_back(Transition(source->id, dest->id, trans.action,
                                              *trans.guard.get(), trans.update,
@@ -234,8 +233,7 @@ Automaton Filter::filterAutomaton(const Automaton &source,
   }
   Automaton res(res_states, res_transitions, ta_prefix, false);
   if (!strip_constraints) {
-    res.clocks.insert(res.clocks.end(), source.clocks.begin(),
-                      source.clocks.end());
+    res.clocks.insert(source.clocks.begin(), source.clocks.end());
     res.bool_vars.insert(res.bool_vars.end(), source.bool_vars.begin(),
                          source.bool_vars.end());
   }
@@ -243,8 +241,9 @@ Automaton Filter::filterAutomaton(const Automaton &source,
 }
 
 void Filter::addToTransitions(std::vector<Transition> &trans,
-                              const ClockConstraint &guard, std::string update,
-                              std::string prefix, bool filter_source) const {
+                              const ClockConstraint &guard,
+                              const update_t &update, std::string prefix,
+                              bool filter_source) const {
   for (auto &tr : trans) {
     auto search = std::find_if(
         filter.begin(), filter.end(),

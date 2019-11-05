@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../constraints/constraints.h"
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -41,17 +42,19 @@ struct state {
 };
 typedef struct state State;
 
+typedef ::std::set<::std::shared_ptr<Clock>> update_t;
+
 struct transition {
   ::std::string source_id;
   ::std::string dest_id;
   ::std::string action;
   ::std::unique_ptr<ClockConstraint> guard;
-  ::std::string update;
+  update_t update;
   ::std::string sync;
   bool passive; // true: receiver of sync (?), false: emmitter of sync (!)
   transition(::std::string arg_source_id, ::std::string arg_dest_id,
              std::string arg_action, const ClockConstraint &guard,
-             ::std::string arg_update, ::std::string arg_sync,
+             const update_t &arg_update, ::std::string arg_sync,
              bool arg_passive = false);
   ~transition() = default;
   /** Copy constructor that clones the uniquely managed resources. */
@@ -62,6 +65,8 @@ struct transition {
   transition &operator=(const transition &other);
   /** Move assignment swapping all member contents. */
   transition &operator=(transition &&other) noexcept;
+  /** Composes a string containing all clock updates. */
+  ::std::string updateToString() const;
   /** Ordering operator determined by comparing string representations. */
   bool operator<(const transition &r) const;
 };
@@ -70,7 +75,7 @@ typedef struct transition Transition;
 struct automaton {
   ::std::vector<State> states;
   ::std::vector<Transition> transitions;
-  ::std::vector<::std::string> clocks;
+  ::std::set<::std::shared_ptr<Clock>> clocks;
   ::std::vector<::std::string> bool_vars;
   ::std::string prefix;
 
@@ -101,7 +106,7 @@ struct channel {
 };
 typedef struct channel Channel;
 struct automataGlobals {
-  ::std::vector<::std::string> clocks;
+  ::std::set<::std::shared_ptr<Clock>> clocks;
   ::std::vector<::std::string> bool_vars;
   ::std::vector<Channel> channels;
 };

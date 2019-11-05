@@ -96,9 +96,10 @@ std::string toString(const Transition &t,
     res << "<label kind=\"guard\" x=\"" << v[0].first << "\" y=\""
         << v[0].second - 20 << "\">" << t.guard.get()->toString() << "</label>"
         << std::endl;
-  if (t.update != "")
+  if (t.update.size() > 0)
     res << "<label kind=\"assignment\" x=\"" << v[0].first << "\" y=\""
-        << v[0].second - 40 << "\">" << t.update << "</label>" << std::endl;
+        << v[0].second - 40 << "\">" << t.updateToString() << "</label>"
+        << std::endl;
   if (v.size() > 0) {
     for (auto it = v.begin() + 1; it != v.end(); ++it) {
       res << "<nail x=\"" << it->first << "\" y=\"" << it->second << "\"/>"

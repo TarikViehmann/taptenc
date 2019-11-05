@@ -114,16 +114,25 @@ bool state::operator<(const state &r) const {
 
 transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
                        std::string arg_action, const ClockConstraint &arg_guard,
-                       ::std::string arg_update, ::std::string arg_sync,
+                       const update_t &arg_update, ::std::string arg_sync,
                        bool arg_passive)
     : source_id(arg_source_id), dest_id(arg_dest_id), action(arg_action),
       update(arg_update), sync(arg_sync), passive(arg_passive) {
   guard = arg_guard.createCopy();
 }
 
+::std::string transition::updateToString() const {
+  std::string res;
+  for (const auto &clock_ptr : update) {
+    res += clock_ptr.get()->id + " = 0; ";
+  }
+  return res;
+}
+
 bool transition::operator<(const transition &r) const {
-  return source_id + dest_id + guard->toString() + update + sync <
-         r.source_id + r.dest_id + r.guard->toString() + r.update + r.sync;
+  return source_id + dest_id + guard->toString() + updateToString() + sync <
+         r.source_id + r.dest_id + r.guard->toString() + r.updateToString() +
+             r.sync;
 }
 
 automaton::automaton(::std::vector<State> arg_states,
