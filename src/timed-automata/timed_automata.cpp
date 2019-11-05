@@ -123,8 +123,14 @@ transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
 
 ::std::string transition::updateToString() const {
   std::string res;
+  bool is_first_iteration = true;
   for (const auto &clock_ptr : update) {
-    res += clock_ptr.get()->id + " = 0; ";
+    if(!is_first_iteration) {
+      res += ", ";
+    } else {
+      is_first_iteration = false;
+    }
+    res += clock_ptr.get()->id+ " = 0";
   }
   return res;
 }
