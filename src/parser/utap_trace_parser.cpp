@@ -54,13 +54,9 @@ SpecialClocksInfo determineSpecialClockBounds(
   timepoint x = 0;
   timepoint t0 = 0;
   timepoint glob = 0;
-  timepoint state = 0;
   for (const auto &edge : differences) {
     auto ins_source = ids.insert(::std::make_pair(edge.first.first, x));
     if (ins_source.second) {
-      if (edge.first.first.find(constants::STATE_CLOCK) != string::npos) {
-        state = x;
-      }
       if (edge.first.first.find(constants::GLOBAL_CLOCK) != string::npos) {
         glob = x;
       }
@@ -71,9 +67,6 @@ SpecialClocksInfo determineSpecialClockBounds(
     }
     auto ins_dest = ids.insert(::std::make_pair(edge.first.second, x));
     if (ins_dest.second) {
-      if (edge.first.second.find(constants::STATE_CLOCK) != string::npos) {
-        state = x;
-      }
       if (edge.first.second.find(constants::GLOBAL_CLOCK) != string::npos) {
         glob = x;
       }
@@ -102,8 +95,6 @@ SpecialClocksInfo determineSpecialClockBounds(
   }
   res.global_clock =
       ::std::make_pair(-distances[t0][glob], distances[glob][t0]);
-  res.state_clock =
-      ::std::make_pair(-distances[t0][state], distances[state][t0]);
   return res;
 }
 
