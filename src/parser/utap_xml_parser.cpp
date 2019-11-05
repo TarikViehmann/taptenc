@@ -5,6 +5,7 @@
  */
 #include "utap_xml_parser.h"
 #include "../constraints/constraints.h"
+#include "../encoder/encoder_utils.h"
 #include "../timed-automata/timed_automata.h"
 #include "utap/typechecker.h"
 #include "utap/utap.h"
@@ -50,11 +51,13 @@ ComparisonOp getComparisonOpFromUtapKind(UTAP::Constants::kind_t op) {
 /**
  * Tries to parse an utap expression_t into a taptenc clock constraint.
  *
+ * @param expr clocks clocks that may be referenced in the expression \a expr
  * @param expr utap expression representing a clock constraint
  * @return clock constraint of \a expr. If the parsing fails for any reason,
  *         a pointer to a TrueCC constraint is returned.
  */
-std::unique_ptr<ClockConstraint> parseUtapConstraint(UTAP::expression_t expr) {
+std::unique_ptr<ClockConstraint> parseUtapConstraint(update_t &clocks,
+                                                     UTAP::expression_t expr) {
   if (expr.toString() == "" || expr.toString() == "1") {
     return std::make_unique<TrueCC>(TrueCC());
   } else {
@@ -76,7 +79,7 @@ std::unique_ptr<ClockConstraint> parseUtapConstraint(UTAP::expression_t expr) {
       timepoint rhs = 0;
       size_t clock_expr_count = 0;
       size_t constants_count = 0;
-      bool flip_comparison_op;
+      bool flip_comparison_op = false;
       for (size_t i = 0; i < expr.getSize(); i++) {
         if (expr[i].getKind() == UTAP::Constants::MINUS) {
           if (expr.getSize() != 2) {
@@ -88,8 +91,8 @@ std::unique_ptr<ClockConstraint> parseUtapConstraint(UTAP::expression_t expr) {
           clock_expr_count++;
           if (expr[i][0].getType().isClock() &&
               expr[i][1].getType().isClock()) {
-            occ1 = std::make_shared<Clock>(expr[i][0].toString());
-            occ2 = std::make_shared<Clock>(expr[i][1].toString());
+            occ1 = encoderutils::addClock(clocks, expr[i][0].toString());
+            occ2 = encoderutils::addClock(clocks, expr[i][1].toString());
           } else {
             std::cout << "error parsing difference expression, expected 2 "
                          "clocks, but got "
@@ -99,9 +102,9 @@ std::unique_ptr<ClockConstraint> parseUtapConstraint(UTAP::expression_t expr) {
           }
         } else if (expr[i].getType().isClock()) {
           clock_expr_count++;
-          occ1 = std::make_shared<Clock>(expr[i].toString());
+          occ1 = encoderutils::addClock(clocks, expr[i].toString());
         } else if (expr[i].getKind() == UTAP::Constants::CONSTANT) {
-          rhs = expr.getValue();
+          rhs = std::stoi(expr[i].toString());
           if (i != expr.getSize() - 1) {
             flip_comparison_op = true;
           }
@@ -131,8 +134,8 @@ std::unique_ptr<ClockConstraint> parseUtapConstraint(UTAP::expression_t expr) {
     }
     case UTAP::Constants::AND:
       return std::make_unique<ConjunctionCC>(
-          ConjunctionCC(*parseUtapConstraint(expr[0]).get(),
-                        *parseUtapConstraint(expr[1]).get()));
+          ConjunctionCC(*parseUtapConstraint(clocks, expr[0]).get(),
+                        *parseUtapConstraint(clocks, expr[1]).get()));
     default:
       return std::make_unique<TrueCC>(TrueCC());
     }
@@ -171,6 +174,26 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
               << std::endl;
   }
   for (const auto &t : processes) {
+    update_t curr_clocks;
+    for (const auto &tr : t.templ->variables) {
+      if (tr.uid.getType().isClock()) {
+        if (tr.uid.getName() != "t(0)") {
+          std::string curr_clock = toLowerCase(tr.uid.getName());
+          if (curr_clock != tr.uid.getName()) {
+            std::cout << "UTAPSystemParser readXMLSystem: Detected upper case "
+                         "characters in clock name: "
+                      << tr.uid.getName()
+                      << " THIS IS NOT SUPPORTED and will lead to errors."
+                      << std::endl;
+          }
+          curr_clocks.insert(std::make_shared<Clock>(curr_clock));
+        }
+      } else {
+        std::cout << "UTAPSystemParser readXMLSystem: process declarations "
+                     "must only contain clocks! Found: "
+                  << tr.uid.getType().toString() << std::endl;
+      }
+    }
     std::vector<State> states;
     std::vector<Transition> transitions;
     for (const auto &s : t.templ->states) {
@@ -184,39 +207,29 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
                      "characters in state name: "
                   << s.uid.getName() << " converted to " << state_name;
       }
-      states.push_back(State(s.uid.getName(),
-                             *parseUtapConstraint(s.invariant).get(), false,
-                             is_init));
+      states.push_back(State(
+          s.uid.getName(), *parseUtapConstraint(curr_clocks, s.invariant).get(),
+          false, is_init));
     }
     for (const auto &tr : t.templ->edges) {
       std::string source_id = toLowerCase(tr.src->uid.getName());
       std::string dest_id = toLowerCase(tr.dst->uid.getName());
-      transitions.push_back(Transition(
-          source_id, dest_id, "", *parseUtapConstraint(tr.guard).get(),
-          // TODO fix this
-          //(tr.assign.toString().size() == 1) ? {} : tr.assign.toString(),
-          {}, tr.sync.toString()));
+      std::set<UTAP::symbol_t> symbols;
+      tr.assign.getSymbols(symbols);
+      update_t curr_updates;
+      for (const auto &symb : symbols) {
+        if (symb.getName() != "1") {
+          curr_updates.insert(
+              encoderutils::addClock(curr_clocks, symb.getName()));
+        }
+      }
+      transitions.push_back(
+          Transition(source_id, dest_id, "",
+                     *parseUtapConstraint(curr_clocks, tr.guard).get(),
+                     curr_updates, tr.sync.toString()));
     }
     Automaton curr_ta(states, transitions, t.uid.getName(), false);
-    for (const auto &tr : t.templ->variables) {
-      if (tr.uid.getType().isClock()) {
-        if (tr.uid.getName() != "t(0)") {
-          std::string curr_clock = toLowerCase(tr.uid.getName());
-          if (curr_clock != tr.uid.getName()) {
-            std::cout << "UTAPSystemParser readXMLSystem: Detected upper case "
-                         "characters in clock name: "
-                      << tr.uid.getName()
-                      << " THIS IS NOT SUPPORTED and will lead to errors."
-                      << std::endl;
-          }
-          curr_ta.clocks.insert(std::make_shared<Clock>(curr_clock));
-        }
-      } else {
-        std::cout << "UTAPSystemParser readXMLSystem: process declarations "
-                     "must only contain clocks! Found: "
-                  << tr.uid.getType().toString() << std::endl;
-      }
-    }
+    curr_ta.clocks.insert(curr_clocks.begin(), curr_clocks.end());
     res.instances.push_back(std::make_pair(curr_ta, ""));
   }
   auto vars = input_system.getGlobals().variables;
