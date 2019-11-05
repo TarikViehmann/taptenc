@@ -29,7 +29,9 @@ using namespace taptenc;
               << std::endl;
     return *clock_search;
   } else {
-    return std::make_shared<Clock>(clock_id);
+    auto clock_res = std::make_shared<Clock>(clock_id);
+    update.insert(clock_res);
+    return clock_res;
   }
 }
 
@@ -96,7 +98,9 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
   for (const auto &ta : automata) {
     res_states.insert(ta.states.begin(), ta.states.end());
     res_transitions.insert(ta.transitions.begin(), ta.transitions.end());
-    res_clocks.insert(ta.clocks.begin(), ta.clocks.end());
+    for (const auto &cl : ta.clocks) {
+      addClock(res_clocks, cl.get()->id);
+    }
     res_bool_vars.insert(ta.bool_vars.begin(), ta.bool_vars.end());
   }
   Automaton res(
