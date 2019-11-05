@@ -34,18 +34,6 @@ getStateItById(const std::vector<State> &states, std::string id) {
                       [id](const State &s) { return s.id == id; });
 }
 
-/**
- * Adds clock updates of special state clock to each transition.
- *
- * @param trans transitions to add clock updates to
- */
-void addStateClock(vector<Transition> &trans,
-                   const ::std::shared_ptr<Clock> &clock_ptr) {
-  for (auto &t : trans) {
-    t.update = addUpdate(t.update, {clock_ptr});
-  }
-}
-
 Automaton benchmarkgenerator::generateCalibrationTA() {
   vector<State> states;
   vector<Transition> transitions;
@@ -66,14 +54,10 @@ Automaton benchmarkgenerator::generateCalibrationTA() {
   transitions.push_back(Transition(
       "calibrated", "uncalibrated", "uncalibrate",
       ComparisonCC(cal_clock, ComparisonOp::LT, 30), {cal_clock}, "", true));
-  std::shared_ptr<Clock> state_clock =
-      std::make_shared<Clock>(constants::STATE_CLOCK);
-  addStateClock(transitions, state_clock);
   Automaton test(states, transitions, "main", false);
 
-  test.clocks.insert({cal_clock,
-                      std::make_shared<Clock>(constants::GLOBAL_CLOCK),
-                      state_clock});
+  test.clocks.insert(
+      {cal_clock, std::make_shared<Clock>(constants::GLOBAL_CLOCK)});
   return test;
 }
 
@@ -124,14 +108,10 @@ Automaton benchmarkgenerator::generatePerceptionTA() {
   transitions.push_back(
       Transition("puck_sense", "idle", "",
                  ComparisonCC(sense_clock, ComparisonOp::GT, 1), {}, "", true));
-  std::shared_ptr<Clock> state_clock =
-      std::make_shared<Clock>(constants::STATE_CLOCK);
-  addStateClock(transitions, state_clock);
   Automaton test(states, transitions, "main", false);
 
   test.clocks.insert({icp_clock, cam_clock, pic_clock, sense_clock,
-                      std::make_shared<Clock>(constants::GLOBAL_CLOCK),
-                      state_clock});
+                      std::make_shared<Clock>(constants::GLOBAL_CLOCK)});
   return test;
 }
 
@@ -161,14 +141,10 @@ Automaton benchmarkgenerator::generateCommTA() {
                  ComparisonCC(send_clock, ComparisonOp::EQ, 30), {}, "", true));
   comm_transitions.push_back(
       Transition("prepared", "idle", "", TrueCC(), {}, "", true));
-  std::shared_ptr<Clock> state_clock =
-      std::make_shared<Clock>(constants::STATE_CLOCK);
-  addStateClock(comm_transitions, state_clock);
   Automaton comm_ta =
       Automaton(comm_states, comm_transitions, "comm_ta", false);
-  comm_ta.clocks.insert({send_clock,
-                         std::make_shared<Clock>(constants::GLOBAL_CLOCK),
-                         state_clock});
+  comm_ta.clocks.insert(
+      {send_clock, std::make_shared<Clock>(constants::GLOBAL_CLOCK)});
   return comm_ta;
 }
 

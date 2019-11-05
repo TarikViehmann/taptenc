@@ -17,7 +17,6 @@ namespace UTAPTraceParser {
  */
 struct specialClocksInfo {
   ::std::pair<timepoint, timepoint> global_clock;
-  ::std::pair<timepoint, timepoint> state_clock;
 };
 typedef specialClocksInfo SpecialClocksInfo;
 
