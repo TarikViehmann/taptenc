@@ -5,6 +5,7 @@
  */
 #include "utap_trace_parser.h"
 #include "../constants.h"
+#include "../constraints/constraints.h"
 #include "../encoder/filter.h"
 #include "../timed-automata/timed_automata.h"
 #include "../utils.h"
@@ -21,21 +22,6 @@
 #include <boost/graph/exterior_property.hpp>
 #include <boost/graph/floyd_warshall_shortest.hpp>
 
-typedef timepoint t_weight;
-
-// define the graph type
-typedef boost::property<boost::edge_weight_t, t_weight> EdgeWeightProperty;
-typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-                              boost::no_property, EdgeWeightProperty>
-    Graph;
-
-typedef boost::property_map<Graph, boost::edge_weight_t>::type WeightMap;
-
-// Declare a matrix type and its corresponding property map that
-// will contain the distances between each pair of vertices.
-typedef boost::exterior_vertex_property<Graph, t_weight> DistanceProperty;
-typedef DistanceProperty::matrix_type DistanceMatrix;
-typedef DistanceProperty::matrix_map_type DistanceMatrixMap;
 using std::cout;
 using std::endl;
 using std::iostream;
@@ -43,11 +29,25 @@ using std::pair;
 using std::string;
 using std::unordered_map;
 namespace taptenc {
-namespace UTAPTraceParser {
 // type for weight/distance on each edge
 
-SpecialClocksInfo determineSpecialClockBounds(
+SpecialClocksInfo UTAPTraceParser::determineSpecialClockBounds(
     unordered_map<pair<string, string>, timepoint> differences) {
+  typedef timepoint t_weight;
+
+  // define the graph type
+  typedef boost::property<boost::edge_weight_t, t_weight> EdgeWeightProperty;
+  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
+                                boost::no_property, EdgeWeightProperty>
+      Graph;
+
+  typedef boost::property_map<Graph, boost::edge_weight_t>::type WeightMap;
+
+  // Declare a matrix type and its corresponding property map that
+  // will contain the distances between each pair of vertices.
+  typedef boost::exterior_vertex_property<Graph, t_weight> DistanceProperty;
+  typedef DistanceProperty::matrix_type DistanceMatrix;
+  typedef DistanceProperty::matrix_map_type DistanceMatrixMap;
   Graph g;
   unordered_map<string, timepoint> ids;
   SpecialClocksInfo res;
@@ -98,13 +98,27 @@ SpecialClocksInfo determineSpecialClockBounds(
   return res;
 }
 
-/**
- * Parse a line from a .trace file (output of uppaal) containing a state.
- *
- * @param currentReadLine line from a .trace file containing state info
- * @return global time lower bound of the parsed state
- */
-int parseState(std::string &currentReadLine) {
+
+::std::string UTAPTraceParser::addStateToTraceTA(::std::string state_id) {
+  auto source_state_it =
+      std::find_if(source_states.begin(), source_states.end(),
+                   [state_id](const State &s) { return s.id == state_id; });
+  std::string ta_state_id = "";
+  if (source_state_it != source_states.end()) {
+    State ta_state(*source_state_it);
+    ta_state_id = "trace" + std::to_string(trace_to_ta_ids.size());
+    ta_state.id = ta_state_id;
+    trace_to_ta_ids.insert(std::make_pair(ta_state_id, source_state_it->id));
+    trace_ta.states.push_back(ta_state);
+  } else {
+    std::cout << "UTAPTraceParser parseState: Error, source state not found: "
+              << state_id << std::endl;
+  }
+  std::cout << "CREATED: " << ta_state_id << std::endl;
+  return ta_state_id;
+}
+
+int UTAPTraceParser::parseState(std::string &currentReadLine) {
   unordered_map<pair<string, string>, int> closed_dbm;
   size_t eow = currentReadLine.find_first_of(" \t");
   // skip "State: "
@@ -139,17 +153,10 @@ int parseState(std::string &currentReadLine) {
   return gci.global_clock.first;
 }
 
-/**
- * Parse a line from a .trace file (output of uppaal) containing a transition.
- *
- * @param currentReadLine line from a .trace file containing transition info
- * @param base_ta Platform model TA
- * @param plan_ta plan TA
- * @return all action labels belonging to the parsed transition
- */
-std::vector<std::string> parseTransition(std::string &currentReadLine,
-                                         const Automaton &base_ta,
-                                         const Automaton &plan_ta) {
+::std::vector<::std::string>
+UTAPTraceParser::parseTransition(std::string &currentReadLine,
+                                 const Automaton &base_ta,
+                                 const Automaton &plan_ta) {
   std::vector<std::string> res;
   size_t eow = currentReadLine.find_first_of(" \t");
   currentReadLine = currentReadLine.substr(eow + 1);
@@ -170,19 +177,31 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
   // skip dest id (only labels remaining)
   currentReadLine = currentReadLine.substr(eow + 1);
   eow = currentReadLine.find_first_of(";");
-  string guard = currentReadLine.substr(0, eow);
+  string guard_str = currentReadLine.substr(0, eow);
   // skip guard and "; "
   currentReadLine = currentReadLine.substr(eow + 2);
   eow = currentReadLine.find_first_of(";");
-  string sync = currentReadLine.substr(0, eow);
+  string sync_str = currentReadLine.substr(0, eow);
   // skip sync and "; "
   currentReadLine = currentReadLine.substr(eow + 2);
   eow = currentReadLine.find_first_of(";");
-  string update = currentReadLine.substr(0, eow);
+  string update_str = currentReadLine.substr(0, eow);
   // remove empty guards
-  guard = (guard == "1") ? "" : convertCharsToHTML(guard);
-  sync = (sync == "0") ? "" : convertCharsToHTML(sync);
-  update = (update == "1") ? "" : convertCharsToHTML(update);
+  guard_str = (guard_str == "1") ? "" : convertCharsToHTML(guard_str);
+  sync_str = (sync_str == "0") ? "" : convertCharsToHTML(sync_str);
+  update_str = (update_str == "1") ? "" : convertCharsToHTML(update_str);
+  // add parsed transition to trace ta
+  std::string trace_ta_source_id;
+  if (trace_to_ta_ids.size() == 0) {
+    // this is the first transition, so also create the source state
+    trace_ta_source_id = addStateToTraceTA(source_id);
+  } else {
+    trace_ta_source_id = "trace" + std::to_string((trace_to_ta_ids.size() - 1));
+  }
+  std::string trace_ta_dest_id = addStateToTraceTA(dest_id);
+  trace_ta.transitions.push_back(Transition(
+      trace_ta_source_id, trace_ta_dest_id, "", UnparsedCC(guard_str),
+      Transition::updateFromString(update_str, trace_ta.clocks), sync_str));
   // obtain action name
   string pa_source_id = Filter::getPrefix(source_id, constants::TL_SEP);
   string pa_dest_id = Filter::getPrefix(dest_id, constants::TL_SEP);
@@ -192,16 +211,17 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
   if (pa_source_id != pa_dest_id) {
     auto pa_trans = ::std::find_if(
         plan_ta.transitions.begin(), plan_ta.transitions.end(),
-        [pa_source_id, pa_dest_id, guard, sync, update](const Transition &t) {
+        [pa_source_id, pa_dest_id, guard_str, sync_str,
+         update_str](const Transition &t) {
           return t.source_id == pa_source_id && t.dest_id == pa_dest_id &&
-                 guard.find(t.guard.get()->toString()) != string::npos &&
-                 sync.find(t.sync) != string::npos &&
-                 update.find(t.updateToString()) != string::npos;
+                 guard_str.find(t.guard.get()->toString()) != string::npos &&
+                 sync_str.find(t.sync) != string::npos &&
+                 update_str.find(t.updateToString()) != string::npos;
         });
     if (pa_trans == plan_ta.transitions.end()) {
       cout << "ERROR:  cannot find plan ta transition: " << pa_source_id
-           << " -> " << pa_dest_id << " {" << guard << "; " << sync << "; "
-           << update << "}" << endl;
+           << " -> " << pa_dest_id << " {" << guard_str << "; " << sync_str
+           << "; " << update_str << "}" << endl;
     } else if (pa_trans->action != "") {
       res.push_back(pa_trans->action);
     } else {
@@ -213,20 +233,21 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
   string base_dest_id = Filter::getSuffix(dest_id, constants::BASE_SEP);
   auto base_trans = ::std::find_if(
       base_ta.transitions.begin(), base_ta.transitions.end(),
-      [base_source_id, base_dest_id, guard, sync, update](const Transition &t) {
+      [base_source_id, base_dest_id, guard_str, sync_str,
+       update_str](const Transition &t) {
         return t.source_id == base_source_id &&
                t.dest_id.find(base_dest_id) != string::npos &&
-               isPiecewiseContained(t.guard.get()->toString(), guard,
+               isPiecewiseContained(t.guard.get()->toString(), guard_str,
                                     constants::CC_CONJUNCTION) &&
-               sync.find(t.sync) != string::npos &&
-               isPiecewiseContained(t.updateToString(), update,
+               sync_str.find(t.sync) != string::npos &&
+               isPiecewiseContained(t.updateToString(), update_str,
                                     constants::UPDATE_CONJUNCTION);
       });
   if (base_trans == base_ta.transitions.end()) {
     if (base_source_id != base_dest_id) {
       cout << "ERROR:  cannot find base ta transition: " << base_source_id
-           << " -> " << base_dest_id << " {" << guard << "; " << sync << "; "
-           << update << "}" << endl;
+           << " -> " << base_dest_id << " {" << guard_str << "; " << sync_str
+           << "; " << update_str << "}" << endl;
     }
   } else {
     std::vector<std::string> action_vec =
@@ -250,8 +271,9 @@ std::vector<std::string> parseTransition(std::string &currentReadLine,
 
 // vector<pair<Transition,size_t>>
 ::std::vector<::std::pair<timepoint, ::std::vector<::std::string>>>
-parseTraceInfo(const std::string &file, const Automaton &base_ta,
-               const Automaton &plan_ta) {
+UTAPTraceParser::parseTraceInfo(const std::string &file,
+                                const Automaton &base_ta,
+                                const Automaton &plan_ta) {
 
   // file
   std::fstream fileStream;
@@ -303,5 +325,16 @@ parseTraceInfo(const std::string &file, const Automaton &base_ta,
   return info;
 }
 
-} // end namespace UTAPTraceParser
+UTAPTraceParser::UTAPTraceParser(const AutomataSystem &s)
+    : trace_ta(Automaton({}, {}, "trace_ta", false)) {
+  trace_ta.clocks.insert(s.globals.clocks.begin(), s.globals.clocks.end());
+  for (const auto &ta : s.instances) {
+    source_states.insert(source_states.begin(), ta.first.states.begin(),
+                         ta.first.states.end());
+    trace_ta.clocks.insert(ta.first.clocks.begin(), ta.first.clocks.end());
+  }
+  for (const auto &cl : trace_ta.clocks) {
+    std::cout << cl.get()->id << std::endl;
+  }
+}
 } // end namespace taptenc

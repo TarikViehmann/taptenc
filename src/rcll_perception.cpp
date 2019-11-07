@@ -243,7 +243,8 @@ std::string getEnvVar(std::string const &key) {
   }
   return std::string(val);
 }
-void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta) {
+void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta,
+           AutomataSystem &encoded_system) {
   std::ofstream myfile;
   myfile.open(file_name + ".q", std::ios_base::trunc);
   myfile << "E<> sys_direct." << constants::QUERY;
@@ -260,7 +261,8 @@ void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta) {
   string call_make_trace_readable = "tracer " + file_name + ".if " + file_name +
                                     "-1.xtr > " + file_name + ".trace";
   std::system(call_make_trace_readable.c_str());
-  UTAPTraceParser::parseTraceInfo(file_name + ".trace", base_ta, plan_ta);
+  UTAPTraceParser trace_parser(encoded_system);
+  trace_parser.parseTraceInfo(file_name + ".trace", base_ta, plan_ta);
 }
 
 int main() {
@@ -404,7 +406,7 @@ int main() {
   product_ta = PlanOrderedTLs::productTA(product_ta, calib_ta, "product", true);
   product_ta = PlanOrderedTLs::productTA(product_ta, pos_ta, "product", true);
   solve("merged_direct", product_ta,
-        base_system.instances[enc3.getPlanTAIndex()].first);
+        base_system.instances[enc3.getPlanTAIndex()].first, direct_system4);
 
   return 0;
 }

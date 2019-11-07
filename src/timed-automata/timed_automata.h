@@ -67,6 +67,16 @@ struct transition {
   transition &operator=(transition &&other) noexcept;
   /** Composes a string containing all clock updates. */
   ::std::string updateToString() const;
+  /**
+   * Composes a clock set from an update string.
+   *
+   * @param update update string to parse
+   * @param clocks all clocks that may be updated
+   * @preturn update set with clocks from \a clocks that are contained in
+   *          \a update
+   */
+  static update_t updateFromString(const ::std::string &update,
+                                   const update_t &clocks);
   /** Ordering operator determined by comparing string representations. */
   bool operator<(const transition &r) const;
 };

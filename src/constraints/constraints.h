@@ -88,7 +88,9 @@ enum CCType {
    */
   SIMPLE_BOUND,
   /** Trivial constraint, that is always true. */
-  TRUE
+  TRUE,
+  /** Arbitrary constraint stored as string. */
+  UNPARSED
 };
 
 /**
@@ -118,6 +120,21 @@ struct trueCC : public ClockConstraint {
   trueCC();
 };
 typedef struct trueCC TrueCC;
+
+/**
+ * Unparsed constraint stored as string.
+ *
+ * Properly parsing a constraint from a string is not implemented yet. This can
+ * be used as workaround when parsing from a string would be required or a
+ * constraint has a form that is not representeble with the available structs.
+ */
+struct unparsedCC : public ClockConstraint {
+  ::std::string raw_cc;
+  ::std::unique_ptr<struct clockConstraint> createCopy() const;
+  ::std::string toString() const;
+  unparsedCC(::std::string cc_string);
+};
+typedef struct unparsedCC UnparsedCC;
 
 /**
  * Conjunction of exactly two clock constraints. Nesting is possible to

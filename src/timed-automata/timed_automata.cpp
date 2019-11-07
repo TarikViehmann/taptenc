@@ -6,10 +6,12 @@
  */
 
 #include "timed_automata.h"
+#include "../constants.h"
 #include "../constraints/constraints.h"
 #include "../utils.h"
 
 #include <algorithm>
+#include <iostream>
 
 using namespace taptenc;
 
@@ -126,11 +128,36 @@ transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
   bool is_first_iteration = true;
   for (const auto &clock_ptr : update) {
     if (!is_first_iteration) {
-      res += ", ";
+      res += std::string(constants::UPDATE_CONJUNCTION) + " ";
     } else {
       is_first_iteration = false;
     }
     res += clock_ptr.get()->id + " = 0";
+  }
+  return res;
+}
+
+update_t transition::updateFromString(const ::std::string &update,
+                                      const update_t &clocks) {
+  update_t res;
+  std::string update_str = update + constants::UPDATE_CONJUNCTION;
+  size_t next_assignment_pos = update_str.find("=");
+  while (next_assignment_pos != std::string::npos) {
+    std::string curr_clock = trim(update_str.substr(0, next_assignment_pos));
+    auto clock_ptr_it = std::find_if(clocks.begin(), clocks.end(),
+                                     [curr_clock](const auto &clock_ptr) {
+                                       return clock_ptr.get()->id == curr_clock;
+                                     });
+    if (clock_ptr_it != clocks.end()) {
+      res.insert(*clock_ptr_it);
+    } else {
+      std::cout << "Transition updateFromString: cannot find clock "
+                << curr_clock << std::endl;
+    }
+    std::cout << "\t" << update_str << std::endl;
+    update_str =
+        update_str.substr(update_str.find(constants::UPDATE_CONJUNCTION) + 1);
+    next_assignment_pos = update_str.find("=");
   }
   return res;
 }
