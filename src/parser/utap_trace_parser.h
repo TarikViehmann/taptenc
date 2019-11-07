@@ -45,6 +45,8 @@ private:
   Automaton trace_ta;
   std::unordered_map<std::string, std::string> trace_to_ta_ids;
   std::vector<State> source_states;
+  std::unordered_map<::std::shared_ptr<Clock>, timepoint> curr_clock_values;
+  std::unordered_map<std::string, dbm_t> ta_to_symbolic_state;
 
       /**
        * Adds a fresh state to the trace TA.

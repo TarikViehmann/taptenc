@@ -149,6 +149,9 @@ int UTAPTraceParser::parseState(std::string &currentReadLine) {
       cout << "ERROR: duplicate dbm entry" << endl;
     }
   }
+  ta_to_symbolic_state.insert(
+      std::make_pair("trace" + std::to_string(source_states.size() - 1)),
+      closed_dbm);
   specialClocksInfo gci = determineSpecialClockBounds(closed_dbm);
   return gci.global_clock.first;
 }
@@ -334,6 +337,7 @@ UTAPTraceParser::UTAPTraceParser(const AutomataSystem &s)
     trace_ta.clocks.insert(ta.first.clocks.begin(), ta.first.clocks.end());
   }
   for (const auto &cl : trace_ta.clocks) {
+    curr_clock_values.insert(cl, 0);
     std::cout << cl.get()->id << std::endl;
   }
 }
