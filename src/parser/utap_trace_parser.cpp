@@ -31,8 +31,8 @@ using std::unordered_map;
 namespace taptenc {
 // type for weight/distance on each edge
 
-SpecialClocksInfo UTAPTraceParser::determineSpecialClockBounds(
-    unordered_map<pair<string, string>, timepoint> differences) {
+SpecialClocksInfo
+UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
   typedef timepoint t_weight;
 
   // define the graph type
@@ -119,7 +119,7 @@ SpecialClocksInfo UTAPTraceParser::determineSpecialClockBounds(
 }
 
 int UTAPTraceParser::parseState(std::string &currentReadLine) {
-  unordered_map<pair<string, string>, int> closed_dbm;
+  dbm_t closed_dbm;
   size_t eow = currentReadLine.find_first_of(" \t");
   // skip "State: "
   currentReadLine = currentReadLine.substr(eow + 1);
