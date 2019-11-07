@@ -126,7 +126,7 @@ typedef struct trueCC TrueCC;
  *
  * Properly parsing a constraint from a string is not implemented yet. This can
  * be used as workaround when parsing from a string would be required or a
- * constraint has a form that is not representeble with the available structs.
+ * constraint has a form that is not representable with the available structs.
  */
 struct unparsedCC : public ClockConstraint {
   ::std::string raw_cc;

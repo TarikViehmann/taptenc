@@ -72,7 +72,7 @@ struct transition {
    *
    * @param update update string to parse
    * @param clocks all clocks that may be updated
-   * @preturn update set with clocks from \a clocks that are contained in
+   * @return update set with clocks from \a clocks that are contained in
    *          \a update
    */
   static update_t updateFromString(const ::std::string &update,
