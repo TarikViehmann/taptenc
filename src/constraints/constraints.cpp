@@ -87,6 +87,18 @@ trueCC::trueCC() { type = CCType::TRUE; }
   return std::make_unique<TrueCC>(TrueCC());
 }
 
+// UnparsedCC
+unparsedCC::unparsedCC(::std::string cc_string) {
+  type = CCType::UNPARSED;
+  raw_cc = cc_string;
+}
+
+::std::string unparsedCC::toString() const { return raw_cc; }
+
+::std::unique_ptr<ClockConstraint> unparsedCC::createCopy() const {
+  return std::make_unique<UnparsedCC>(UnparsedCC(raw_cc));
+}
+
 // ConjunctionCC
 conjunctionCC::conjunctionCC(const ClockConstraint &first,
                              const ClockConstraint &second) {
