@@ -8,6 +8,14 @@
 #include <string>
 #include <unordered_map>
 
+/**
+ * Different bounds representation, where [clock1,clock2] -> i means
+ * clock1 - clock2 <= i.
+ */
+typedef ::std::unordered_map<::std::pair<::std::string, ::std::string>,
+                             timepoint>
+    dbm_t;
+
 namespace taptenc {
 /**
  * Wrapper for bounds on global time clock.
@@ -38,13 +46,13 @@ private:
   std::unordered_map<std::string, std::string> trace_to_ta_ids;
   std::vector<State> source_states;
 
-  /**
-   * Adds a fresh state to the trace TA.
-   *
-   * @param state_id state id from the encoding automaton to add
-   * @return state id of the added state
-   */
-  ::std::string addStateToTraceTA(::std::string state_id);
+      /**
+       * Adds a fresh state to the trace TA.
+       *
+       * @param state_id state id from the encoding automaton to add
+       * @return state id of the added state
+       */
+      ::std::string addStateToTraceTA(::std::string state_id);
 
   /**
    * Calculates bounds of the special clocks (for global time and state time)
@@ -52,13 +60,10 @@ private:
    *
    * TODO: also consider strict bounds
    *
-   * @param differences DBM, where [clock1,clock2] -> i menas
-   *                    clock1 -clock2 <= i
+   * @param differences different bound matrix of a symbolic state
    * @return SpecialClockInfo holding bounds on global time and state time
    */
-  SpecialClocksInfo determineSpecialClockBounds(
-      ::std::unordered_map<::std::pair<::std::string, ::std::string>, int>
-          differences);
+  SpecialClocksInfo determineSpecialClockBounds(dbm_t differences);
 
   /**
    * Parses a line from a .trace file (output of uppaal) containing a
