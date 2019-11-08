@@ -51,9 +51,9 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
   Graph g;
   unordered_map<string, timepoint> ids;
   SpecialClocksInfo res;
-  timepoint x = 0;
-  timepoint t0 = 0;
-  timepoint glob = 0;
+  size_t x = 0;
+  size_t t0 = 0;
+  size_t glob = 0;
   for (const auto &edge : differences) {
     auto ins_source = ids.insert(::std::make_pair(edge.first.first, x));
     if (ins_source.second) {
@@ -93,11 +93,20 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
     std::cerr << "Error - Negative cycle in matrix" << std::endl;
     return res;
   }
+  timepoint max_delay = std::numeric_limits<timepoint>::max();
+  for (size_t i = 0; i < distances[t0].size(); i++) {
+    if (t0 != i) {
+      timepoint curr_max_delay = distances[i][t0] + distances[t0][i];
+      if (curr_max_delay < max_delay) {
+        max_delay = curr_max_delay;
+      }
+    }
+  }
   res.global_clock =
       ::std::make_pair(-distances[t0][glob], distances[glob][t0]);
+  res.max_delay = max_delay;
   return res;
 }
-
 
 ::std::string UTAPTraceParser::addStateToTraceTA(::std::string state_id) {
   auto source_state_it =
