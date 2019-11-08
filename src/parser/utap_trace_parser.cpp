@@ -127,7 +127,7 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
   return ta_state_id;
 }
 
-int UTAPTraceParser::parseState(std::string &currentReadLine) {
+void UTAPTraceParser::parseState(std::string &currentReadLine) {
   dbm_t closed_dbm;
   size_t eow = currentReadLine.find_first_of(" \t");
   // skip "State: "
@@ -142,6 +142,8 @@ int UTAPTraceParser::parseState(std::string &currentReadLine) {
     currentReadLine = currentReadLine.substr(eow + 1);
     eow = currentReadLine.find_first_of("<");
     string t_dest = currentReadLine.substr(0, eow);
+    t_source = Filter::getSuffix(t_source, '.');
+    t_dest = Filter::getSuffix(t_dest, '.');
     // skip dest state and "<"
     currentReadLine = currentReadLine.substr(eow + 1);
     if (currentReadLine.front() == '=') {
@@ -158,18 +160,15 @@ int UTAPTraceParser::parseState(std::string &currentReadLine) {
       cout << "ERROR: duplicate dbm entry" << endl;
     }
   }
+  size_t state_suffix = trace_ta.states.size();
+  if (trace_ta.states.size() != 0) {
+    state_suffix -= 1;
+  }
   ta_to_symbolic_state.insert(
-      std::make_pair("trace" + std::to_string(source_states.size() - 1)),
-      closed_dbm);
-  specialClocksInfo gci = determineSpecialClockBounds(closed_dbm);
-  return gci.global_clock.first;
+      std::make_pair("trace" + std::to_string(state_suffix), closed_dbm));
 }
 
-::std::vector<::std::string>
-UTAPTraceParser::parseTransition(std::string &currentReadLine,
-                                 const Automaton &base_ta,
-                                 const Automaton &plan_ta) {
-  std::vector<std::string> res;
+void UTAPTraceParser::parseTransition(std::string &currentReadLine) {
   size_t eow = currentReadLine.find_first_of(" \t");
   currentReadLine = currentReadLine.substr(eow + 1);
   eow = currentReadLine.find_first_of(".");
@@ -214,6 +213,18 @@ UTAPTraceParser::parseTransition(std::string &currentReadLine,
   trace_ta.transitions.push_back(Transition(
       trace_ta_source_id, trace_ta_dest_id, "", UnparsedCC(guard_str),
       Transition::updateFromString(update_str, trace_ta.clocks), sync_str));
+}
+
+::std::vector<::std::string>
+UTAPTraceParser::getActionsFromTraceTrans(const Transition &trans,
+                                          const Automaton &base_ta,
+                                          const Automaton &plan_ta) {
+  std::vector<std::string> res;
+  std::string source_id = trace_to_ta_ids[trans.source_id];
+  std::string dest_id = trace_to_ta_ids[trans.dest_id];
+  std::string guard_str = trans.guard.get()->toString();
+  std::string update_str = trans.updateToString();
+  std::string sync_str = trans.sync;
   // obtain action name
   string pa_source_id = Filter::getPrefix(source_id, constants::TL_SEP);
   string pa_dest_id = Filter::getPrefix(dest_id, constants::TL_SEP);
@@ -281,12 +292,66 @@ UTAPTraceParser::parseTransition(std::string &currentReadLine,
   return res;
 }
 
-// vector<pair<Transition,size_t>>
-::std::vector<::std::pair<timepoint, ::std::vector<::std::string>>>
-UTAPTraceParser::parseTraceInfo(const std::string &file,
-                                const Automaton &base_ta,
-                                const Automaton &plan_ta) {
+::std::vector<::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
+UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
+                               const Automaton &plan_ta) {
+  ::std::vector<::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
+      res;
+  if (parsed == true) {
+    timepoint last_lb = 0;
+    for (auto ta_trans = trace_ta.transitions.begin();
+         ta_trans != trace_ta.transitions.end(); ++ta_trans) {
+      if (ta_trans == trace_ta.transitions.begin()) {
+        auto src_dbm_it = ta_to_symbolic_state.find(ta_trans->source_id);
+        if (src_dbm_it != ta_to_symbolic_state.end()) {
+          res.push_back(
+              std::make_pair(determineSpecialClockBounds(src_dbm_it->second),
+                             std::vector<std::string>()));
+        } else {
+          std::cout << "ERROR, dbm not found: " << ta_trans->source_id
+                    << std::endl;
+        }
+      }
+      auto dst_dbm_it = ta_to_symbolic_state.find(ta_trans->dest_id);
+      if (dst_dbm_it != ta_to_symbolic_state.end()) {
+        SpecialClocksInfo src_duration =
+            determineSpecialClockBounds(dst_dbm_it->second);
+        // add upper bound to previous (=source) state
+        res.back().first.global_clock.second = src_duration.global_clock.first;
+        // add actions to previous (=source) state
+        res.back().second =
+            getActionsFromTraceTrans(*ta_trans, base_ta, plan_ta);
+        // progress all clocks
+        for (const auto &cl : trace_ta.clocks) {
+          curr_clock_values[cl] += (src_duration.global_clock.first - last_lb);
+        }
+        // reset clocks on transition
+        for (const auto &cl_up : ta_trans->update) {
+          curr_clock_values[cl_up] = 0;
+        }
+        // update the dbm
+        for (const auto &cl : trace_ta.clocks) {
+          dst_dbm_it->second[std::make_pair("t(0)", cl.get()->id)] =
+              -curr_clock_values[cl];
+        }
+        last_lb = src_duration.global_clock.first;
+        res.push_back(
+            std::make_pair(determineSpecialClockBounds(dst_dbm_it->second),
+                           std::vector<std::string>()));
+      } else {
+        std::cout << "ERROR, dbm not found: " << ta_trans->dest_id << std::endl;
+      }
+    }
+    return res;
+  } else {
+    std::cout
+        << "UTAPTraceParser getTimedTrace: Trace was not parsed yet. Abort. "
+        << std::endl;
+    return res;
+  }
+}
 
+bool UTAPTraceParser::parseTraceInfo(const std::string &file) {
   // file
   std::fstream fileStream;
   std::string currentReadLine;
@@ -294,31 +359,42 @@ UTAPTraceParser::parseTraceInfo(const std::string &file,
   cout << "----------------------------------" << endl;
   cout << "---------Final Plan---------------" << endl;
   cout << "----------------------------------" << endl;
-  std::vector<std::pair<timepoint, std::vector<std::string>>> info;
-  if (!getline(fileStream, currentReadLine)) {
+  if (getline(fileStream, currentReadLine)) {
+    if (currentReadLine.size() > 5) {
+      if (currentReadLine.substr(0, 5) == "State") {
+        parseState(currentReadLine);
+      }
+    } else {
+      std::cout << "UTAPTraceParser parseTraceInfo: expected trace to begin "
+                   "with inital state, but read: "
+                << currentReadLine << std::endl;
+      return false;
+    }
+  } else {
     std::cout << "UTAPTraceParser parseTraceInfo: trace not valid" << std::endl;
+    return false;
   }
   while (getline(fileStream, currentReadLine)) {
     if (currentReadLine.size() > 10 &&
         currentReadLine.substr(0, 10) == "Transition") {
-      std::vector<std::string> trans_vec =
-          parseTransition(currentReadLine, base_ta, plan_ta);
+      parseTransition(currentReadLine);
       getline(fileStream, currentReadLine);
       if (currentReadLine != "") {
         std::cout << "UTAPTraceParser parseTraceInfo: expected empty line "
                      "after transition, but read: "
                   << currentReadLine << std::endl;
+        return false;
       }
       if (getline(fileStream, currentReadLine)) {
         if (currentReadLine.size() > 5) {
           if (currentReadLine.substr(0, 5) == "State") {
-            info.push_back(make_pair(parseState(currentReadLine), trans_vec));
+            parseState(currentReadLine);
           }
         } else {
           std::cout << "UTAPTraceParser parseTraceInfo: expected state after "
                        "transition, but read: "
                     << currentReadLine << std::endl;
-          break;
+          return false;
         }
       }
     } else {
@@ -326,15 +402,8 @@ UTAPTraceParser::parseTraceInfo(const std::string &file,
     }
   }
   fileStream.close();
-  for (const auto &entry : info) {
-    if (entry.second.size() > 0) {
-      std::cout << entry.first << ": ";
-      for (const auto &t : entry.second) {
-        std::cout << "\t" << t << std::endl;
-      }
-    }
-  }
-  return info;
+  parsed = true;
+  return true;
 }
 
 UTAPTraceParser::UTAPTraceParser(const AutomataSystem &s)
@@ -346,8 +415,7 @@ UTAPTraceParser::UTAPTraceParser(const AutomataSystem &s)
     trace_ta.clocks.insert(ta.first.clocks.begin(), ta.first.clocks.end());
   }
   for (const auto &cl : trace_ta.clocks) {
-    curr_clock_values.insert(cl, 0);
-    std::cout << cl.get()->id << std::endl;
+    curr_clock_values.insert(std::make_pair(cl, 0));
   }
 }
 } // end namespace taptenc
