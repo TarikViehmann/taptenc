@@ -262,7 +262,7 @@ void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta,
                                     "-1.xtr > " + file_name + ".trace";
   std::system(call_make_trace_readable.c_str());
   UTAPTraceParser trace_parser(encoded_system);
-  trace_parser.parseTraceInfo(file_name + ".trace", base_ta, plan_ta);
+  trace_parser.parseTraceInfo(file_name + ".trace");
 }
 
 int main() {

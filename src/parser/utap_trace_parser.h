@@ -3,8 +3,11 @@
  *
  * \author (2019) Tarik Viehmann
  */
+#pragma once
+
 #include "../constraints/constraints.h"
 #include "../timed-automata/timed_automata.h"
+#include "../utils.h"
 #include <string>
 #include <unordered_map>
 
@@ -13,7 +16,7 @@
  * clock1 - clock2 <= i.
  */
 typedef ::std::unordered_map<::std::pair<::std::string, ::std::string>,
-                             timepoint>
+                             taptenc::timepoint>
     dbm_t;
 
 namespace taptenc {
@@ -30,16 +33,22 @@ class UTAPTraceParser {
 public:
   UTAPTraceParser(const AutomataSystem &s);
   /**
-   * Parses a .trace file (output of uppaal) and print the fastest resulting
-   * trace.
+   * Parses a .trace file (output of uppaal).
    *
    * @param file name of the file containing the trace
-   * @param base_ta Platform model TA
-   * @param plan_ta plan TA
+   * @return true iff parsing was successful
    */
-  ::std::vector<::std::pair<timepoint, ::std::vector<::std::string>>>
-  parseTraceInfo(const ::std::string &file, const Automaton &base_ta,
-                 const Automaton &plan_ta);
+  bool parseTraceInfo(const ::std::string &file);
+
+  /**
+   * Extracts the timed trace after a trace has been parsed.
+   *
+   * Needs to be called after parseTraceInfo().
+   *
+   * @return timed trace
+   */
+  ::std::vector<::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
+  getTimedTrace(const Automaton &base_ta, const Automaton &plan_ta);
 
 private:
   bool parsed = false;
@@ -49,13 +58,25 @@ private:
   std::unordered_map<::std::shared_ptr<Clock>, timepoint> curr_clock_values;
   std::unordered_map<std::string, dbm_t> ta_to_symbolic_state;
 
-      /**
-       * Adds a fresh state to the trace TA.
-       *
-       * @param state_id state id from the encoding automaton to add
-       * @return state id of the added state
-       */
-      ::std::string addStateToTraceTA(::std::string state_id);
+  /**
+   * Retrieves all actions that are associated to a given trace transition.
+   *
+   * @pram trace transition from trace_ta
+   * @param base_ta platform TA that was used in the encoding
+   * @param plan_ta plan automaton used in the encoding
+   * @return all actions that are attached to the platform and plan TA
+   *         transitions causing the trace transition
+   */
+  ::std::vector<::std::string>
+  getActionsFromTraceTrans(const Transition &trans, const Automaton &base_ta,
+                           const Automaton &plan_ta);
+  /**
+   * Adds a fresh state to the trace TA.
+   *
+   * @param state_id state id from the encoding automaton to add
+   * @return state id of the added state
+   */
+  ::std::string addStateToTraceTA(::std::string state_id);
 
   /**
    * Calculates bounds of the special clock counting global time from a DBM.
@@ -73,20 +94,13 @@ private:
    * transition.
    *
    * @param currentReadLine line from a .trace file containing transition info
-   * @param base_ta Platform model TA
-   * @param plan_ta plan TA
-   *
-   * @return the action names associated with the parsed transition
    */
-  ::std::vector<::std::string> parseTransition(std::string &currentReadLine,
-                                               const Automaton &base_ta,
-                                               const Automaton &plan_ta);
+  void parseTransition(std::string &currentReadLine);
   /**
    * Parses a line from a .trace file (output of uppaal) containing a state.
    *
    * @param currentReadLine line from a .trace file containing state info
-   * @return global time lower bound of the parsed state
    */
-  int parseState(std::string &currentReadLine);
+  void parseState(std::string &currentReadLine);
 };
 } // end namespace taptenc
