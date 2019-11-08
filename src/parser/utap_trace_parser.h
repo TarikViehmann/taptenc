@@ -22,6 +22,7 @@ namespace taptenc {
  */
 struct specialClocksInfo {
   ::std::pair<timepoint, timepoint> global_clock;
+  timepoint max_delay;
 };
 typedef specialClocksInfo SpecialClocksInfo;
 class UTAPTraceParser {
@@ -57,13 +58,13 @@ private:
       ::std::string addStateToTraceTA(::std::string state_id);
 
   /**
-   * Calculates bounds of the special clocks (for global time and state time)
-   * from a DBM.
+   * Calculates bounds of the special clock counting global time from a DBM.
    *
    * TODO: also consider strict bounds
    *
    * @param differences different bound matrix of a symbolic state
-   * @return SpecialClockInfo holding bounds on global time and state time
+   * @return SpecialClockInfo holding bounds on global time and maximal delay
+   *          possible in the symbolic state described by \a differences
    */
   SpecialClocksInfo determineSpecialClockBounds(dbm_t differences);
 
