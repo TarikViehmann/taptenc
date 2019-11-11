@@ -11,24 +11,34 @@
 #include <string>
 #include <unordered_map>
 
-/**
- * Different bounds representation, where [clock1,clock2] -> i means
- * clock1 - clock2 <= i.
- */
 namespace taptenc {
+/**
+ * Constraint, where the first entry encodes the bound, the second entry
+ * encodes the strictness (true = strict)
+ */
+typedef ::std::pair<taptenc::timepoint, bool> dbm_entry_t;
+
 /**
  * Wrapper for bounds on global time clock.
  */
 struct specialClocksInfo {
-  ::std::pair<timepoint, timepoint> global_clock;
-  timepoint max_delay;
+  ::std::pair<dbm_entry_t, dbm_entry_t> global_clock;
+  dbm_entry_t max_delay;
 };
 typedef specialClocksInfo SpecialClocksInfo;
 
+/**
+ * Different bounds representation, where [clock1,clock2] -> (i,true) means
+ * clock1 - clock2 <= i.
+ */
 typedef ::std::unordered_map<::std::pair<::std::string, ::std::string>,
-                             taptenc::timepoint>
+                             dbm_entry_t>
     dbm_t;
 
+/**
+ * Stores a timed trace by holding time constraints and the actions that are
+ * started after the time constraints are met.
+ */
 typedef ::std::vector<
     ::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
     timed_trace_t;

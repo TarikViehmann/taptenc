@@ -21,10 +21,6 @@
 #include <string>
 #include <unordered_map>
 
-#include <boost/graph/directed_graph.hpp>
-#include <boost/graph/exterior_property.hpp>
-#include <boost/graph/floyd_warshall_shortest.hpp>
-
 using std::cout;
 using std::endl;
 using std::iostream;
@@ -32,31 +28,23 @@ using std::pair;
 using std::string;
 using std::unordered_map;
 namespace taptenc {
-// type for weight/distance on each edge
 
 SpecialClocksInfo
 UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
-  typedef timepoint t_weight;
-
-  // define the graph type
-  typedef boost::property<boost::edge_weight_t, t_weight> EdgeWeightProperty;
-  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-                                boost::no_property, EdgeWeightProperty>
-      Graph;
-
-  typedef boost::property_map<Graph, boost::edge_weight_t>::type WeightMap;
-
-  // Declare a matrix type and its corresponding property map that
-  // will contain the distances between each pair of vertices.
-  typedef boost::exterior_vertex_property<Graph, t_weight> DistanceProperty;
-  typedef DistanceProperty::matrix_type DistanceMatrix;
-  typedef DistanceProperty::matrix_map_type DistanceMatrixMap;
-  Graph g;
   unordered_map<string, timepoint> ids;
   SpecialClocksInfo res;
   size_t x = 0;
   size_t t0 = 0;
   size_t glob = 0;
+  size_t num_clocks = trace_ta.clocks.size() + 1;
+  // Floyd-Warshall algorithm is applied here:
+  // 1. all entries are set to the maximum value
+  std::vector<std::vector<dbm_entry_t>> distances(
+      num_clocks,
+      std::vector<dbm_entry_t>(
+          num_clocks,
+          std::make_pair(std::numeric_limits<timepoint>::max(), true)));
+  // 2. all weights are added
   for (const auto &edge : differences) {
     auto ins_source = ids.insert(::std::make_pair(edge.first.first, x));
     if (ins_source.second) {
@@ -78,35 +66,56 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
       }
       x++;
     }
-    boost::add_edge(ins_source.first->second, ins_dest.first->second,
-                    edge.second, g);
+    distances[ins_source.first->second][ins_dest.first->second] = edge.second;
   }
-  WeightMap weight_pmap = boost::get(boost::edge_weight, g);
-
-  // set the distance matrix to receive the floyd warshall output
-  DistanceMatrix distances(num_vertices(g));
-  DistanceMatrixMap dm(distances, g);
-
-  // find all pairs shortest paths
-  bool valid = floyd_warshall_all_pairs_shortest_paths(
-      g, dm, boost::weight_map(weight_pmap));
+  // 3. self loops get null costs
+  dbm_entry_t null_constraint = std::make_pair(0, false);
+  for (size_t i = 0; i < num_clocks; i++) {
+    distances[i][i] = std::make_pair(0, false);
+  }
+  // 4. all possible shorter indirect routes are considered
+  for (size_t k = 0; k < num_clocks; k++) {
+    for (size_t i = 0; i < num_clocks; i++) {
+      for (size_t j = 0; j < num_clocks; j++) {
+        dbm_entry_t curr_indirect_path = distances[i][k] + distances[k][j];
+        if (distances[i][j] > curr_indirect_path) {
+          distances[i][j] = curr_indirect_path;
+        }
+      }
+    }
+  }
+  // 5. check for negative cycle (= self loop with negative costs)
+  bool valid = true;
+  for (size_t i = 0; i < num_clocks; i++) {
+    if (distances[i][i].first != 0) {
+      valid = false;
+    }
+  }
+  // Floyd-Warshall end
 
   // check if there no negative cycles
   if (!valid) {
     std::cerr << "Error - Negative cycle in matrix" << std::endl;
     return res;
   }
-  timepoint max_delay = std::numeric_limits<timepoint>::max();
+  // determine maximum delay in the symbolic state
+
+  // Note that distances[t0][cl] holds the negated lower bound constraint on
+  // clock cl. Substract it from the null_constraint in order to obtain the
+  // lower bound.
+  dbm_entry_t max_delay =
+      std::make_pair(std::numeric_limits<timepoint>::max(), false);
   for (size_t i = 0; i < distances[t0].size(); i++) {
     if (t0 != i) {
-      timepoint curr_max_delay = distances[i][t0] + distances[t0][i];
+      dbm_entry_t curr_max_delay =
+          distances[i][t0] - (null_constraint - distances[t0][i]);
       if (curr_max_delay < max_delay) {
         max_delay = curr_max_delay;
       }
     }
   }
-  res.global_clock =
-      ::std::make_pair(-distances[t0][glob], distances[glob][t0]);
+  res.global_clock = ::std::make_pair(null_constraint - distances[t0][glob],
+                                      distances[glob][t0]);
   res.max_delay = max_delay;
   return res;
 }
@@ -154,20 +163,22 @@ void UTAPTraceParser::parseState(std::string &currentReadLine) {
     string t_dest = currentReadLine.substr(0, eow);
     t_source = Filter::getSuffix(t_source, '.');
     t_dest = Filter::getSuffix(t_dest, '.');
+    bool strict = true;
     // skip dest state and "<"
     currentReadLine = currentReadLine.substr(eow + 1);
     if (currentReadLine.front() == '=') {
       // skip "="
       // TODO: respect bounds when calculating time window
       currentReadLine.erase(0, 1);
+      strict = false;
     }
     eow = currentReadLine.find_first_of(" \t");
     int t_weight = stoi(currentReadLine.substr(0, eow));
     currentReadLine = currentReadLine.substr(eow + 1);
-    auto ins = closed_dbm.insert(
-        ::std::make_pair(::std::make_pair(t_source, t_dest), t_weight));
+    auto ins = closed_dbm.insert(::std::make_pair(
+        ::std::make_pair(t_source, t_dest), std::make_pair(t_weight, strict)));
     if (!ins.second) {
-      cout << "ERROR: duplicate dbm entry" << endl;
+      cout << "UTAPTraceParser parseState: ERROR duplicate dbm entry" << endl;
     }
   }
   if (parsed) {
@@ -344,16 +355,16 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
   if (global_clock_it != trace_ta.clocks.end()) {
     for (size_t trans_offset = 0; trans_offset <= delay_pos; trans_offset++) {
       auto ta_trans_it = trace_ta.transitions.begin() + trans_offset;
-      timepoint execute_at =
-          (parsed_trace.begin() + trans_offset)->first.global_clock.second;
+      timepoint execute_at = (parsed_trace.begin() + trans_offset)
+                                 ->first.global_clock.second.first;
       if (trans_offset == delay_pos) {
-        execute_at =
-            (parsed_trace.begin() + trans_offset)->first.global_clock.first +
-            delay;
+        execute_at = (parsed_trace.begin() + trans_offset)
+                         ->first.global_clock.first.first +
+                     delay;
       }
       ta_trans_it->guard = std::make_unique<ConjunctionCC>(
           *ta_trans_it->guard.get(),
-          ComparisonCC(*global_clock_it, ComparisonOp::EQ, execute_at));
+          ComparisonCC(*global_clock_it, ComparisonOp::GTE, execute_at));
     }
     AutomataSystem trace_system;
     trace_system.instances.push_back(std::make_pair(trace_ta, ""));
@@ -403,7 +414,8 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
         res.back().global_clock.second = src_duration.global_clock.first;
         // progress all clocks
         for (const auto &cl : trace_ta.clocks) {
-          curr_clock_values[cl] += (src_duration.global_clock.first - last_lb);
+          curr_clock_values[cl] +=
+              (src_duration.global_clock.first.first - last_lb);
         }
         // reset clocks on transition
         for (const auto &cl_up : ta_trans->update) {
@@ -412,9 +424,9 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
         // update the dbm
         for (const auto &cl : trace_ta.clocks) {
           dst_dbm_it->second[std::make_pair("t(0)", cl.get()->id)] =
-              -curr_clock_values[cl];
+              std::make_pair(-curr_clock_values[cl], true);
         }
-        last_lb = src_duration.global_clock.first;
+        last_lb = src_duration.global_clock.first.first;
         res.push_back(determineSpecialClockBounds(dst_dbm_it->second));
       } else {
         std::cout << "ERROR, dbm not found: " << ta_trans->dest_id << std::endl;
