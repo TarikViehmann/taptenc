@@ -15,10 +15,6 @@
  * Different bounds representation, where [clock1,clock2] -> i means
  * clock1 - clock2 <= i.
  */
-typedef ::std::unordered_map<::std::pair<::std::string, ::std::string>,
-                             taptenc::timepoint>
-    dbm_t;
-
 namespace taptenc {
 /**
  * Wrapper for bounds on global time clock.
@@ -28,6 +24,15 @@ struct specialClocksInfo {
   timepoint max_delay;
 };
 typedef specialClocksInfo SpecialClocksInfo;
+
+typedef ::std::unordered_map<::std::pair<::std::string, ::std::string>,
+                             taptenc::timepoint>
+    dbm_t;
+
+typedef ::std::vector<
+    ::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
+    timed_trace_t;
+
 class UTAPTraceParser {
 
 public:
@@ -41,14 +46,23 @@ public:
   bool parseTraceInfo(const ::std::string &file);
 
   /**
+   * Applies a delay to the concrete trace and calculates a new temporal trace
+   * from it.
+   *
+   * @param delay_pos index of concrete state where the delay occured
+   * @pram delay delay duration
+   */
+  timed_trace_t applyDelay(size_t delay_pos, timepoint delay);
+
+  /**
    * Extracts the timed trace after a trace has been parsed.
    *
    * Needs to be called after parseTraceInfo().
    *
    * @return timed trace
    */
-  ::std::vector<::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
-  getTimedTrace(const Automaton &base_ta, const Automaton &plan_ta);
+  timed_trace_t getTimedTrace(const Automaton &base_ta,
+                              const Automaton &plan_ta);
 
 private:
   bool parsed = false;
@@ -57,7 +71,15 @@ private:
   std::vector<State> source_states;
   std::unordered_map<::std::shared_ptr<Clock>, timepoint> curr_clock_values;
   std::unordered_map<std::string, dbm_t> ta_to_symbolic_state;
+  timed_trace_t parsed_trace;
 
+  /**
+   * Calculates the fastest concrete trace timings from a parsed symbolic trace.
+   *
+   * @return Timings of the concrete trace ordered according to the symbolic
+   *         state orderings.
+   */
+  ::std::vector<SpecialClocksInfo> getTraceTimings();
   /**
    * Retrieves all actions that are associated to a given trace transition.
    *

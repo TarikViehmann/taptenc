@@ -7,9 +7,12 @@
 #include "../constants.h"
 #include "../constraints/constraints.h"
 #include "../encoder/filter.h"
+#include "../printer/printer.h"
 #include "../timed-automata/timed_automata.h"
+#include "../uppaal_calls.h"
 #include "../utils.h"
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -109,6 +112,9 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
 }
 
 ::std::string UTAPTraceParser::addStateToTraceTA(::std::string state_id) {
+  if (parsed) {
+    return state_id;
+  }
   auto source_state_it =
       std::find_if(source_states.begin(), source_states.end(),
                    [state_id](const State &s) { return s.id == state_id; });
@@ -132,8 +138,12 @@ void UTAPTraceParser::parseState(std::string &currentReadLine) {
   size_t eow = currentReadLine.find_first_of(" \t");
   // skip "State: "
   currentReadLine = currentReadLine.substr(eow + 1);
-  // skip state name
+  // skip component name
+  eow = currentReadLine.find_first_of(".");
+  currentReadLine = currentReadLine.substr(eow + 1);
   eow = currentReadLine.find_first_of(" ");
+  std::string parsed_state_name = currentReadLine.substr(0, eow);
+  // skip state name
   currentReadLine = currentReadLine.substr(eow + 1);
   while (currentReadLine != "") {
     eow = currentReadLine.find_first_of("-");
@@ -160,12 +170,18 @@ void UTAPTraceParser::parseState(std::string &currentReadLine) {
       cout << "ERROR: duplicate dbm entry" << endl;
     }
   }
-  size_t state_suffix = trace_ta.states.size();
-  if (trace_ta.states.size() != 0) {
-    state_suffix -= 1;
+  if (parsed) {
+    // we currently parse a trace from the trace TA, therefore the name is
+    // already correct.
+    ta_to_symbolic_state.insert(std::make_pair(parsed_state_name, closed_dbm));
+  } else {
+    size_t state_suffix = trace_ta.states.size();
+    if (trace_ta.states.size() != 0) {
+      state_suffix -= 1;
+    }
+    ta_to_symbolic_state.insert(
+        std::make_pair("trace" + std::to_string(state_suffix), closed_dbm));
   }
-  ta_to_symbolic_state.insert(
-      std::make_pair("trace" + std::to_string(state_suffix), closed_dbm));
 }
 
 void UTAPTraceParser::parseTransition(std::string &currentReadLine) {
@@ -202,17 +218,40 @@ void UTAPTraceParser::parseTransition(std::string &currentReadLine) {
   sync_str = (sync_str == "0") ? "" : convertCharsToHTML(sync_str);
   update_str = (update_str == "1") ? "" : convertCharsToHTML(update_str);
   // add parsed transition to trace ta
-  std::string trace_ta_source_id;
-  if (trace_to_ta_ids.size() == 0) {
-    // this is the first transition, so also create the source state
-    trace_ta_source_id = addStateToTraceTA(source_id);
+  std::string trace_ta_source_id = source_id;
+  std::string trace_ta_dest_id = dest_id;
+  // if the parser already parsed a trace this means that the now parsed state
+  // ids correspond to the states of trace_ta, therefore only update the already
+  // parsed guard.
+  if (parsed) {
+    auto trans_entry = std::find_if(
+        trace_ta.transitions.begin(), trace_ta.transitions.end(),
+        [trace_ta_source_id, trace_ta_dest_id](const Transition &t) {
+          return t.source_id == trace_ta_source_id &&
+                 t.dest_id == trace_ta_dest_id;
+        });
+    if (trans_entry != trace_ta.transitions.end()) {
+      trans_entry->guard = std::make_unique<UnparsedCC>(UnparsedCC(guard_str));
+    } else {
+      std::cout << "UTAPTraceParser parseTransition: cannot find original "
+                   "transition while parsing trace from trace TA: "
+                << trace_ta_source_id << " -> " << trace_ta_dest_id
+                << std::endl;
+    }
+  // else add a fresh state to trace_ta.
   } else {
-    trace_ta_source_id = "trace" + std::to_string((trace_to_ta_ids.size() - 1));
+    if (trace_to_ta_ids.size() == 0) {
+      // this is the first transition, so also create the source state
+      trace_ta_source_id = addStateToTraceTA(source_id);
+    } else {
+      trace_ta_source_id =
+          "trace" + std::to_string((trace_to_ta_ids.size() - 1));
+    }
+    trace_ta_dest_id = addStateToTraceTA(dest_id);
+    trace_ta.transitions.push_back(Transition(
+        trace_ta_source_id, trace_ta_dest_id, "", UnparsedCC(guard_str),
+        Transition::updateFromString(update_str, trace_ta.clocks), sync_str));
   }
-  std::string trace_ta_dest_id = addStateToTraceTA(dest_id);
-  trace_ta.transitions.push_back(Transition(
-      trace_ta_source_id, trace_ta_dest_id, "", UnparsedCC(guard_str),
-      Transition::updateFromString(update_str, trace_ta.clocks), sync_str));
 }
 
 ::std::vector<::std::string>
@@ -292,11 +331,57 @@ UTAPTraceParser::getActionsFromTraceTrans(const Transition &trans,
   return res;
 }
 
-::std::vector<::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
-UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
-                               const Automaton &plan_ta) {
-  ::std::vector<::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
-      res;
+timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
+  if (delay_pos >= trace_ta.transitions.size()) {
+    std::cout
+        << "UTAPTraceParser applyDelay: Error, delay pos not valid. Abort."
+        << std::endl;
+    return timed_trace_t();
+  }
+  auto global_clock_it = std::find_if(
+      trace_ta.clocks.begin(), trace_ta.clocks.end(),
+      [](const auto &cl) { return cl.get()->id == constants::GLOBAL_CLOCK; });
+  if (global_clock_it != trace_ta.clocks.end()) {
+    for (size_t trans_offset = 0; trans_offset <= delay_pos; trans_offset++) {
+      auto ta_trans_it = trace_ta.transitions.begin() + trans_offset;
+      timepoint execute_at =
+          (parsed_trace.begin() + trans_offset)->first.global_clock.second;
+      if (trans_offset == delay_pos) {
+        execute_at =
+            (parsed_trace.begin() + trans_offset)->first.global_clock.first +
+            delay;
+      }
+      ta_trans_it->guard = std::make_unique<ConjunctionCC>(
+          *ta_trans_it->guard.get(),
+          ComparisonCC(*global_clock_it, ComparisonOp::EQ, execute_at));
+    }
+    AutomataSystem trace_system;
+    trace_system.instances.push_back(std::make_pair(trace_ta, ""));
+    std::string query_str =
+        "E<> sys_" + trace_ta.prefix + "." + trace_ta.states.back().id;
+    uppaalcalls::solve(trace_system, "trace_ta", query_str);
+    ta_to_symbolic_state.clear();
+    parseTraceInfo("trace_ta.trace");
+
+    for (auto &cl_val : curr_clock_values) {
+      cl_val.second = 0;
+    }
+    std::vector<SpecialClocksInfo> timings = getTraceTimings();
+    assert(timings.size() == parsed_trace.size() + 1);
+    for (size_t i = delay_pos; i < parsed_trace.size(); i++) {
+      (parsed_trace.begin() + i)->first = *(timings.begin() + i);
+    }
+    return parsed_trace;
+  } else {
+    std::cout
+        << "UTAPTraceParser applyDelay: Error, global clock not found. Abort."
+        << std::endl;
+    return parsed_trace;
+  }
+}
+
+::std::vector<SpecialClocksInfo> UTAPTraceParser::getTraceTimings() {
+  std::vector<SpecialClocksInfo> res;
   if (parsed == true) {
     timepoint last_lb = 0;
     for (auto ta_trans = trace_ta.transitions.begin();
@@ -304,9 +389,7 @@ UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
       if (ta_trans == trace_ta.transitions.begin()) {
         auto src_dbm_it = ta_to_symbolic_state.find(ta_trans->source_id);
         if (src_dbm_it != ta_to_symbolic_state.end()) {
-          res.push_back(
-              std::make_pair(determineSpecialClockBounds(src_dbm_it->second),
-                             std::vector<std::string>()));
+          res.push_back(determineSpecialClockBounds(src_dbm_it->second));
         } else {
           std::cout << "ERROR, dbm not found: " << ta_trans->source_id
                     << std::endl;
@@ -317,10 +400,7 @@ UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
         SpecialClocksInfo src_duration =
             determineSpecialClockBounds(dst_dbm_it->second);
         // add upper bound to previous (=source) state
-        res.back().first.global_clock.second = src_duration.global_clock.first;
-        // add actions to previous (=source) state
-        res.back().second =
-            getActionsFromTraceTrans(*ta_trans, base_ta, plan_ta);
+        res.back().global_clock.second = src_duration.global_clock.first;
         // progress all clocks
         for (const auto &cl : trace_ta.clocks) {
           curr_clock_values[cl] += (src_duration.global_clock.first - last_lb);
@@ -335,9 +415,7 @@ UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
               -curr_clock_values[cl];
         }
         last_lb = src_duration.global_clock.first;
-        res.push_back(
-            std::make_pair(determineSpecialClockBounds(dst_dbm_it->second),
-                           std::vector<std::string>()));
+        res.push_back(determineSpecialClockBounds(dst_dbm_it->second));
       } else {
         std::cout << "ERROR, dbm not found: " << ta_trans->dest_id << std::endl;
       }
@@ -349,6 +427,21 @@ UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
         << std::endl;
     return res;
   }
+}
+
+timed_trace_t UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
+                                             const Automaton &plan_ta) {
+  std::vector<SpecialClocksInfo> trace_timings = getTraceTimings();
+  timed_trace_t res;
+  assert(trace_timings.size() == trace_ta.transitions.size() + 1);
+  for (size_t i = 0; i < trace_ta.transitions.size(); i++) {
+    res.push_back(std::make_pair(
+        *(trace_timings.begin() + i),
+        getActionsFromTraceTrans(*(trace_ta.transitions.begin() + i), base_ta,
+                                 plan_ta)));
+  }
+  parsed_trace = res;
+  return res;
 }
 
 bool UTAPTraceParser::parseTraceInfo(const std::string &file) {
