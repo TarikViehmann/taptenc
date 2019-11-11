@@ -103,7 +103,7 @@ public:
    *
    * @param s automata system to generate visual information for
    */
-  systemVisInfo(AutomataSystem &s);
+  systemVisInfo(const AutomataSystem &s);
 
   /**
    * Generates all necessary visual information for #TimeLines representation

@@ -57,7 +57,7 @@ transitionVisInfo::transitionVisInfo(::std::pair<int, int> arg_source_pos,
   }
 }
 
-systemVisInfo::systemVisInfo(AutomataSystem &s) {
+systemVisInfo::systemVisInfo(const AutomataSystem &s) {
   for (auto it = s.instances.begin(); it != s.instances.end(); ++it) {
     m_state_info.push_back(this->generateStateInfo(it->first.states));
     m_transition_info.push_back(this->generateTransitionInfo(
