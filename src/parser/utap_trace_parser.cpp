@@ -135,10 +135,10 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
     trace_to_ta_ids.insert(std::make_pair(ta_state_id, source_state_it->id));
     trace_ta.states.push_back(ta_state);
   } else {
-    std::cout << "UTAPTraceParser parseState: Error, source state not found: "
-              << state_id << std::endl;
+    std::cout
+        << "UTAPTraceParser addStateToTraceTA: Error, source state not found: "
+        << state_id << std::endl;
   }
-  std::cout << "CREATED: " << ta_state_id << std::endl;
   return ta_state_id;
 }
 
@@ -249,7 +249,7 @@ void UTAPTraceParser::parseTransition(std::string &currentReadLine) {
                 << trace_ta_source_id << " -> " << trace_ta_dest_id
                 << std::endl;
     }
-  // else add a fresh state to trace_ta.
+    // else add a fresh state to trace_ta.
   } else {
     if (trace_to_ta_ids.size() == 0) {
       // this is the first transition, so also create the source state
