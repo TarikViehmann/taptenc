@@ -16,21 +16,68 @@
 
 namespace taptenc {
 /**
- * Piecewise addition for pairs.
+ * Addition robust to positive infinity.
+ * Prevents overflows and substractions from infinity.
+ *
+ * @tparam T type that has std::numeric_limits::max()
+ * @param add1 first summand
+ * @param add2 second summand
+ * @return add1 + add2 or std::numeric_limits::max() if either summand has max
+ *         value
+ *
+ */
+template <typename T> T safeAddition(T add1, T add2) {
+  return (add1 < std::numeric_limits<T>::max() &&
+          add2 < std::numeric_limits<T>::max())
+             ? add1 + add2
+             : ::std::numeric_limits<T>::max();
+}
+/**
+ * Substraction robust to positive infinity.
+ *
+ * @tparam T type that has std::numeric_limits::max()
+ * @param sub1 minuend
+ * @param sub2 subtrahend
+ * @return sub1 - sub2 or std::numeric_limits::max() if \a sub1 has the max
+ *         value or std.:numberic_limits::min() if \a sub2 has the max value.
+ *
+ */
+template <typename T> T safeSubstraction(T sub1, T sub2) {
+  if (sub1 == std::numeric_limits<T>::max()) {
+    return std::numeric_limits<T>::max();
+  } else if (sub2 == std::numeric_limits<T>::max()) {
+    return std::numeric_limits<T>::min();
+  } else {
+    return sub1 - sub2;
+  }
+}
+
+/**
+ * Piecewise addition for pairs applying safeAddition().
  */
 template <typename T, typename U>
 ::std::pair<T, U> operator+(const ::std::pair<T, U> &l,
                             const ::std::pair<T, U> &r) {
-  return ::std::make_pair(l.first + r.first, l.second + r.second);
+  return ::std::make_pair(safeAddition(l.first, r.first),
+                          safeAddition(l.second, r.second));
 }
 /**
- * Piecewise substraction for pairs.
+ * Piecewise substraction for pairs applying safeSubstraction().
  */
 template <typename T, typename U>
 ::std::pair<T, U> operator-(const ::std::pair<T, U> &l,
                             const ::std::pair<T, U> &r) {
-  return ::std::make_pair(l.first - r.first, l.second - r.second);
+  return ::std::make_pair(safeSubstraction(l.first, r.first),
+                          safeSubstraction(l.second, r.second));
 }
+// /**
+//  * Piecewise comparison for pairs.
+//  */
+// template <typename T, typename U>
+// bool operator<(const ::std::pair<T, U> &l,
+//                             const ::std::pair<T, U> &r) {
+//   return l.first < r.first || (l.first == r.first && l.second < r.second);
+// }
 
 /**
  * Calculates the middle points between two points.
@@ -140,20 +187,6 @@ void replaceStringInPlace(::std::string &subject, const ::std::string &search,
  */
 ::std::vector<::std::string> splitBySep(::std::string s, char sep);
 
-/**
- * Addition robust to overflows.
- *
- * @tparam T type that has std::numeric_limits::max()
- * @param add1 first summand
- * @param add2 second summand
- * @return add1+add2 or std::numeric_limits::max() if this would overflow
- *
- */
-template <typename T> T safeAddition(T add1, T add2) {
-  return (add1 < std::numeric_limits<T>::max() - add2)
-             ? add1 + add2
-             : ::std::numeric_limits<T>::max();
-}
 } // end namespace taptenc
 
 namespace std {
