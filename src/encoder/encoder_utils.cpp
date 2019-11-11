@@ -19,7 +19,7 @@
 using namespace taptenc;
 
 ::std::shared_ptr<Clock> encoderutils::addClock(update_t &update,
-                                                const std::string clock_id) {
+                                                const ::std::string clock_id) {
   auto clock_search =
       std::find_if(update.begin(), update.end(), [clock_id](const auto &cl) {
         return clock_id == cl.get()->id;
