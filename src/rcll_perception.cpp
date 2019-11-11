@@ -5,6 +5,7 @@
 #include "platform_model_generator.h"
 #include "printer.h"
 #include "timed_automata.h"
+#include "uppaal_calls.h"
 #include "utap_trace_parser.h"
 #include "utap_xml_parser.h"
 #include "vis_info.h"
@@ -210,63 +211,8 @@ createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
 //   return enc;
 // }
 
-void deleteEmptyLines(const std::string &filePath) {
-  std::string bufferString = "";
-
-  // file
-  std::fstream fileStream;
-  std::string currentReadLine;
-  fileStream.open(filePath, std::fstream::in); // open the file in Input mode
-
-  // Read all the lines till the end of the file
-  while (getline(fileStream, currentReadLine)) {
-    // Check if the line is empty
-    if (!currentReadLine.empty()) {
-      currentReadLine = trim(currentReadLine);
-      bufferString = bufferString + currentReadLine + "\n";
-    }
-  }
-  fileStream.close();
-  fileStream.open(filePath,
-                  std::ios::out |
-                      std::ios::trunc); // open file in Output mode. This line
-                                        // will delete all data inside the file.
-  fileStream << bufferString;
-  fileStream.close();
-}
-
-std::string getEnvVar(std::string const &key) {
-  char *val = std::getenv(key.c_str());
-  if (val == NULL) {
-    cout << "Environment Variable " << key << " not set!" << endl;
-    return "";
-  }
-  return std::string(val);
-}
-void solve(std::string file_name, Automaton &base_ta, Automaton &plan_ta,
-           AutomataSystem &encoded_system) {
-  std::ofstream myfile;
-  myfile.open(file_name + ".q", std::ios_base::trunc);
-  myfile << "E<> sys_direct." << constants::QUERY;
-  myfile.close();
-  string call_get_if = "UPPAAL_COMPILE_ONLY=1 " + getEnvVar("VERIFYTA_DIR") +
-                       "/verifyta -C " + file_name + ".xml - > " + file_name +
-                       ".if";
-  std::system(call_get_if.c_str());
-  string call_get_trace = getEnvVar("VERIFYTA_DIR") + "/verifyta -C -t 1 -f " +
-                          file_name + " -Y " + file_name + ".xml " + file_name +
-                          ".q";
-  std::system(call_get_trace.c_str());
-  deleteEmptyLines(file_name + "-1.xtr");
-  string call_make_trace_readable = "tracer " + file_name + ".if " + file_name +
-                                    "-1.xtr > " + file_name + ".trace";
-  std::system(call_make_trace_readable.c_str());
-  UTAPTraceParser trace_parser(encoded_system);
-  trace_parser.parseTraceInfo(file_name + ".trace");
-}
-
 int main() {
-  if (getEnvVar("VERIFYTA_DIR") == "") {
+  if (uppaalcalls::getEnvVar("VERIFYTA_DIR") == "") {
     cout << "ERROR: VERIFYTA_DIR not set!" << endl;
     return -1;
   }
@@ -405,8 +351,7 @@ int main() {
       PlanOrderedTLs::productTA(perception_ta, comm_ta, "product", true);
   product_ta = PlanOrderedTLs::productTA(product_ta, calib_ta, "product", true);
   product_ta = PlanOrderedTLs::productTA(product_ta, pos_ta, "product", true);
-  solve("merged_direct", product_ta,
-        base_system.instances[enc3.getPlanTAIndex()].first, direct_system4);
+  uppaalcalls::solve("merged_direct");
 
   return 0;
 }
