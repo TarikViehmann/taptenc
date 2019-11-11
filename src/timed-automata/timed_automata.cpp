@@ -154,7 +154,6 @@ update_t transition::updateFromString(const ::std::string &update,
       std::cout << "Transition updateFromString: cannot find clock "
                 << curr_clock << std::endl;
     }
-    std::cout << "\t" << update_str << std::endl;
     update_str =
         update_str.substr(update_str.find(constants::UPDATE_CONJUNCTION) + 1);
     next_assignment_pos = update_str.find("=");

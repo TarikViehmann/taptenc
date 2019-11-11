@@ -203,8 +203,8 @@ Automaton Filter::filterAutomaton(const Automaton &source,
             *search->inv.get(), search->urgent, search->initial));
       }
     } else {
-      std::cout << "Filter filterAutomaton: filter state not found (id "
-                << f_state.id << ")" << std::endl;
+      // std::cout << "Filter filterAutomaton: filter state not found (id "
+      //           << f_state.id << ")" << std::endl;
     }
   }
   for (const auto &trans : source.transitions) {
