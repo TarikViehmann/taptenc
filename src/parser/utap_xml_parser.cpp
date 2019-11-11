@@ -51,7 +51,7 @@ ComparisonOp getComparisonOpFromUtapKind(UTAP::Constants::kind_t op) {
 /**
  * Tries to parse an utap expression_t into a taptenc clock constraint.
  *
- * @param expr clocks clocks that may be referenced in the expression \a expr
+ * @param clocks clocks that may be referenced in the expression \a expr
  * @param expr utap expression representing a clock constraint
  * @return clock constraint of \a expr. If the parsing fails for any reason,
  *         a pointer to a TrueCC constraint is returned.

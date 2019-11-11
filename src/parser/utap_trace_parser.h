@@ -60,7 +60,8 @@ public:
    * from it.
    *
    * @param delay_pos index of concrete state where the delay occured
-   * @pram delay delay duration
+   * @param delay delay duration (full duration of the visit in the state at
+   *        position \a delay_pos)
    */
   timed_trace_t applyDelay(size_t delay_pos, timepoint delay);
 
@@ -93,7 +94,7 @@ private:
   /**
    * Retrieves all actions that are associated to a given trace transition.
    *
-   * @pram trace transition from trace_ta
+   * @param trans trace transition from trace_ta
    * @param base_ta platform TA that was used in the encoding
    * @param plan_ta plan automaton used in the encoding
    * @return all actions that are attached to the platform and plan TA
