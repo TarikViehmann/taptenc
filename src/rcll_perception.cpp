@@ -11,6 +11,7 @@
 #include "vis_info.h"
 #include <algorithm>
 #include <assert.h>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <functional>
@@ -310,7 +311,7 @@ int main() {
   AutomataSystem pos_system =
       utapxmlparser::readXMLSystem("platform_models/position.xml");
   Automaton pos_ta = pos_system.instances[0].first;
-  // pos_system.instances.push_back(make_pair(pos_ta, ""));
+  pos_system.instances.push_back(make_pair(pos_ta, ""));
   DirectEncoder pos_enc = createDirectEncoding(
       pos_system, plan,
       benchmarkgenerator::generatePositionConstraints(pos_ta));
@@ -351,7 +352,42 @@ int main() {
       PlanOrderedTLs::productTA(perception_ta, comm_ta, "product", true);
   product_ta = PlanOrderedTLs::productTA(product_ta, calib_ta, "product", true);
   product_ta = PlanOrderedTLs::productTA(product_ta, pos_ta, "product", true);
+  auto t1 = std::chrono::high_resolution_clock::now();
   uppaalcalls::solve("merged_direct");
+  auto t2 = std::chrono::high_resolution_clock::now();
+  UTAPTraceParser trace_parser(direct_system4);
+  trace_parser.parseTraceInfo("merged_direct.trace");
+  auto res = trace_parser.getTimedTrace(
+      product_ta, base_system.instances[enc3.getPlanTAIndex()].first);
+  auto res3 = trace_parser.applyDelay(1, 37);
+  auto res4 = trace_parser.applyDelay(4, 3);
+  auto res2 = trace_parser.applyDelay(37, 9);
+  for (size_t i = 0; i < res.size(); i++) {
+    auto tp = res[i];
+    auto tp2 = res2[i];
+    std::string lb = (tp.first.global_clock.first.second) ? "(" : "[";
+    std::string ub = (tp.first.global_clock.second.second) ? "(" : "]";
+    std::string ub_delay = (tp.first.max_delay.second) ? ")" : "]";
+    std::cout << lb << tp.first.global_clock.first.first << ", "
+              << tp.first.global_clock.second.first << ub << "(+ "
+              << tp.first.max_delay.first << ub_delay << ":"
+              << "\t\t\t";
+    lb = (tp2.first.global_clock.first.second) ? "(" : "[";
+    ub = (tp2.first.global_clock.second.second) ? "(" : "]";
+    ub_delay = (tp2.first.max_delay.second) ? ")" : "]";
+    std::cout << lb << tp2.first.global_clock.first.first << ", "
+              << tp2.first.global_clock.second.first << ub << "(+ "
+              << tp2.first.max_delay.first << ub_delay << std::endl;
+    for (size_t j = 0; j < tp.second.size(); j++) {
+      auto ac = tp.second[j];
+      auto ac2 = tp2.second[j];
+      std::cout << "\t" << ac << std::endl;
+    }
+  }
+  std::cout << "duration in seconds, that it took to solve" << std::endl;
+  auto duration =
+      std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
 
+  std::cout << duration << std::endl;
   return 0;
 }
