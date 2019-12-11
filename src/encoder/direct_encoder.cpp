@@ -720,6 +720,44 @@ size_t DirectEncoder::getPlanTAIndex() { return plan_ta_index; }
 
 AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
                                                 SystemVisInfo &s_vis) {
+  // Check if all outgoing transitions actually connect existing states
+  // Currently in rare cases a transition is not cleaned up properly during
+  // encoding, if the endpoints are manipulated.
+  for (auto curr_pa = po_tls.pa_order.get()->begin();
+       curr_pa != po_tls.pa_order.get()->end(); ++curr_pa) {
+    for (auto &tl : (*po_tls.tls.get())[*curr_pa]) {
+      std::vector<Transition> pruned_trans_out;
+      for (auto &trans : tl.second.trans_out) {
+        auto find_source = std::find_if(
+            tl.second.ta.states.begin(), tl.second.ta.states.end(),
+            [trans](const State &s) { return s.id == trans.source_id; });
+        if (find_source == tl.second.ta.states.end()) {
+          continue;
+        }
+        bool dest_found = false;
+        std::cout << Filter::getPrefix(trans.dest_id, constants::TL_SEP)
+                  << std::endl;
+        for (const auto &search_tl : (*po_tls.tls.get())[Filter::getPrefix(
+                 trans.dest_id, constants::TL_SEP)]) {
+          std::cout << search_tl.second.ta.states.size() << std::endl;
+          auto find_dest = std::find_if(
+              search_tl.second.ta.states.begin(),
+              search_tl.second.ta.states.end(),
+              [trans](const State &s) { return s.id == trans.dest_id; });
+          if (find_dest != search_tl.second.ta.states.end()) {
+            dest_found = true;
+            break;
+          }
+        }
+        if (!dest_found) {
+          continue;
+        } else {
+          pruned_trans_out.push_back(trans);
+        }
+      }
+      tl.second.trans_out = pruned_trans_out;
+    }
+  }
   s_vis = SystemVisInfo(*(po_tls.tls.get()), *(po_tls.pa_order.get()));
   AutomataSystem res = s;
   res.instances.clear();
