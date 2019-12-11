@@ -506,6 +506,7 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
           if (this_ic_trans.dest_id != constants::QUERY &&
               Filter::getPrefix(this_ic_trans.source_id, constants::TL_SEP) ==
                   Filter::getPrefix(this_ic_trans.dest_id, constants::TL_SEP)) {
+            // transitions within timelines
             for (const auto &s : merged_other_ta.states) {
               Transition copy_trans = this_ic_trans;
               copy_trans.source_id =
@@ -524,6 +525,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
             }
 
           } else {
+            // create outgoing transitions by merging outgoing
+            // transitions of this_ic_trans and other_ic_trans
             for (const auto &other_ic_trans : outgoing) {
               Transition out_tr = other_ic_trans;
               out_tr.source_id = encoderutils::mergeIds(

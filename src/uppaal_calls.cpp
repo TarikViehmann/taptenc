@@ -1,3 +1,11 @@
+/** \file
+ * Interface to call uppaal tools.
+ *
+ * Since there is no powerful C++ API the tools have to be invoked via system
+ * calls.
+ *
+ * @author (2019) Tarik Viehmann
+ */
 #include "uppaal_calls.h"
 #include "printer/printer.h"
 #include "timed-automata/timed_automata.h"
@@ -9,13 +17,13 @@
 
 namespace taptenc {
 namespace uppaalcalls {
-void deleteEmptyLines(const std::string &filePath) {
+void deleteEmptyLines(const std::string &file_name) {
   std::string bufferString = "";
 
   // file
   std::fstream fileStream;
   std::string currentReadLine;
-  fileStream.open(filePath, std::fstream::in); // open the file in Input mode
+  fileStream.open(file_name, std::fstream::in); // open the file in Input mode
 
   // Read all the lines till the end of the file
   while (getline(fileStream, currentReadLine)) {
@@ -26,7 +34,7 @@ void deleteEmptyLines(const std::string &filePath) {
     }
   }
   fileStream.close();
-  fileStream.open(filePath,
+  fileStream.open(file_name,
                   std::ios::out |
                       std::ios::trunc); // open file in Output mode. This line
                                         // will delete all data inside the file.
@@ -56,11 +64,11 @@ void solve(std::string file_name, std::string query_str) {
   myfile << query_str;
   myfile.close();
   std::string call_get_if = "UPPAAL_COMPILE_ONLY=1 " +
-                            getEnvVar("VERIFYTA_DIR") + "/verifyta -C " +
+                            getEnvVar("VERIFYTA_DIR") + "/verifyta " +
                             file_name + ".xml - > " + file_name + ".if";
   std::system(call_get_if.c_str());
   std::string call_get_trace = getEnvVar("VERIFYTA_DIR") +
-                               "/verifyta -C -t 1 -f " + file_name + " -Y " +
+                               "/verifyta -t 2  -f " + file_name + " -Y " +
                                file_name + ".xml " + file_name + ".q";
   std::system(call_get_trace.c_str());
   deleteEmptyLines(file_name + "-1.xtr");
