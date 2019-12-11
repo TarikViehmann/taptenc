@@ -46,6 +46,9 @@ typedef ::std::vector<
 class UTAPTraceParser {
 
 public:
+  /**
+   * Creates a trace parser from an automata system.
+   */
   UTAPTraceParser(const AutomataSystem &s);
   /**
    * Parses a .trace file (output of uppaal).
