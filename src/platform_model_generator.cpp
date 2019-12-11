@@ -177,6 +177,7 @@ benchmarkgenerator::generatePerceptionConstraints(
   Bounds vision_bounds(5, 10); // numeric_limits<int>::max());
   Bounds puck_sense_bounds(2, 5, ComparisonOp::LTE, ComparisonOp::LTE);
   Bounds end_bounds(0, 5);
+  Bounds null_bounds(0, 0);
   if (pa_names.size() == 100000) {
     end_bounds.lower_bound = 100;
   }
@@ -200,13 +201,14 @@ benchmarkgenerator::generatePerceptionConstraints(
   activations["pick"].emplace_back(make_unique<ChainInfo>(
       "icp_chain", ICType::UntilChain,
       // start with a booted cam
-      vector<TargetSpecs>{TargetSpecs(vision_bounds, cam_on_filter),
+      vector<TargetSpecs>{TargetSpecs(null_bounds, perception_ta.states),
+                          TargetSpecs(vision_bounds, cam_on_filter),
                           // be done with icp after vision_bounds
                           TargetSpecs(full_bounds, vision_filter),
                           // do not do ICP again until pick action is done
                           TargetSpecs(full_bounds, no_vision_filter)},
       "endpick"));
-  // // until chain to do icp
+  // // until chain to take a pic
   activations["pick"].emplace_back(make_unique<ChainInfo>(
       "pic_chain", ICType::UntilChain,
       // start however
@@ -220,13 +222,14 @@ benchmarkgenerator::generatePerceptionConstraints(
   activations["put"].emplace_back(make_unique<ChainInfo>(
       "icp_chain2", ICType::UntilChain,
       // start with a booted cam
-      vector<TargetSpecs>{TargetSpecs(vision_bounds, cam_on_filter),
+      vector<TargetSpecs>{TargetSpecs(null_bounds, perception_ta.states),
+                          TargetSpecs(vision_bounds, cam_on_filter),
                           // be done with icp after vision_bounds
                           TargetSpecs(full_bounds, vision_filter),
                           // do not do ICP again until pick action is done
                           TargetSpecs(full_bounds, no_vision_filter)},
       "endput"));
-  // // until chain to do icp
+  // // until chain to take a pic
   activations["put"].emplace_back(make_unique<ChainInfo>(
       "pic_chain2", ICType::UntilChain,
       // start however
