@@ -71,7 +71,7 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
   // 3. self loops get null costs
   dbm_entry_t null_constraint = std::make_pair(0, false);
   for (size_t i = 0; i < num_clocks; i++) {
-    distances[i][i] = std::make_pair(0, false);
+    distances[i][i] = null_constraint;
   }
   // 4. all possible shorter indirect routes are considered
   for (size_t k = 0; k < num_clocks; k++) {
@@ -101,21 +101,32 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
   // determine maximum delay in the symbolic state
 
   // Note that distances[t0][cl] holds the negated lower bound constraint on
-  // clock cl. Substract it from the null_constraint in order to obtain the
-  // lower bound.
+  // clock cl.
   dbm_entry_t max_delay =
       std::make_pair(std::numeric_limits<timepoint>::max(), false);
   for (size_t i = 0; i < distances[t0].size(); i++) {
     if (t0 != i) {
-      dbm_entry_t curr_max_delay =
-          distances[i][t0] - (null_constraint - distances[t0][i]);
+      // the the lower bound is negated, so flip everything
+      // e.g. if the entries are representing (i-t0 < y) and (t0-i <= -x)
+      // then the entries are (<,y) and (<=, -x). To apply constraint
+      // arithmetric we have remodel the lb constraint:
+      // t0-i <= -x   <=>   i-t0 >= x
+      // The corresponding upper bound constraint describing the excluded set
+      // is i -t0 < x, or as entry: (<,x)
+      dbm_entry_t curr_lb = distances[t0][i];
+      // curr_lb.first *=-1;
+      // curr_lb.second = !curr_lb.second;
+      dbm_entry_t curr_max_delay = distances[i][t0] + curr_lb;
       if (curr_max_delay < max_delay) {
         max_delay = curr_max_delay;
       }
     }
   }
-  res.global_clock = ::std::make_pair(null_constraint - distances[t0][glob],
-                                      distances[glob][t0]);
+  // to obtain the lower bound we have to negate the value, but not the
+  // strictness property
+  dbm_entry_t glob_lb = distances[t0][glob];
+  glob_lb.first *= -1;
+  res.global_clock = ::std::make_pair(glob_lb, distances[glob][t0]);
   res.max_delay = max_delay;
   return res;
 }
@@ -375,7 +386,7 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
     parseTraceInfo("trace_ta.trace");
 
     for (auto &cl_val : curr_clock_values) {
-      cl_val.second = 0;
+      cl_val.second = std::make_pair(0, false);
     }
     std::vector<SpecialClocksInfo> timings = getTraceTimings();
     assert(timings.size() == parsed_trace.size() + 1);
@@ -394,7 +405,6 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
 ::std::vector<SpecialClocksInfo> UTAPTraceParser::getTraceTimings() {
   std::vector<SpecialClocksInfo> res;
   if (parsed == true) {
-    timepoint last_lb = 0;
     for (auto ta_trans = trace_ta.transitions.begin();
          ta_trans != trace_ta.transitions.end(); ++ta_trans) {
       if (ta_trans == trace_ta.transitions.begin()) {
@@ -412,21 +422,41 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
             determineSpecialClockBounds(dst_dbm_it->second);
         // add upper bound to previous (=source) state
         res.back().global_clock.second = src_duration.global_clock.first;
+        // determine the updated upper bound of t(0) - global_clock by
+        // adding the negated previous bound together with the current one.
+        // Note that the bound is stored by negated by default, therefore
+        // the current lb is actually negated.
+        dbm_entry_t last_lb = res.back().global_clock.first;
+        dbm_entry_t progress = src_duration.global_clock.first;
+        // last_lb.first *= -1;
+        progress = progress - last_lb;
         // progress all clocks
         for (const auto &cl : trace_ta.clocks) {
-          curr_clock_values[cl] +=
-              (src_duration.global_clock.first.first - last_lb);
+          curr_clock_values[cl] = curr_clock_values[cl] + progress;
         }
         // reset clocks on transition
         for (const auto &cl_up : ta_trans->update) {
-          curr_clock_values[cl_up] = 0;
+          curr_clock_values[cl_up] = std::make_pair(0, false);
         }
         // update the dbm
         for (const auto &cl : trace_ta.clocks) {
-          dst_dbm_it->second[std::make_pair("t(0)", cl.get()->id)] =
-              std::make_pair(-curr_clock_values[cl], true);
+          auto cl_lb_entry =
+              std::find_if(dst_dbm_it->second.begin(), dst_dbm_it->second.end(),
+                           [cl](const auto &entry) {
+                             return entry.first.first == "t(0)" &&
+                                    entry.first.second == cl.get()->id;
+                           });
+          if (cl_lb_entry == dst_dbm_it->second.end()) {
+            std::cout << "create new entry" << std::endl;
+            dst_dbm_it->second[std::make_pair("t(0)", cl.get()->id)] =
+                curr_clock_values[cl];
+            dst_dbm_it->second[std::make_pair("t(0)", cl.get()->id)].first *=
+                -1;
+          } else {
+            cl_lb_entry->second = curr_clock_values[cl];
+            cl_lb_entry->second.first *= -1;
+          }
         }
-        last_lb = src_duration.global_clock.first.first;
         res.push_back(determineSpecialClockBounds(dst_dbm_it->second));
       } else {
         std::cout << "ERROR, dbm not found: " << ta_trans->dest_id << std::endl;
@@ -520,7 +550,7 @@ UTAPTraceParser::UTAPTraceParser(const AutomataSystem &s)
     trace_ta.clocks.insert(ta.first.clocks.begin(), ta.first.clocks.end());
   }
   for (const auto &cl : trace_ta.clocks) {
-    curr_clock_values.insert(std::make_pair(cl, 0));
+    curr_clock_values.insert(std::make_pair(cl, std::make_pair(0, false)));
   }
 }
 } // end namespace taptenc

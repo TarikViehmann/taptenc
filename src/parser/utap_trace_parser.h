@@ -83,7 +83,7 @@ private:
   Automaton trace_ta;
   std::unordered_map<std::string, std::string> trace_to_ta_ids;
   std::vector<State> source_states;
-  std::unordered_map<::std::shared_ptr<Clock>, timepoint> curr_clock_values;
+  std::unordered_map<::std::shared_ptr<Clock>, dbm_entry_t> curr_clock_values;
   std::unordered_map<std::string, dbm_t> ta_to_symbolic_state;
   timed_trace_t parsed_trace;
 
@@ -116,8 +116,6 @@ private:
 
   /**
    * Calculates bounds of the special clock counting global time from a DBM.
-   *
-   * TODO: also consider strict bounds
    *
    * @param differences different bound matrix of a symbolic state
    * @return SpecialClockInfo holding bounds on global time and maximal delay
