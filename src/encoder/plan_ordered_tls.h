@@ -164,12 +164,14 @@ public:
    *        that should be reached
    * @param guard guard to add on the created transitions
    * @param update update to add on the created transitions
+   * @param add_succ_trans if true, also adds successor transitions
    */
   void createTransitionsToWindow(
       const Automaton &base_ta, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
       ::std::string start_pa, ::std::string end_pa, const Filter &target_filter,
-      const ClockConstraint &guard, const update_t &update);
+      const ClockConstraint &guard, const update_t &update,
+      bool add_succ_trans);
 
   /**
    * Merges a timeline window into tls.

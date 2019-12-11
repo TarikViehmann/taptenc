@@ -214,9 +214,13 @@ public:
    *        with time bounds
    * @param base_index index of the platform TA in AutomataSystem::instances of
    * \a s
+   * @param add_succ_trans adds successor transitions, if set to true, which
+   *        is not necessary to encode future constraints, hence it is false per
+   *default
    */
   void encodeFuture(AutomataSystem &s, const ::std::string pa,
-                    const UnaryInfo &info, int base_index = 0);
+                    const UnaryInfo &info, int base_index = 0,
+                    bool add_succ_trans = false);
   /**
    * Encodes a constraint stating that upon reaching some plan action the
    * platform should be first in one set of target states and then later,
@@ -297,9 +301,13 @@ public:
    *        with time bounds
    * @param base_index index of the platform TA in AutomataSystem::instances of
    * \a s
+   * @param add_succ_trans adds successor transitions, if set to true, which
+   *        is not necessary to encode past constraints, hence it is false per
+   *default
    */
   void encodePast(AutomataSystem &s, const ::std::string pa,
-                  const UnaryInfo &info, int base_index = 0);
+                  const UnaryInfo &info, int base_index = 0,
+                  bool add_succ_trans = false);
 
   /**
    * Creates a DirectEncoder instance based of an automata system containing a
