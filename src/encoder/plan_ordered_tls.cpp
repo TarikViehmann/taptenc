@@ -145,7 +145,7 @@ void PlanOrderedTLs::createTransitionsToWindow(
     const Automaton &base_ta, TimeLines &dest_tls,
     const std::unordered_map<std::string, std::string> &map_to_orig,
     std::string start_pa, std::string end_pa, const Filter &target_filter,
-    const ClockConstraint &guard, const update_t &update) {
+    const ClockConstraint &guard, const update_t &update, bool add_succ_trans) {
   auto start_pa_entry =
       std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
   if (start_pa_entry == pa_order.get()->end()) {
@@ -185,18 +185,21 @@ void PlanOrderedTLs::createTransitionsToWindow(
           res = encoderutils::createCopyTransitionsBetweenTAs(
               source_entry.second.ta, dest_entry->second.ta,
               dest_entry->second.ta.states, guard, update, "");
-          std::vector<Transition> res_succ =
-              encoderutils::createSuccessorTransitionsBetweenTAs(
-                  base_ta, source_entry.second.ta, dest_entry->second.ta,
-                  source_entry.second.ta.states, guard, update);
-          target_filter.filterTransitionsInPlace(res, dest_entry->first, false);
-          target_filter.filterTransitionsInPlace(res_succ, dest_entry->first,
-                                                 false);
+          if (add_succ_trans) {
+            std::vector<Transition> res_succ =
+                encoderutils::createSuccessorTransitionsBetweenTAs(
+                    base_ta, source_entry.second.ta, dest_entry->second.ta,
+                    source_entry.second.ta.states, guard, update);
+            target_filter.filterTransitionsInPlace(res, dest_entry->first,
+                                                   false);
+            target_filter.filterTransitionsInPlace(res_succ, dest_entry->first,
+                                                   false);
+            source_entry.second.trans_out.insert(
+                source_entry.second.trans_out.end(), res_succ.begin(),
+                res_succ.end());
+          }
           source_entry.second.trans_out.insert(
               source_entry.second.trans_out.end(), res.begin(), res.end());
-          source_entry.second.trans_out.insert(
-              source_entry.second.trans_out.end(), res_succ.begin(),
-              res_succ.end());
         }
       }
     }
@@ -518,19 +521,6 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
               copy_trans.action =
                   encoderutils::mergeActions(dummy_action, copy_trans.action);
               product_trans_out.push_back(copy_trans);
-            }
-            for (const auto &tr : merged_other_ta.transitions) {
-              Transition succ_tr = tr;
-              succ_tr.source_id =
-                  encoderutils::mergeIds(this_ic_trans.source_id, tr.source_id);
-              succ_tr.dest_id =
-                  encoderutils::mergeIds(this_ic_trans.dest_id, tr.dest_id);
-              succ_tr.guard = addConstraint(*succ_tr.guard.get(),
-                                            *this_ic_trans.guard.get());
-              succ_tr.update = addUpdate(succ_tr.update, this_ic_trans.update);
-              succ_tr.action = encoderutils::mergeActions(succ_tr.action,
-                                                          this_ic_trans.action);
-              product_trans_out.push_back(succ_tr);
             }
 
           } else {
