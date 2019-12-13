@@ -269,77 +269,260 @@ createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
 //   return enc;
 // }
 
+std::string idToMachineStr(int i) {
+  if (i == -1)
+    return "start";
+  if (i == 0)
+    return "bs";
+  if (i == 1)
+    return "cs1";
+  if (i == 2)
+    return "cs2";
+  if (i == 3)
+    return "rs1";
+  if (i == 4)
+    return "rs2";
+  if (i == 5)
+    return "ds";
+  return "nomachine";
+}
+
+Bounds addBounds(const Bounds &a, const Bounds &b) {
+  return Bounds(safeAddition(a.lower_bound, b.lower_bound),
+                safeAddition(a.upper_bound, b.upper_bound),
+                a.l_op == b.l_op ? a.l_op : ComparisonOp::LT,
+                a.r_op == b.r_op ? a.r_op : ComparisonOp::LT);
+}
+
+Bounds addGrasp(::std::vector<PlanAction> &plan, std::string grasp,
+                std::string obj, int m, const bounds abs_bounds) {
+  Bounds grasp_bounds(15, 20);
+  Bounds end_bounds(0, 30);
+  Bounds res_abs_bounds = abs_bounds;
+  plan.push_back(
+      PlanAction(ActionName("start" + grasp, {obj, idToMachineStr(m)}),
+                 res_abs_bounds, grasp_bounds));
+  res_abs_bounds = addBounds(res_abs_bounds, grasp_bounds);
+  plan.push_back(PlanAction(ActionName("end" + grasp, {obj, idToMachineStr(m)}),
+                            res_abs_bounds, end_bounds));
+  res_abs_bounds = addBounds(res_abs_bounds, end_bounds);
+  return res_abs_bounds;
+}
+Bounds addGoto(::std::vector<PlanAction> &plan, int curr_pos, int dest_pos,
+               const bounds abs_bounds) {
+  Bounds goto_bounds(30, 45);
+  Bounds end_bounds(0, 30);
+  Bounds res_abs_bounds = abs_bounds;
+  std::cout << res_abs_bounds.lower_bound << "," << res_abs_bounds.upper_bound
+            << std::endl;
+  if (curr_pos != dest_pos) {
+    plan.push_back(
+        PlanAction(ActionName("startgoto", {idToMachineStr(curr_pos),
+                                            idToMachineStr(dest_pos)}),
+                   res_abs_bounds, goto_bounds));
+    res_abs_bounds = addBounds(res_abs_bounds, goto_bounds);
+    std::cout << res_abs_bounds.lower_bound << "," << res_abs_bounds.upper_bound
+              << std::endl;
+    plan.push_back(PlanAction(ActionName("endgoto", {idToMachineStr(curr_pos),
+                                                     idToMachineStr(dest_pos)}),
+                              res_abs_bounds, end_bounds));
+    res_abs_bounds = addBounds(res_abs_bounds, end_bounds);
+    std::cout << res_abs_bounds.lower_bound << "," << res_abs_bounds.upper_bound
+              << std::endl;
+  }
+  return res_abs_bounds;
+}
+
+::std::vector<PlanAction> generatePlan() {
+  std::cout << "enter plan gen " << std::endl;
+  Bounds instant_bounds(0, 0);
+  Bounds no_bounds(0, numeric_limits<int>::max());
+  Bounds goto_bounds(30, 45);
+  Bounds grasp_bounds(15, 20);
+  Bounds end_bounds(0, 30);
+  /*
+   * Encode MPS via numbers:
+   *  - -1  = START
+   *  - 0   = BS
+   *  - 1,2 = CS
+   *  - 3,4 = RS
+   *  - 5   = DS
+   *
+   */
+  /* initialize random seed: */
+  srand(time(NULL));
+  ::std::vector<PlanAction> plan;
+  Bounds abs_bounds(0, 30);
+  plan.push_back(
+      PlanAction(ActionName("planstart", {}), abs_bounds, instant_bounds));
+  int cc_count = 0;
+  int tr_count = 0;
+  int wp_count = 0;
+  int curr_pos = -1;
+  for (int k = 0; k < 1; k++) {
+    std::cout << plan.size() << std::endl;
+    int cs = rand() % 2 + 1;
+    int ds = 5;
+    int num_rings = rand() % 4;
+    std::cout << "cs: " << cs << " num_rings: " << num_rings << std::endl;
+    std::vector<int> rs_ring_count(5, 0);
+    std::vector<int> req_rs;
+    std::vector<int> req_pay;
+    for (int i = 1; i <= num_rings; i++) {
+      req_rs.push_back(rand() % 2 + 3);
+      req_pay.push_back(rand() % 3);
+      std::cout << "ring " << i << " req " << *(req_pay.end() - 1) << " from "
+                << *(req_rs.end() - 1) << std::endl;
+    }
+    int curr_step = 0;
+    int req_steps = num_rings + 2;
+    bool cs_buffered = false;
+    std::vector<bool> occupied(6, false);
+    bool abort = false;
+    bool full_game = false;
+    while (curr_step != req_steps) {
+      // if (abs_bounds.lower_bound > 1200) {
+      //   full_game = true;
+      //   break;
+      // }
+      int op_cs = rand() % 2;
+      if ((!(cs_buffered && !occupied[cs])) &&
+          (op_cs == 1 || curr_step == num_rings)) {
+        if (cs_buffered) {
+          int feed_rs = rand() % 2 + 3;
+          rs_ring_count[feed_rs]++;
+          if (rs_ring_count[feed_rs] == 4) {
+            abort = true;
+            break;
+          }
+          // feed cc
+          abs_bounds = addGoto(plan, curr_pos, cs, abs_bounds);
+          abs_bounds = addGrasp(plan, "pick", "cc" + std::to_string(cc_count),
+                                cs, abs_bounds);
+          abs_bounds = addGoto(plan, cs, feed_rs, abs_bounds);
+          abs_bounds = addGrasp(plan, "pay", "cc" + std::to_string(cc_count),
+                                feed_rs, abs_bounds);
+          std::cout << "feed cc to " << feed_rs << " from " << curr_pos
+                    << " to " << feed_rs << std::endl;
+          curr_pos = feed_rs;
+          occupied[cs] = false;
+          cc_count++;
+        } else {
+          cs_buffered = true;
+          occupied[cs] = true;
+          abs_bounds = addGoto(plan, curr_pos, cs, abs_bounds);
+          abs_bounds =
+              addGrasp(plan, "getshelf", "cc" + std::to_string(cc_count), cs,
+                       abs_bounds);
+          abs_bounds = addGrasp(plan, "put", "cc" + std::to_string(cc_count),
+                                cs, abs_bounds);
+          // buffer cap
+          std::cout << "buffer cap" << std::endl;
+          curr_pos = cs;
+        }
+      }
+      if (op_cs == 1) {
+        std::cout << "hat" << std::endl;
+        continue;
+      }
+      if (op_cs == 0 && curr_step < num_rings) {
+        if (req_pay[curr_step] <= rs_ring_count[req_rs[curr_step]]) {
+          rs_ring_count[req_rs[curr_step]] -= req_pay[curr_step];
+          // mount ring
+          int prev = -1;
+          if (curr_step > 0) {
+            prev = req_rs[curr_step - 1];
+          }
+          abs_bounds = addGoto(plan, curr_pos, prev, abs_bounds);
+          abs_bounds = addGrasp(plan, "pick", "wp" + std::to_string(wp_count),
+                                prev, abs_bounds);
+          abs_bounds = addGoto(plan, prev, req_rs[curr_step], abs_bounds);
+          abs_bounds = addGrasp(plan, "put", "wp" + std::to_string(wp_count),
+                                req_rs[curr_step], abs_bounds);
+          std::cout << "mount ring on " << req_rs[curr_step] << std::endl;
+          curr_pos = req_rs[curr_step];
+          curr_step++;
+        } else {
+          int source_mat = rand() % 3;
+          // get material
+          std::string get = "pick";
+          if (source_mat > 0) {
+            get = "getshelf";
+          }
+          abs_bounds = addGoto(plan, curr_pos, source_mat, abs_bounds);
+          abs_bounds = addGrasp(plan, get, "tr" + std::to_string(tr_count),
+                                source_mat, abs_bounds);
+          abs_bounds = addGoto(plan, source_mat, req_rs[curr_step], abs_bounds);
+          abs_bounds = addGrasp(plan, "pay", "tr" + std::to_string(tr_count),
+                                req_rs[curr_step], abs_bounds);
+          tr_count++;
+          curr_pos = source_mat;
+          rs_ring_count[req_rs[curr_step]]++;
+          std::cout << "get material from " << source_mat << " to feed in "
+                    << req_rs[curr_step] << std::endl;
+        }
+      }
+      if (curr_step == num_rings && cs_buffered && !occupied[cs]) {
+        std::cout << "finalize product" << curr_step << std::endl;
+        int source = 0;
+        if (curr_step > 0) {
+          source = req_rs[curr_step - 1];
+        }
+        abs_bounds = addGoto(plan, curr_pos, source, abs_bounds);
+        abs_bounds = addGrasp(plan, "pick", "wp" + std::to_string(wp_count),
+                              source, abs_bounds);
+        abs_bounds = addGoto(plan, source, cs, abs_bounds);
+        abs_bounds = addGrasp(plan, "put", "wp" + std::to_string(wp_count), cs,
+                              abs_bounds);
+        abs_bounds = addGrasp(plan, "pick", "wp" + std::to_string(wp_count), cs,
+                              abs_bounds);
+        abs_bounds = addGoto(plan, cs, ds, abs_bounds);
+        abs_bounds = addGrasp(plan, "put", "wp" + std::to_string(wp_count), ds,
+                              abs_bounds);
+        curr_pos = ds;
+        std::cout << "finalize product done" << std::endl;
+        // finalize
+        curr_step++;
+        curr_step++;
+      }
+    }
+    if (abort) {
+      std::cout << "aborted" << std::endl;
+      return generatePlan();
+    }
+    if (full_game) {
+      std::cout << "full_game" << std::endl;
+      break;
+    }
+    wp_count++;
+  }
+  plan.push_back(
+      PlanAction(ActionName("planend", {}), abs_bounds, instant_bounds));
+  for (auto &p : plan) {
+    std::cout << p.name.toString() << " "
+              << computils::toString(p.absolute_time.l_op)
+              << p.absolute_time.lower_bound << ","
+              << p.absolute_time.upper_bound
+              << computils::toString(p.absolute_time.r_op);
+    std::cout << " " << computils::toString(p.duration.l_op)
+              << p.duration.lower_bound << "," << p.duration.upper_bound
+              << computils::toString(p.duration.r_op) << std::endl;
+  }
+  // cin.get();
+  return plan;
+}
+
 int main() {
   if (uppaalcalls::getEnvVar("VERIFYTA_DIR") == "") {
     cout << "ERROR: VERIFYTA_DIR not set!" << endl;
     return -1;
   }
-  Bounds full_bounds(0, numeric_limits<int>::max());
-  Bounds no_bounds(0, numeric_limits<int>::max());
-  Bounds goto_bounds(15, 45);
-  Bounds pick_bounds(13, 18);
-  Bounds discard_bounds(3, 6);
-  Bounds end_bounds(0, 5);
-  vector<PlanAction> plan{
-      // goto CS-I
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick from shelf
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // put on belt
-      PlanAction("put", pick_bounds), PlanAction("endput", end_bounds),
-      // goto CS-O
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick waste
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // discard
-      PlanAction("discard", discard_bounds),
-      PlanAction("enddiscard", end_bounds),
-      //      // goto BS
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick base
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // goto RS-I
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // put on belt
-      PlanAction("put", pick_bounds), PlanAction("endput", end_bounds),
-      // goto RS-O
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick base + ring 1
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // goto RS-I
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // put on belt
-      PlanAction("put", pick_bounds), PlanAction("endput", end_bounds),
-      // goto RS-O
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick base + ring 1 + ring 2
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // goto RS-I
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // put on belt
-      PlanAction("put", pick_bounds), PlanAction("endput", end_bounds),
-      // goto RS-O
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick base + ring 1 + ring 2 + ring 3
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // goto CS-I
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // put on belt
-      PlanAction("put", pick_bounds), PlanAction("endput", end_bounds),
-      // goto CS-O
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // pick C§
-      PlanAction("pick", pick_bounds), PlanAction("endpick", end_bounds),
-      // goto DS
-      PlanAction("goto", goto_bounds), PlanAction("endgoto", end_bounds),
-      // put on belt
-      PlanAction("put", pick_bounds), PlanAction("endput", end_bounds),
-      PlanAction("last", end_bounds)}; //,
+  vector<PlanAction> plan = generatePlan();
   unordered_set<string> pa_names;
   transform(plan.begin(), plan.end(),
             insert_iterator<unordered_set<string>>(pa_names, pa_names.begin()),
-            [](const PlanAction &pa) -> string { return pa.name; });
-  AutomataGlobals glob;
+            [](const PlanAction &pa) -> string { return pa.name.toString(); });
+  // AutomataGlobals glob;
   XMLPrinter printer;
   // --------------- Perception ------------------------------------
   Automaton perception_ta = benchmarkgenerator::generatePerceptionTA();
