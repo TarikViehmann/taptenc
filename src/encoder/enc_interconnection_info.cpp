@@ -13,4 +13,6 @@ bool EncICInfo::isPastInfo() const {
   return type == ICType::Past || type == ICType::Since;
 }
 
-UnaryInfo BinaryInfo::toUnary() const { return UnaryInfo(name, type, specs); }
+UnaryInfo BinaryInfo::toUnary() const {
+  return UnaryInfo(name, type, activations, specs);
+}

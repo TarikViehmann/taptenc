@@ -99,69 +99,126 @@ Automaton generateSyncPlanAutomaton(
 
 DirectEncoder createDirectEncoding(
     AutomataSystem &direct_system, const vector<PlanAction> plan,
-    const unordered_map<string, vector<unique_ptr<EncICInfo>>> &activations,
-    int plan_index = 1) {
+    const vector<unique_ptr<EncICInfo>> &constraints, int plan_index = 1) {
   DirectEncoder enc(direct_system, plan);
-  for (auto pa = direct_system.instances[plan_index].first.states.begin();
-       pa != direct_system.instances[plan_index].first.states.end(); ++pa) {
-    string pa_op = pa->id;
-    if (pa->id != constants::START_PA && pa->id != constants::END_PA) {
-      pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
-    }
-    auto search = activations.find(pa_op);
-    if (search != activations.end()) {
-      for (const auto &ac : search->second) {
-        switch (ac->type) {
+  for (const auto &gamma : constraints) {
+    for (auto pa = direct_system.instances[plan_index].first.states.begin();
+         pa != direct_system.instances[plan_index].first.states.end(); ++pa) {
+      string pa_op = pa->id;
+      if (pa->id != constants::START_PA && pa->id != constants::END_PA) {
+        pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
+      } else {
+        continue;
+      }
+      auto plan_action_it =
+          std::find_if(plan.begin(), plan.end(), [pa_op](const auto &act) {
+            return act.name.toString() == pa_op;
+          });
+      auto pa_trigger = std::find_if(
+          gamma->activations.begin(), gamma->activations.end(),
+          [pa_op, plan_action_it](const ActionName &s) {
+            return s.ground(plan_action_it->name.args).toString() ==
+                   plan_action_it->name.toString();
+          });
+      auto is_active = gamma->activations.end() != pa_trigger;
+      if (is_active) {
+        switch (gamma->type) {
         case ICType::Future: {
           std::cout << "start Future " << pa->id << std::endl;
-          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(gamma.get());
           enc.encodeFuture(direct_system, pa->id, *info);
         } break;
         case ICType::Until: {
           std::cout << "start Until " << pa->id << std::endl;
-          BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
+          BinaryInfo *info = dynamic_cast<BinaryInfo *>(gamma.get());
           enc.encodeUntil(direct_system, pa->id, *info);
         } break;
         case ICType::Since: {
           std::cout << "start Since " << pa->id << std::endl;
-          BinaryInfo *info = dynamic_cast<BinaryInfo *>(ac.get());
+          BinaryInfo *info = dynamic_cast<BinaryInfo *>(gamma.get());
           enc.encodeSince(direct_system, pa->id, *info);
         } break;
         case ICType::Past: {
           std::cout << "start Past " << pa->id << std::endl;
-          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(gamma.get());
           enc.encodePast(direct_system, pa->id, *info);
         } break;
         case ICType::NoOp: {
           std::cout << "start NoOp " << pa->id << std::endl;
-          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(gamma.get());
           enc.encodeNoOp(direct_system, info->specs.targets, pa->id);
         } break;
         case ICType::Invariant: {
           std::cout << "start Invariant " << pa->id << std::endl;
-          UnaryInfo *info = dynamic_cast<UnaryInfo *>(ac.get());
+          UnaryInfo *info = dynamic_cast<UnaryInfo *>(gamma.get());
           enc.encodeInvariant(direct_system, info->specs.targets, pa->id);
         } break;
         case ICType::UntilChain: {
-          ChainInfo *info = dynamic_cast<ChainInfo *>(ac.get());
-          for (auto epa = pa;
+          ChainInfo *info = dynamic_cast<ChainInfo *>(gamma.get());
+          for (auto epa = pa + 1;
                epa != direct_system.instances[plan_index].first.states.end();
                ++epa) {
-            string epa_op = epa->id;
-            if (epa->id != constants::START_PA &&
-                epa->id != constants::END_PA) {
-              epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
+            string epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
+            auto eplan_action_it = std::find_if(
+                plan.begin(), plan.end(), [epa_op](const auto &act) {
+                  return act.name.toString() == epa_op;
+                });
+            if (eplan_action_it == plan.end()) {
+              std::cout << "cannot find eplan_action_it" << std::endl;
+              break;
             }
-            if (info->end_pa == epa_op) {
-              std::cout << "start until chain " << pa->id << " " << epa->id
-                        << std::endl;
-              enc.encodeUntilChain(direct_system, *info, pa->id, epa->id);
+
+            auto epa_trigger = std::find_if(
+                info->activations_end.begin(), info->activations_end.end(),
+                [epa_op, eplan_action_it](const auto &act) {
+                  return act.ground(eplan_action_it->name.args).toString() ==
+                         eplan_action_it->name.toString();
+                });
+            bool match_found = info->activations_end.end() != epa_trigger;
+            if (match_found) {
+              if (epa_trigger->args.size() != pa_trigger->args.size()) {
+                std::cout << "wrong argument length" << std::endl;
+                // they only really match if they have the same number of args
+                // this is not true in the general case, but for benchmarks
+                // it is sufficient
+                break;
+              }
+              bool missmatch = false;
+              for (unsigned long i = 0; i < epa_trigger->args.size(); i++) {
+                if (epa_trigger->args[i][0] == constants::VAR_PREFIX) {
+                  for (unsigned long j = 0; j < pa_trigger->args.size(); j++) {
+                    if (pa_trigger->args[j] == epa_trigger->args[i] &&
+                        eplan_action_it->name.args[i] !=
+                            plan_action_it->name.args[j]) {
+                      missmatch = true;
+                      break;
+                    }
+                  }
+                }
+              }
+              if (!missmatch) {
+                std::cout << "start until chain " << pa->id << " " << epa->id
+                          << std::endl;
+                enc.encodeUntilChain(direct_system, *info, pa->id, epa->id);
+                break;
+              } else {
+              }
+            }
+            bool is_tightest =
+                gamma->activations.end() ==
+                std::find_if(
+                    gamma->activations.begin(), gamma->activations.end(),
+                    [eplan_action_it](const ActionName &s) {
+                      return s.ground(eplan_action_it->name.args).toString() ==
+                             eplan_action_it->name.toString();
+                    });
+            if (!is_tightest) {
               break;
             }
           }
         } break;
         default:
-          cout << "error: no support yet for type " << ac->type << endl;
+          cout << "error: no support yet for type " << gamma->type << endl;
         }
       }
     }

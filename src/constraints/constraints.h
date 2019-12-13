@@ -9,6 +9,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace taptenc {
 
@@ -264,10 +265,22 @@ struct bounds {
 typedef struct bounds Bounds;
 
 /**
+ * Action Name.
+ */
+struct actionName {
+  ::std::string id;
+  ::std::vector<::std::string> args;
+  actionName(::std::string id, const ::std::vector<::std::string> &args);
+  ::std::string toString() const;
+  actionName ground(::std::vector<::std::string> ground_args) const;
+};
+typedef struct actionName ActionName;
+/**
  * Plan action.
  */
 struct planAction {
-  ::std::string name;
+  ActionName name;
+  Bounds absolute_time;
   Bounds duration;
   /** execution time that the plan transformation determines. */
   timepoint execution_time;
@@ -282,9 +295,11 @@ struct planAction {
    * unbounded [0,infinity).
    *
    * @param arg_name name of the plan action
+   * @param arg_absolute_time absolute time of action start
    * @param arg_duration action duration
    */
-  planAction(::std::string arg_name, const Bounds &arg_duration);
+  planAction(ActionName name, const Bounds &arg_absolute_time,
+             const Bounds &arg_duration);
 };
 typedef struct planAction PlanAction;
 
