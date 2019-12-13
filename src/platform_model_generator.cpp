@@ -38,22 +38,28 @@ Automaton benchmarkgenerator::generateCalibrationTA() {
   vector<State> states;
   vector<Transition> transitions;
   std::shared_ptr<Clock> cal_clock = std::make_shared<Clock>("cal");
-  states.push_back(State("uncalibrated", TrueCC(), false, true));
+  states.push_back(State("precise", TrueCC(), false, true));
+  states.push_back(State("use1", TrueCC()));
+  states.push_back(State("semi_precise", TrueCC()));
+  states.push_back(State("use2", TrueCC()));
+  states.push_back(State("uncalibrated", TrueCC()));
   states.push_back(
-      State("calibrating", ComparisonCC(cal_clock, ComparisonOp::LT, 10)));
-  states.push_back(
-      State("calibrated", ComparisonCC(cal_clock, ComparisonOp::LTE, 30)));
-  transitions.push_back(Transition("uncalibrated", "calibrating", "calibrate",
+      State("calibrate", ComparisonCC(cal_clock, ComparisonOp::LTE, 20)));
+  transitions.push_back(
+      Transition("precise", "use1", "no_op", TrueCC(), {}, "", true));
+  transitions.push_back(
+      Transition("use1", "semi_precise", "no_op", TrueCC(), {}, "", true));
+  transitions.push_back(
+      Transition("semi_precise", "use2", "no_op", TrueCC(), {}, "", true));
+  transitions.push_back(
+      Transition("use2", "uncalibrated", "no_op", TrueCC(), {}, "", true));
+  transitions.push_back(Transition("uncalibrated", "calibrate", "calibrate",
                                    TrueCC(), {cal_clock}, "", true));
-  transitions.push_back(Transition("calibrating", "calibrated", "",
-                                   ComparisonCC(cal_clock, ComparisonOp::GT, 7),
-                                   {cal_clock}, "", true));
-  transitions.push_back(Transition(
-      "calibrated", "uncalibrated", "",
-      ComparisonCC(cal_clock, ComparisonOp::EQ, 30), {cal_clock}, "", true));
-  transitions.push_back(Transition(
-      "calibrated", "uncalibrated", "uncalibrate",
-      ComparisonCC(cal_clock, ComparisonOp::LT, 30), {cal_clock}, "", true));
+  transitions.push_back(Transition("semi_precise", "calibrate", "calibrate",
+                                   TrueCC(), {cal_clock}, "", true));
+  transitions.push_back(
+      Transition("calibrate", "precise", "no_op",
+                 ComparisonCC(cal_clock, ComparisonOp::GTE, 20), {}, "", true));
   Automaton test(states, transitions, "main", false);
 
   test.clocks.insert(
@@ -65,53 +71,54 @@ Automaton benchmarkgenerator::generatePerceptionTA() {
   vector<State> states;
   vector<Transition> transitions;
   std::shared_ptr<Clock> cam_clock = std::make_shared<Clock>("cam");
-  std::shared_ptr<Clock> pic_clock = std::make_shared<Clock>("pic");
   std::shared_ptr<Clock> icp_clock = std::make_shared<Clock>("icp");
-  std::shared_ptr<Clock> sense_clock = std::make_shared<Clock>("sense");
-  states.push_back(State("idle", TrueCC(), false, true));
-  states.push_back(
-      State("cam_boot", ComparisonCC(cam_clock, ComparisonOp::LT, 5)));
-  states.push_back(State("cam_on", TrueCC()));
-  states.push_back(
-      State("save_pic", ComparisonCC(pic_clock, ComparisonOp::LTE, 2)));
-  states.push_back(
-      State("icp_start", ComparisonCC(icp_clock, ComparisonOp::LTE, 10)));
-  states.push_back(
-      State("icp_end", ComparisonCC(icp_clock, ComparisonOp::LTE, 3)));
-  states.push_back(
-      State("puck_sense", ComparisonCC(sense_clock, ComparisonOp::LT, 5)));
-  transitions.push_back(Transition("idle", "cam_boot", "power_on_cam", TrueCC(),
-                                   {cam_clock}, "", true));
-  transitions.push_back(Transition("cam_boot", "cam_on", "",
-                                   ComparisonCC(cam_clock, ComparisonOp::GT, 2),
-                                   {cam_clock}, "", true));
-  transitions.push_back(Transition("cam_on", "save_pic", "store_pic", TrueCC(),
-                                   {pic_clock}, "", true));
-  transitions.push_back(Transition("save_pic", "cam_on", "",
-                                   ComparisonCC(pic_clock, ComparisonOp::GT, 1),
-                                   {}, "", true));
-  transitions.push_back(Transition("cam_on", "icp_start", "start_icp", TrueCC(),
+  std::shared_ptr<Clock> glob_clock =
+      std::make_shared<Clock>(constants::GLOBAL_CLOCK);
+  states.push_back(State("cam_off", TrueCC(), false, true)); // 0
+  states.push_back(                                          // 1
+      State("cam_boot", ComparisonCC(cam_clock, ComparisonOp::LTE, 6)));
+  states.push_back(State("cam_on", TrueCC())); // 2
+  states.push_back(                            // 3
+      State("take_pic", ComparisonCC(cam_clock, ComparisonOp::LTE, 1)));
+  states.push_back( // 4
+      State("start_icp", ComparisonCC(icp_clock, ComparisonOp::LTE, 10)));
+  states.push_back( // 5
+      State("end_icp", ComparisonCC(icp_clock, ComparisonOp::LTE, 1)));
+  states.push_back( // 6
+      State("puck_check", ComparisonCC(cam_clock, ComparisonOp::LTE, 1)));
+  transitions.push_back(Transition("cam_off", "cam_boot", "turn_on", TrueCC(),
+                                   {cam_clock, icp_clock}, "", true));
+  transitions.push_back(
+      Transition("cam_boot", "cam_on", "no_op",
+                 ComparisonCC(cam_clock, ComparisonOp::GTE, 4),
+                 {cam_clock, icp_clock}, "", true));
+  transitions.push_back(Transition(
+      "cam_on", "take_pic", "save_pic",
+      ComparisonCC(icp_clock, ComparisonOp::GTE, 5),
+      // ConjunctionCC(ComparisonCC(icp_clock, ComparisonOp::GTE, 5),
+      //               DifferenceCC(icp_clock, cam_clock, ComparisonOp::LT, 0)),
+      {icp_clock, cam_clock}, "", true));
+  transitions.push_back(
+      Transition("take_pic", "cam_on", "upload", TrueCC(), {}, "", true));
+  transitions.push_back(Transition("cam_on", "start_icp", "icp_start", TrueCC(),
                                    {icp_clock}, "", true));
+  transitions.push_back(Transition(
+      "start_icp", "end_icp", "publish",
+      ComparisonCC(icp_clock, ComparisonOp::GTE, 5), {icp_clock}, "", true));
   transitions.push_back(
-      Transition("icp_start", "icp_end", "",
-                 ConjunctionCC(ComparisonCC(icp_clock, ComparisonOp::LT, 10),
-                               ComparisonCC(icp_clock, ComparisonOp::GT, 5)),
-                 {icp_clock}, "", true));
-  transitions.push_back(Transition("icp_end", "cam_on", "",
-                                   ComparisonCC(icp_clock, ComparisonOp::GT, 1),
-                                   {}, "", true));
-  transitions.push_back(Transition("cam_on", "idle", "power_off_cam", TrueCC(),
-                                   {cam_clock}, "", true));
-  transitions.push_back(Transition("idle", "puck_sense", "check_puck",
-                                   ComparisonCC(cam_clock, ComparisonOp::GT, 2),
-                                   {sense_clock}, "", true));
+      Transition("end_icp", "cam_on", "no_op",
+                 ComparisonCC(icp_clock, ComparisonOp::LTE, 1), {}, "", true));
+  transitions.push_back(Transition("cam_on", "cam_off", "turn_off", TrueCC(),
+                                   {cam_clock, icp_clock}, "", true));
   transitions.push_back(
-      Transition("puck_sense", "idle", "",
-                 ComparisonCC(sense_clock, ComparisonOp::GT, 1), {}, "", true));
+      Transition("cam_off", "puck_check", "check_puck",
+                 ComparisonCC(cam_clock, ComparisonOp::GTE, 2),
+                 {cam_clock, icp_clock}, "", true));
+  transitions.push_back(
+      Transition("puck_check", "cam_off", "no_op", TrueCC(), {}, "", true));
   Automaton test(states, transitions, "main", false);
 
-  test.clocks.insert({icp_clock, cam_clock, pic_clock, sense_clock,
-                      std::make_shared<Clock>(constants::GLOBAL_CLOCK)});
+  test.clocks.insert({icp_clock, cam_clock, glob_clock});
   return test;
 }
 
@@ -148,8 +155,7 @@ Automaton benchmarkgenerator::generateCommTA() {
   return comm_ta;
 }
 
-unordered_map<string, vector<unique_ptr<EncICInfo>>>
-benchmarkgenerator::generatePerceptionConstraints(
+vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
     const Automaton &perception_ta,
     const ::std::unordered_set<::std::string> &pa_names) {
   unordered_set<string> cam_off_exceptions{"pick", "put", "endpick", "endput"};
@@ -171,78 +177,110 @@ benchmarkgenerator::generatePerceptionConstraints(
                        {perception_ta.states[1], perception_ta.states[2],
                         perception_ta.states[3], perception_ta.states[4],
                         perception_ta.states[5]});
-  puck_sense_filter.insert(puck_sense_filter.end(),
-                           {perception_ta.states[6], perception_ta.states[5]});
+  puck_sense_filter.insert(puck_sense_filter.end(), {perception_ta.states[6]});
   Bounds full_bounds(0, numeric_limits<int>::max());
   Bounds vision_bounds(5, 10); // numeric_limits<int>::max());
-  Bounds puck_sense_bounds(2, 5, ComparisonOp::LTE, ComparisonOp::LTE);
+  Bounds puck_sense_bounds(0, 5);
+  Bounds remain_bounds(10, 10);
   Bounds end_bounds(0, 5);
   Bounds null_bounds(0, 0);
   if (pa_names.size() == 100000) {
     end_bounds.lower_bound = 100;
   }
   // ---------------------- Normal Constraints ------------------------------
-  unordered_map<string, vector<unique_ptr<EncICInfo>>> activations;
-  // cam off by default
-  for (string pa : pa_names) {
-    if (cam_off_exceptions.find(pa) == cam_off_exceptions.end()) {
-      activations[pa].emplace_back(make_unique<UnaryInfo>(
-          "coff", ICType::Invariant, TargetSpecs(end_bounds, cam_off_filter)));
-    }
-  }
-  // puck sense after pick and put
-  activations["endpick"].emplace_back(make_unique<UnaryInfo>(
-      "sense1", ICType::Future,
-      TargetSpecs(puck_sense_bounds, puck_sense_filter)));
-  activations["endput"].emplace_back(make_unique<UnaryInfo>(
-      "sense2", ICType::Future,
+  vector<unique_ptr<EncICInfo>> activations;
+  // puck sense when pick and put
+  activations.emplace_back(make_unique<UnaryInfo>(
+      "sense_n", ICType::Future,
+      vector<ActionName>(
+          {ActionName("startgoto",
+                      {std::string() + constants::VAR_PREFIX + "m",
+                       std::string() + constants::VAR_PREFIX + "n"}),
+           ActionName("endgoto",
+                      {std::string() + constants::VAR_PREFIX + "m",
+                       std::string() + constants::VAR_PREFIX + "n"})}),
       TargetSpecs(puck_sense_bounds, puck_sense_filter)));
   // until chain to do icp
-  activations["pick"].emplace_back(make_unique<ChainInfo>(
-      "icp_chain", ICType::UntilChain,
+  activations.emplace_back(make_unique<ChainInfo>(
+      "icp_c", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("startpick",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startput",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startpay",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})}),
+      vector<TargetSpecs>{// already be in start icp
+                          TargetSpecs(full_bounds, {perception_ta.states[4]}),
+                          // be done with icp and remain for 0 seconds
+                          TargetSpecs(null_bounds, {perception_ta.states[5]}),
+                          // do not do icp again until pick action is done
+                          TargetSpecs(remain_bounds, no_vision_filter)},
+      vector<ActionName>(
+          {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
+                                  std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endput", {std::string() + constants::VAR_PREFIX + "o",
+                                 std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endpay",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})})));
+  activations.emplace_back(make_unique<ChainInfo>(
+      "pic_c", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("startpick",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startput",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startpay",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})}),
       // start with a booted cam
-      vector<TargetSpecs>{TargetSpecs(null_bounds, perception_ta.states),
-                          TargetSpecs(vision_bounds, cam_on_filter),
-                          // be done with icp after vision_bounds
-                          TargetSpecs(full_bounds, vision_filter),
-                          // do not do ICP again until pick action is done
-                          TargetSpecs(full_bounds, no_vision_filter)},
-      "endpick"));
-  // // until chain to take a pic
-  activations["pick"].emplace_back(make_unique<ChainInfo>(
-      "pic_chain", ICType::UntilChain,
-      // start however
-      vector<TargetSpecs>{TargetSpecs(full_bounds, perception_ta.states),
-                          // after unspecified time, save a pic
-                          TargetSpecs(full_bounds, pic_filter),
-                          // do whatever until end
+      vector<TargetSpecs>{// already start icp
+                          TargetSpecs(full_bounds, perception_ta.states),
+                          // be done with icp and remain for 0 seconds
+                          TargetSpecs(full_bounds, {perception_ta.states[3]}),
+                          // do not do icp again until pick action is done
                           TargetSpecs(full_bounds, perception_ta.states)},
-      "endpick"));
-  // until chain to do icp
-  activations["put"].emplace_back(make_unique<ChainInfo>(
-      "icp_chain2", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
+                                  std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endput", {std::string() + constants::VAR_PREFIX + "o",
+                                 std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endpay",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})})));
+  activations.emplace_back(make_unique<ChainInfo>(
+      "no_cam_c", ICType::UntilChain,
+      vector<ActionName>({ActionName(
+          "startgoto", {std::string() + constants::VAR_PREFIX + "m",
+                        std::string() + constants::VAR_PREFIX + "n"})}),
       // start with a booted cam
-      vector<TargetSpecs>{TargetSpecs(null_bounds, perception_ta.states),
-                          TargetSpecs(vision_bounds, cam_on_filter),
-                          // be done with icp after vision_bounds
-                          TargetSpecs(full_bounds, vision_filter),
-                          // do not do ICP again until pick action is done
-                          TargetSpecs(full_bounds, no_vision_filter)},
-      "endput"));
-  // // until chain to take a pic
-  activations["put"].emplace_back(make_unique<ChainInfo>(
-      "pic_chain2", ICType::UntilChain,
-      // start however
-      vector<TargetSpecs>{TargetSpecs(full_bounds, perception_ta.states),
-                          // after unspecified time, save a pic
-                          TargetSpecs(full_bounds, pic_filter),
-                          // do whatever until end
-                          TargetSpecs(full_bounds, perception_ta.states)},
-      "endput"));
+      vector<TargetSpecs>{// already start icp
+                          TargetSpecs(full_bounds, cam_off_filter)},
+      vector<ActionName>({ActionName(
+          "endgoto", {std::string() + constants::VAR_PREFIX + "m",
+                      std::string() + constants::VAR_PREFIX + "n"})})));
   return activations;
 }
 
-unordered_map<string, vector<unique_ptr<EncICInfo>>>
+vector<unique_ptr<EncICInfo>>
 benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta) {
   vector<State> comm_idle_filter;
   vector<State> comm_preparing_filter;
@@ -262,52 +300,128 @@ benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta) {
   Bounds end_bounds(0, 5);
 
   // ---------------------- Until Chain -------------------------------------
-  unordered_map<string, vector<unique_ptr<EncICInfo>>> comm_activations;
+  vector<unique_ptr<EncICInfo>> comm_constraints;
   // until chain to prepare
-  comm_activations["endput"].emplace_back(make_unique<ChainInfo>(
-      "prepare_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter),
-                          TargetSpecs(no_bounds, comm_preparing_filter),
-                          TargetSpecs(no_bounds, comm_prepared_filter),
-                          TargetSpecs(no_bounds, comm_idle_filter)},
-      "pick"));
-  comm_activations["endpick"].emplace_back(make_unique<ChainInfo>(
-      "idle_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)}, "put"));
-  comm_activations[constants::START_PA].emplace_back(make_unique<ChainInfo>(
-      "start_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)}, "pick"));
-  comm_activations["last"].emplace_back(make_unique<ChainInfo>(
-      "end_chain", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)},
-      constants::END_PA));
+  // comm_constraints.emplace_back(make_unique<ChainInfo>(
+  //     "prepare_chain", ICType::UntilChain, vector<string>({"endput"}),
+  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter),
+  //                         TargetSpecs(no_bounds, comm_preparing_filter),
+  //                         TargetSpecs(no_bounds, comm_prepared_filter),
+  //                         TargetSpecs(no_bounds, comm_idle_filter)},
+  //     "pick"));
+  // comm_activations["endpick"].emplace_back(make_unique<ChainInfo>(
+  //     "idle_chain", ICType::UntilChain,
+  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)}, "put"));
+  // comm_activations[constants::START_PA].emplace_back(make_unique<ChainInfo>(
+  //     "start_chain", ICType::UntilChain,
+  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)},
+  //     "pick"));
+  // comm_activations["last"].emplace_back(make_unique<ChainInfo>(
+  //     "end_chain", ICType::UntilChain,
+  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)},
+  //     constants::END_PA));
 
-  return comm_activations;
+  return comm_constraints;
 }
 
-unordered_map<string, vector<unique_ptr<EncICInfo>>>
+vector<unique_ptr<EncICInfo>>
 benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
-  vector<State> calib_filter;
-  calib_filter.push_back(calib_ta.states[2]);
+  vector<State> no_calib_filter({calib_ta.states[0], calib_ta.states[1],
+                                 calib_ta.states[2], calib_ta.states[3],
+                                 calib_ta.states[4]});
+  vector<State> use_filter({calib_ta.states[1], calib_ta.states[3]});
+  vector<State> no_use_filter({calib_ta.states[0], calib_ta.states[2],
+                               calib_ta.states[4], calib_ta.states[5]});
 
-  Bounds no_bounds(0, numeric_limits<int>::max());
+  Bounds null_bounds(0, 0);
+  Bounds full_bounds(0, numeric_limits<int>::max());
 
   // ---------------------- Until Chain -------------------------------------
-  unordered_map<string, vector<unique_ptr<EncICInfo>>> calib_activations;
+  vector<unique_ptr<EncICInfo>> calib_activations;
+  calib_activations.emplace_back(make_unique<ChainInfo>(
+      "no_use_c", ICType::UntilChain,
+      vector<ActionName>({ActionName(
+          "startgoto", {std::string() + constants::VAR_PREFIX + "m",
+                        std::string() + constants::VAR_PREFIX + "n"})}),
+      // start with a booted cam
+      vector<TargetSpecs>{// already start icp
+                          TargetSpecs(full_bounds, no_use_filter)},
+      vector<ActionName>({ActionName(
+          "endgoto", {std::string() + constants::VAR_PREFIX + "m",
+                      std::string() + constants::VAR_PREFIX + "n"})})));
+  calib_activations.emplace_back(make_unique<ChainInfo>(
+      "no_cal_c", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
+                                  std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})}),
+      // start with a booted cam
+      vector<TargetSpecs>{// already start icp
+                          TargetSpecs(full_bounds, no_calib_filter)},
+      vector<ActionName>({ActionName(
+          "startput", {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "n"})})));
+  calib_activations.emplace_back(make_unique<ChainInfo>(
+      "force_cal_c", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
+                                  std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})}),
+      // start with a booted cam
+      vector<TargetSpecs>{// already start icp
+                          TargetSpecs(full_bounds, calib_ta.states),
+                          TargetSpecs(full_bounds, {calib_ta.states[0]}),
+                          TargetSpecs(null_bounds, calib_ta.states)},
+      vector<ActionName>({ActionName(
+          "startpay", {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "n"})})));
+  calib_activations.emplace_back(make_unique<ChainInfo>(
+      "use_c", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("startpick",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startput",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("startpay",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})}),
+      // start with a booted cam
+      vector<TargetSpecs>{// already start icp
+                          TargetSpecs(full_bounds, use_filter)},
+      vector<ActionName>(
+          {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
+                                  std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endgetshelf",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endput", {std::string() + constants::VAR_PREFIX + "o",
+                                 std::string() + constants::VAR_PREFIX + "m"}),
+           ActionName("endpay",
+                      {std::string() + constants::VAR_PREFIX + "o",
+                       std::string() + constants::VAR_PREFIX + "m"})})));
   // until chain to prepare
-  calib_activations["pick"].emplace_back(make_unique<ChainInfo>(
-      "calib_pick_c", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endpick"));
-  calib_activations["put"].emplace_back(make_unique<ChainInfo>(
-      "calib_put_c", ICType::UntilChain,
-      vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endput"));
+  // calib_activations["pick"].emplace_back(make_unique<ChainInfo>(
+  //     "calib_pick_c", ICType::UntilChain,
+  //     vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endpick"));
+  // calib_activations["put"].emplace_back(make_unique<ChainInfo>(
+  //     "calib_put_c", ICType::UntilChain,
+  //     vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endput"));
 
   return calib_activations;
 }
 
-unordered_map<string, vector<unique_ptr<EncICInfo>>>
+vector<unique_ptr<EncICInfo>>
 benchmarkgenerator::generatePositionConstraints(const Automaton &pos_ta) {
-  unordered_map<string, vector<unique_ptr<EncICInfo>>> pos_activations;
+  vector<unique_ptr<EncICInfo>> pos_constraints;
   vector<State> moving_filter;
   vector<State> standing_filter;
   auto standing_state = getStateItById(pos_ta.states, "standing");
@@ -317,39 +431,21 @@ benchmarkgenerator::generatePositionConstraints(const Automaton &pos_ta) {
     std::cout << "benchmarkgenerator generatePositionConstraints: cannot find "
                  "constraint relevant states"
               << std::endl;
-    return pos_activations;
+    return pos_constraints;
   } else {
     moving_filter.push_back(*moving_state);
     standing_filter.push_back(*standing_state);
 
     Bounds no_bounds(0, numeric_limits<int>::max());
 
-    // ---------------------- Until Chain -------------------------------------
-    // until chain to prepare
-    pos_activations["pick"].emplace_back(
-        make_unique<UnaryInfo>("pos_pick", ICType::Invariant,
-                               TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["put"].emplace_back(make_unique<UnaryInfo>(
-        "pos_put", ICType::Invariant, TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["discard"].emplace_back(
-        make_unique<UnaryInfo>("pos_discard", ICType::Invariant,
-                               TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["endpick"].emplace_back(
-        make_unique<UnaryInfo>("pos_pick", ICType::Invariant,
-                               TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["endput"].emplace_back(make_unique<UnaryInfo>(
-        "pos_put", ICType::Invariant, TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["last"].emplace_back(make_unique<UnaryInfo>(
-        "pos_put", ICType::Invariant, TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["enddiscard"].emplace_back(
-        make_unique<UnaryInfo>("pos_discard", ICType::Invariant,
-                               TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["endgoto"].emplace_back(
-        make_unique<UnaryInfo>("pos_discard", ICType::Invariant,
-                               TargetSpecs(no_bounds, standing_filter)));
-    pos_activations["goto"].emplace_back(make_unique<UnaryInfo>(
-        "pos_goto", ICType::Invariant, TargetSpecs(no_bounds, moving_filter)));
+    // pos_constraints.emplace_back(make_unique<UnaryInfo>(
+    //     "pos_standing", ICType::Invariant,
+    //     vector<string>({"pick", "put", "getshelf", "pay", "end"}),
+    //     TargetSpecs(no_bounds, standing_filter)));
+    // pos_constraints.emplace_back(make_unique<UnaryInfo>(
+    //     "pos_moving", ICType::Invariant, vector<string>({"goto"}),
+    //     TargetSpecs(no_bounds, moving_filter)));
 
-    return pos_activations;
+    return pos_constraints;
   }
 }

@@ -51,8 +51,7 @@ Automaton generateCommTA();
  *
  * @return constraint activation mapping for the perception TA
  */
-::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
-generatePerceptionConstraints(
+::std::vector<::std::unique_ptr<EncICInfo>> generatePerceptionConstraints(
     const Automaton &perception_ta,
     const ::std::unordered_set<::std::string> &pa_names);
 
@@ -61,7 +60,7 @@ generatePerceptionConstraints(
  *
  * @return constraint activation mapping for the communication TA
  */
-::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
+::std::vector<::std::unique_ptr<EncICInfo>>
 generateCommConstraints(const Automaton &comm_ta);
 
 /**
@@ -69,7 +68,7 @@ generateCommConstraints(const Automaton &comm_ta);
  *
  * @return constraint activation mapping for the calibration TA
  */
-::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
+::std::vector<::std::unique_ptr<EncICInfo>>
 generateCalibrationConstraints(const Automaton &calib_ta);
 
 /**
@@ -80,7 +79,7 @@ generateCalibrationConstraints(const Automaton &calib_ta);
  *
  * @return constraint activation mapping for the position TA
  */
-::std::unordered_map<::std::string, ::std::vector<::std::unique_ptr<EncICInfo>>>
+::std::vector<::std::unique_ptr<EncICInfo>>
 generatePositionConstraints(const Automaton &pos_ta);
 } // end namespace benchmarkgenerator
 } // end namespace taptenc
