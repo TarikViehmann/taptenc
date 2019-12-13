@@ -478,7 +478,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
         *(po_tls.pa_order.get()->begin() + constraint_start - 1);
     for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
-          prev_pa_entry.second.trans_out, prev_pa, target_filter.getFilter(),
+          prev_pa_entry.second.trans_out, prev_pa, base_filter.getFilter(),
           TrueCC(), {clock_ptr}, "");
     }
   }
