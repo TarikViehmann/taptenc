@@ -189,7 +189,8 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
   }
   // ---------------------- Normal Constraints ------------------------------
   vector<unique_ptr<EncICInfo>> activations;
-  // puck sense when pick and put
+  // puck sense at begin and end of goto
+  // easy variant: NoOp constraint, hard variant: Future constraint
   activations.emplace_back(make_unique<UnaryInfo>(
       "sense_n", ICType::Future,
       vector<ActionName>(
@@ -248,12 +249,12 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
            ActionName("startpay",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      // start with a booted cam
-      vector<TargetSpecs>{// already start icp
+      // take a pic somewhere during grasping tasks
+      vector<TargetSpecs>{// first allow unrestrained control
                           TargetSpecs(full_bounds, perception_ta.states),
-                          // be done with icp and remain for 0 seconds
+                          // then visit the state to take a pic
                           TargetSpecs(full_bounds, {perception_ta.states[3]}),
-                          // do not do icp again until pick action is done
+                          // then the platform is free to move again
                           TargetSpecs(full_bounds, perception_ta.states)},
       vector<ActionName>(
           {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
@@ -266,13 +267,13 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
            ActionName("endpay",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})})));
+  // Have no running camera during driving
   activations.emplace_back(make_unique<ChainInfo>(
       "no_cam_c", ICType::UntilChain,
       vector<ActionName>({ActionName(
           "startgoto", {std::string() + constants::VAR_PREFIX + "m",
                         std::string() + constants::VAR_PREFIX + "n"})}),
-      // start with a booted cam
-      vector<TargetSpecs>{// already start icp
+      vector<TargetSpecs>{
                           TargetSpecs(full_bounds, cam_off_filter)},
       vector<ActionName>({ActionName(
           "endgoto", {std::string() + constants::VAR_PREFIX + "m",
@@ -338,17 +339,18 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
 
   // ---------------------- Until Chain -------------------------------------
   vector<unique_ptr<EncICInfo>> calib_activations;
+  // do not be in a usage state during goto
   calib_activations.emplace_back(make_unique<ChainInfo>(
       "no_use_c", ICType::UntilChain,
       vector<ActionName>({ActionName(
           "startgoto", {std::string() + constants::VAR_PREFIX + "m",
                         std::string() + constants::VAR_PREFIX + "n"})}),
-      // start with a booted cam
-      vector<TargetSpecs>{// already start icp
+      vector<TargetSpecs>{
                           TargetSpecs(full_bounds, no_use_filter)},
       vector<ActionName>({ActionName(
           "endgoto", {std::string() + constants::VAR_PREFIX + "m",
                       std::string() + constants::VAR_PREFIX + "n"})})));
+  // do not calibrate between grasping tasks that place stuff into machines
   calib_activations.emplace_back(make_unique<ChainInfo>(
       "no_cal_c", ICType::UntilChain,
       vector<ActionName>(
@@ -357,12 +359,12 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("endgetshelf",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      // start with a booted cam
-      vector<TargetSpecs>{// already start icp
+      vector<TargetSpecs>{
                           TargetSpecs(full_bounds, no_calib_filter)},
       vector<ActionName>({ActionName(
           "startput", {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "n"})})));
+  // force best possible precision for slide puts
   calib_activations.emplace_back(make_unique<ChainInfo>(
       "force_cal_c", ICType::UntilChain,
       vector<ActionName>(
@@ -371,14 +373,14 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("endgetshelf",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      // start with a booted cam
-      vector<TargetSpecs>{// already start icp
+      vector<TargetSpecs>{
                           TargetSpecs(full_bounds, calib_ta.states),
                           TargetSpecs(full_bounds, {calib_ta.states[0]}),
                           TargetSpecs(null_bounds, calib_ta.states)},
       vector<ActionName>({ActionName(
           "startpay", {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "n"})})));
+  // remain in usage states during grasping tasks
   calib_activations.emplace_back(make_unique<ChainInfo>(
       "use_c", ICType::UntilChain,
       vector<ActionName>(
@@ -394,8 +396,7 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("startpay",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      // start with a booted cam
-      vector<TargetSpecs>{// already start icp
+      vector<TargetSpecs>{
                           TargetSpecs(full_bounds, use_filter)},
       vector<ActionName>(
           {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
@@ -408,14 +409,6 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("endpay",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})})));
-  // until chain to prepare
-  // calib_activations["pick"].emplace_back(make_unique<ChainInfo>(
-  //     "calib_pick_c", ICType::UntilChain,
-  //     vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endpick"));
-  // calib_activations["put"].emplace_back(make_unique<ChainInfo>(
-  //     "calib_put_c", ICType::UntilChain,
-  //     vector<TargetSpecs>{TargetSpecs(no_bounds, calib_filter)}, "endput"));
-
   return calib_activations;
 }
 
