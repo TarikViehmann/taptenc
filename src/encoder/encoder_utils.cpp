@@ -39,23 +39,32 @@ Automaton
 encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
                                     ::std::string name) {
   std::vector<PlanAction> full_plan = plan;
-  full_plan.push_back(PlanAction(constants::END_PA,
-                                 Bounds(0, std::numeric_limits<int>::max())));
-  full_plan.insert(full_plan.begin(),
-                   PlanAction(constants::START_PA,
-                              Bounds(0, std::numeric_limits<int>::max())));
+  full_plan.insert(
+      full_plan.begin(),
+      PlanAction(ActionName(constants::START_PA, {}),
+                 Bounds(0, plan.front().absolute_time.lower_bound,
+                        ComparisonOp::LTE, plan.front().absolute_time.l_op),
+                 Bounds(0, std::numeric_limits<int>::max())));
   std::vector<State> plan_states;
-  std::shared_ptr<Clock> cpa = std::make_shared<Clock>("cpa");
+  std::shared_ptr<Clock> cpa =
+      std::make_shared<Clock>(constants::REL_PLAN_CLOCK);
+  std::shared_ptr<Clock> abs_clock =
+      std::make_shared<Clock>(constants::GLOBAL_CLOCK);
   for (auto it = full_plan.begin(); it != full_plan.end(); ++it) {
-    if ((it->name == constants::END_PA || it->name == constants::START_PA)) {
-      plan_states.push_back(
-          State(it->name, TrueCC(), false,
-                (it->name == constants::START_PA) ? true : false));
+    if (it != full_plan.begin()) {
+      plan_states.back().inv = std::make_unique<ConjunctionCC>(
+          ConjunctionCC(*plan_states.back().inv.get(),
+                        ComparisonCC(abs_clock, it->absolute_time.r_op,
+                                     it->absolute_time.upper_bound)));
+    }
+    if (it->name.id == constants::START_PA) {
+      plan_states.push_back(State(it->name.id, TrueCC(), false, true));
     } else {
-      plan_states.push_back(State(
-          it->name + constants::PA_SEP + std::to_string(it - full_plan.begin()),
-          ComparisonCC(cpa, it->duration.r_op, it->duration.upper_bound), false,
-          false));
+      plan_states.push_back(
+          State(it->name.toString() + constants::PA_SEP +
+                    std::to_string(it - full_plan.begin()),
+                ComparisonCC(cpa, it->duration.r_op, it->duration.upper_bound),
+                false, false));
     }
   }
   auto find_initial = std::find_if(plan_states.begin(), plan_states.end(),
@@ -73,9 +82,14 @@ encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
     update_t update;
     auto prev_state = (it - 1);
     int pa_index = prev_state - plan_states.begin();
-    ComparisonCC guard(cpa,
-                       computils::reverseOp(full_plan[pa_index].duration.l_op),
-                       full_plan[pa_index].duration.lower_bound);
+    ComparisonCC rel_guard(
+        cpa, computils::reverseOp(full_plan[pa_index].duration.l_op),
+        full_plan[pa_index].duration.lower_bound);
+    ComparisonCC abs_guard(
+        abs_clock,
+        computils::reverseOp(full_plan[pa_index + 1].absolute_time.l_op),
+        full_plan[pa_index].absolute_time.lower_bound);
+    ConjunctionCC guard(rel_guard, abs_guard);
     update.insert(cpa);
     plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
                                           update, sync_op, false));

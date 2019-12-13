@@ -60,8 +60,11 @@ struct encICInfo {
   ::std::string name;
   /** Type of the information */
   ICType type;
-  encICInfo(::std::string arg_name, ICType arg_type)
-      : name(arg_name), type(arg_type){};
+  /** Action, that trigger the activatoins */
+  ::std::vector<ActionName> activations;
+  encICInfo(::std::string arg_name, ICType arg_type,
+            const ::std::vector<ActionName> &arg_activations)
+      : name(arg_name), type(arg_type), activations(arg_activations){};
   /**
    * Check if \a type is a type concerned with future manipulation of states.
    */
@@ -84,8 +87,9 @@ typedef struct encICInfo EncICInfo;
 struct unaryInfo : EncICInfo {
   TargetSpecs specs;
   unaryInfo(::std::string arg_name, ICType arg_type,
+            const ::std::vector<ActionName> &arg_activations,
             const TargetSpecs &arg_specs)
-      : EncICInfo(arg_name, arg_type), specs(arg_specs) {}
+      : EncICInfo(arg_name, arg_type, arg_activations), specs(arg_specs) {}
 };
 typedef struct unaryInfo UnaryInfo;
 
@@ -99,9 +103,10 @@ struct binaryInfo : EncICInfo {
   TargetSpecs specs;
   ::std::vector<State> pre_targets;
   binaryInfo(::std::string arg_name, ICType arg_type,
+             const ::std::vector<ActionName> &arg_activations,
              const TargetSpecs &arg_specs,
              const ::std::vector<State> arg_pre_targets)
-      : EncICInfo(arg_name, arg_type), specs(arg_specs),
+      : EncICInfo(arg_name, arg_type, arg_activations), specs(arg_specs),
         pre_targets(arg_pre_targets) {}
   /**
    * Converts the binaryInfo to unaryInfo by discarding \a pre_targets.
@@ -119,12 +124,13 @@ typedef struct binaryInfo BinaryInfo;
  */
 struct chainInfo : EncICInfo {
   ::std::vector<TargetSpecs> specs_list;
-  ::std::string end_pa;
+  ::std::vector<ActionName> activations_end;
   chainInfo(::std::string arg_name, ICType arg_type,
+            const ::std::vector<ActionName> &arg_activations,
             const ::std::vector<TargetSpecs> &arg_specs_list,
-            ::std::string arg_end_pa)
-      : EncICInfo(arg_name, arg_type), specs_list(arg_specs_list),
-        end_pa(arg_end_pa) {}
+            const ::std::vector<ActionName> &arg_activations_end)
+      : EncICInfo(arg_name, arg_type, arg_activations),
+        specs_list(arg_specs_list), activations_end(arg_activations_end) {}
 };
 typedef struct chainInfo ChainInfo;
 } // end namespace taptenc

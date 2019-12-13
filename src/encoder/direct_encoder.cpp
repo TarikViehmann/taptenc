@@ -816,12 +816,12 @@ DirectEncoder::DirectEncoder(AutomataSystem &s,
                              const int base_pos) {
   Automaton plan_ta = generatePlanAutomaton(plan, constants::PLAN_TA_NAME);
   this->plan = plan;
-  this->plan.insert(this->plan.begin(),
-                    PlanAction(constants::START_PA,
-                               Bounds(0, std::numeric_limits<int>::max())));
-  this->plan.insert(this->plan.end(),
-                    PlanAction(constants::END_PA,
-                               Bounds(0, std::numeric_limits<int>::max())));
+  this->plan.insert(
+      this->plan.begin(),
+      PlanAction(ActionName(constants::START_PA, {}),
+                 Bounds(0, plan.front().absolute_time.lower_bound,
+                        ComparisonOp::LTE, plan.front().absolute_time.l_op),
+                 Bounds(0, std::numeric_limits<int>::max())));
   s.instances.push_back(std::make_pair(plan_ta, ""));
   plan_ta_index = s.instances.size() - 1;
   generateBaseTimeLine(s, base_pos, plan_ta_index);

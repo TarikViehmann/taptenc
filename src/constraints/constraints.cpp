@@ -5,10 +5,12 @@
  */
 
 #include "constraints.h"
+#include "../constants.h"
 #include <cassert>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <vector>
 
 using namespace taptenc;
 
@@ -201,8 +203,41 @@ ConjunctionCC bounds::createConstraintBoundsSat(
   }
   return ConjunctionCC(*below_upper_bound.get(), *lower_bound_reached.get());
 }
+// Action Name
+actionName::actionName(::std::string id,
+                       const ::std::vector<::std::string> &args)
+    : id(id), args(args) {}
+
+::std::string actionName::toString() const {
+  std::string res = id + constants::OPEN_BRACKET;
+  bool first = true;
+  for (const auto &arg : args) {
+    if (!first) {
+      res += constants::VAR_SEP + arg;
+    } else {
+      res += arg;
+      first = false;
+    }
+  }
+  return res + constants::CLOSED_BRACKET;
+}
+ActionName actionName::ground(::std::vector<::std::string> ground_args) const {
+  if (ground_args.size() != args.size()) {
+    return ActionName(id, args);
+  }
+  std::vector<std::string> res_args(args.size(), "");
+  for (long unsigned int i = 0; i < args.size(); i++) {
+    if (args[i][0] == constants::VAR_PREFIX) {
+      res_args[i] = ground_args[i];
+    } else {
+      res_args[i] = args[i];
+    }
+  }
+  return ActionName(id, res_args);
+}
 
 // Plan Action
-planAction::planAction(::std::string arg_name, const Bounds &arg_duration)
-    : name(arg_name), duration(arg_duration),
+planAction::planAction(ActionName arg_name, const Bounds &arg_absolute_time,
+                       const Bounds &arg_duration)
+    : name(arg_name), absolute_time(arg_absolute_time), duration(arg_duration),
       delay_tolerance(0, std::numeric_limits<timepoint>::max()) {}
