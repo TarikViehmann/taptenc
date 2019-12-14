@@ -735,11 +735,8 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
           continue;
         }
         bool dest_found = false;
-        std::cout << Filter::getPrefix(trans.dest_id, constants::TL_SEP)
-                  << std::endl;
         for (const auto &search_tl : (*po_tls.tls.get())[Filter::getPrefix(
                  trans.dest_id, constants::TL_SEP)]) {
-          std::cout << search_tl.second.ta.states.size() << std::endl;
           auto find_dest = std::find_if(
               search_tl.second.ta.states.begin(),
               search_tl.second.ta.states.end(),
@@ -779,8 +776,8 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
                                     curr_copy.second.ta.states.begin(),
                                     curr_copy.second.ta.states.end());
           already_pruned.insert(curr_copy.first);
-          std::cout << "DirectEncoder createFinalSystem: pruned "
-                    << curr_copy.first << std::endl;
+          // std::cout << "DirectEncoder createFinalSystem: pruned "
+          //           << curr_copy.first << std::endl;
         }
       }
     }
@@ -842,4 +839,8 @@ DirectEncoder::DirectEncoder(const PlanOrderedTLs &tls,
   for (const auto &pa : *(tls.pa_order.get())) {
     po_tls.pa_order.get()->push_back(pa);
   }
+}
+
+DirectEncoder DirectEncoder::copy() {
+  return DirectEncoder(po_tls, plan, plan_ta_index);
 }

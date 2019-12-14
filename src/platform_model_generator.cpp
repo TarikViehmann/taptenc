@@ -122,7 +122,7 @@ Automaton benchmarkgenerator::generatePerceptionTA() {
   return test;
 }
 
-Automaton benchmarkgenerator::generateCommTA() {
+Automaton benchmarkgenerator::generateCommTA(::std::string machine) {
   vector<State> comm_states;
   vector<Transition> comm_transitions;
   std::shared_ptr<Clock> send_clock = std::make_shared<Clock>("send");
@@ -131,21 +131,12 @@ Automaton benchmarkgenerator::generateCommTA() {
       State("prepare", ComparisonCC(send_clock, ComparisonOp::LTE, 30)));
   comm_states.push_back(
       State("prepared", ComparisonCC(send_clock, ComparisonOp::LTE, 0)));
-  comm_states.push_back(
-      State("error", ComparisonCC(send_clock, ComparisonOp::LTE, 0)));
-  comm_transitions.push_back(Transition("idle", "prepare", "send_prepare",
-                                        TrueCC(), {send_clock}, "", true));
-  comm_transitions.push_back(
-      Transition("prepare", "prepared", "",
-                 ConjunctionCC(ComparisonCC(send_clock, ComparisonOp::LT, 30),
-                               ComparisonCC(send_clock, ComparisonOp::GT, 10)),
-                 {send_clock}, "", true));
+  comm_transitions.push_back(Transition("idle", "prepare",
+                                        "instruct_" + machine, TrueCC(),
+                                        {send_clock}, "", true));
   comm_transitions.push_back(Transition(
-      "prepare", "error", "", ComparisonCC(send_clock, ComparisonOp::EQ, 30),
-      {send_clock}, "", true));
-  comm_transitions.push_back(
-      Transition("error", "idle", "",
-                 ComparisonCC(send_clock, ComparisonOp::EQ, 30), {}, "", true));
+      "prepare", "prepared", "",
+      ComparisonCC(send_clock, ComparisonOp::GTE, 30), {send_clock}, "", true));
   comm_transitions.push_back(
       Transition("prepared", "idle", "", TrueCC(), {}, "", true));
   Automaton comm_ta =
@@ -156,8 +147,7 @@ Automaton benchmarkgenerator::generateCommTA() {
 }
 
 vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
-    const Automaton &perception_ta,
-    const ::std::unordered_set<::std::string> &pa_names) {
+    const Automaton &perception_ta) {
   unordered_set<string> cam_off_exceptions{"pick", "put", "endpick", "endput"};
   vector<State> pic_filter;
   vector<State> vision_filter;
@@ -184,9 +174,6 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
   Bounds remain_bounds(10, 10);
   Bounds end_bounds(0, 5);
   Bounds null_bounds(0, 0);
-  if (pa_names.size() == 100000) {
-    end_bounds.lower_bound = 100;
-  }
   // ---------------------- Normal Constraints ------------------------------
   vector<unique_ptr<EncICInfo>> activations;
   // puck sense at begin and end of goto
@@ -273,8 +260,7 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
       vector<ActionName>({ActionName(
           "startgoto", {std::string() + constants::VAR_PREFIX + "m",
                         std::string() + constants::VAR_PREFIX + "n"})}),
-      vector<TargetSpecs>{
-                          TargetSpecs(full_bounds, cam_off_filter)},
+      vector<TargetSpecs>{TargetSpecs(full_bounds, cam_off_filter)},
       vector<ActionName>({ActionName(
           "endgoto", {std::string() + constants::VAR_PREFIX + "m",
                       std::string() + constants::VAR_PREFIX + "n"})})));
@@ -282,45 +268,47 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
 }
 
 vector<unique_ptr<EncICInfo>>
-benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta) {
-  vector<State> comm_idle_filter;
-  vector<State> comm_preparing_filter;
-  vector<State> comm_prepared_filter;
-  comm_idle_filter.push_back(comm_ta.states[0]);
-  comm_prepared_filter.push_back(comm_ta.states[2]);
-  comm_preparing_filter.push_back(comm_ta.states[1]);
+benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta,
+                                            ::std::string machine) {
+  vector<State> comm_not_prepared_filter(
+      {comm_ta.states[0], comm_ta.states[1]});
 
   Bounds full_bounds(0, numeric_limits<int>::max());
-  Bounds no_bounds(0, numeric_limits<int>::max());
-  Bounds vision_bounds(5, 10); // numeric_limits<int>::max());
-  Bounds cam_off_bounds(2, 5);
-  Bounds puck_sense_bounds(2, 5, ComparisonOp::LTE, ComparisonOp::LTE);
-  Bounds goto_bounds(15, 45);
-  Bounds pick_bounds(13, 18);
-  Bounds discard_bounds(3, 6);
-  Bounds end_bounds(0, 5);
 
   // ---------------------- Until Chain -------------------------------------
   vector<unique_ptr<EncICInfo>> comm_constraints;
-  // until chain to prepare
-  // comm_constraints.emplace_back(make_unique<ChainInfo>(
-  //     "prepare_chain", ICType::UntilChain, vector<string>({"endput"}),
-  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter),
-  //                         TargetSpecs(no_bounds, comm_preparing_filter),
-  //                         TargetSpecs(no_bounds, comm_prepared_filter),
-  //                         TargetSpecs(no_bounds, comm_idle_filter)},
-  //     "pick"));
-  // comm_activations["endpick"].emplace_back(make_unique<ChainInfo>(
-  //     "idle_chain", ICType::UntilChain,
-  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)}, "put"));
-  // comm_activations[constants::START_PA].emplace_back(make_unique<ChainInfo>(
-  //     "start_chain", ICType::UntilChain,
-  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)},
-  //     "pick"));
-  // comm_activations["last"].emplace_back(make_unique<ChainInfo>(
-  //     "end_chain", ICType::UntilChain,
-  //     vector<TargetSpecs>{TargetSpecs(no_bounds, comm_idle_filter)},
-  //     constants::END_PA));
+  // prepare the machine precisely once after put before pick or before plan
+  // ends
+  comm_constraints.emplace_back(make_unique<ChainInfo>(
+      "prep_" + machine, ICType::UntilChain,
+      vector<ActionName>({ActionName(
+          "endput", {std::string() + constants::VAR_PREFIX + "o", machine})}),
+      vector<TargetSpecs>{TargetSpecs(full_bounds, comm_not_prepared_filter),
+                          TargetSpecs(full_bounds, {comm_ta.states[2]})},
+      vector<ActionName>({
+          ActionName("startpick",
+                     {std::string() + constants::VAR_PREFIX + "o", machine}),
+          ActionName("endplan", {std::string() + constants::VAR_PREFIX + "p",
+                                 std::string() + constants::VAR_PREFIX + "q"}),
+      })));
+  // do not start any preparation in between picks and puts (or until plan ends
+  // and before the first delivery to the machine)
+  comm_constraints.emplace_back(make_unique<ChainInfo>(
+      "prep_" + machine, ICType::UntilChain,
+      vector<ActionName>({
+          ActionName("endpick",
+                     {std::string() + constants::VAR_PREFIX + "o", machine}),
+          ActionName("startplan",
+                     {std::string() + constants::VAR_PREFIX + "r",
+                      std::string() + constants::VAR_PREFIX + "s"}),
+      }),
+      vector<TargetSpecs>{TargetSpecs(full_bounds, {comm_ta.states[0]})},
+      vector<ActionName>({
+          ActionName("endput",
+                     {std::string() + constants::VAR_PREFIX + "o2", machine}),
+          ActionName("endplan", {std::string() + constants::VAR_PREFIX + "p",
+                                 std::string() + constants::VAR_PREFIX + "q"}),
+      })));
 
   return comm_constraints;
 }
@@ -345,8 +333,7 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
       vector<ActionName>({ActionName(
           "startgoto", {std::string() + constants::VAR_PREFIX + "m",
                         std::string() + constants::VAR_PREFIX + "n"})}),
-      vector<TargetSpecs>{
-                          TargetSpecs(full_bounds, no_use_filter)},
+      vector<TargetSpecs>{TargetSpecs(full_bounds, no_use_filter)},
       vector<ActionName>({ActionName(
           "endgoto", {std::string() + constants::VAR_PREFIX + "m",
                       std::string() + constants::VAR_PREFIX + "n"})})));
@@ -359,8 +346,7 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("endgetshelf",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      vector<TargetSpecs>{
-                          TargetSpecs(full_bounds, no_calib_filter)},
+      vector<TargetSpecs>{TargetSpecs(full_bounds, no_calib_filter)},
       vector<ActionName>({ActionName(
           "startput", {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "n"})})));
@@ -373,8 +359,7 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("endgetshelf",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      vector<TargetSpecs>{
-                          TargetSpecs(full_bounds, calib_ta.states),
+      vector<TargetSpecs>{TargetSpecs(full_bounds, calib_ta.states),
                           TargetSpecs(full_bounds, {calib_ta.states[0]}),
                           TargetSpecs(null_bounds, calib_ta.states)},
       vector<ActionName>({ActionName(
@@ -396,8 +381,7 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
            ActionName("startpay",
                       {std::string() + constants::VAR_PREFIX + "o",
                        std::string() + constants::VAR_PREFIX + "m"})}),
-      vector<TargetSpecs>{
-                          TargetSpecs(full_bounds, use_filter)},
+      vector<TargetSpecs>{TargetSpecs(full_bounds, use_filter)},
       vector<ActionName>(
           {ActionName("endpick", {std::string() + constants::VAR_PREFIX + "o",
                                   std::string() + constants::VAR_PREFIX + "m"}),

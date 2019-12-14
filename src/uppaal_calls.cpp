@@ -10,6 +10,7 @@
 #include "printer/printer.h"
 #include "timed-automata/timed_automata.h"
 #include "utils.h"
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -51,14 +52,15 @@ std::string getEnvVar(std::string const &key) {
   return std::string(val);
 }
 
-void solve(const AutomataSystem &sys, std::string file_name,
-           std::string query_str) {
+::std::vector<timedelta> solve(const AutomataSystem &sys, std::string file_name,
+                               std::string query_str) {
   XMLPrinter printer;
   SystemVisInfo sys_vis_info(sys);
   printer.print(sys, sys_vis_info, file_name + ".xml");
-  solve(file_name, query_str);
+  return solve(file_name, query_str);
 }
-void solve(std::string file_name, std::string query_str) {
+::std::vector<timedelta> solve(std::string file_name, std::string query_str) {
+  std::vector<timedelta> res;
   std::ofstream myfile;
   myfile.open(file_name + ".q", std::ios_base::trunc);
   myfile << query_str;
@@ -66,16 +68,28 @@ void solve(std::string file_name, std::string query_str) {
   std::string call_get_if = "UPPAAL_COMPILE_ONLY=1 " +
                             getEnvVar("VERIFYTA_DIR") + "/verifyta " +
                             file_name + ".xml - > " + file_name + ".if";
+
+  auto t1 = std::chrono::high_resolution_clock::now();
   std::system(call_get_if.c_str());
+  auto t2 = std::chrono::high_resolution_clock::now();
+  res.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1));
   std::string call_get_trace = getEnvVar("VERIFYTA_DIR") +
                                "/verifyta -t 2  -f " + file_name + " -Y " +
                                file_name + ".xml " + file_name + ".q";
+  t1 = std::chrono::high_resolution_clock::now();
   std::system(call_get_trace.c_str());
+  t2 = std::chrono::high_resolution_clock::now();
+  res.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1));
+
+  t1 = std::chrono::high_resolution_clock::now();
   deleteEmptyLines(file_name + "-1.xtr");
   std::string call_make_trace_readable = "tracer " + file_name + ".if " +
                                          file_name + "-1.xtr > " + file_name +
                                          ".trace";
   std::system(call_make_trace_readable.c_str());
+  t2 = std::chrono::high_resolution_clock::now();
+  res.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1));
+  return res;
 }
 } // end namespace uppaalcalls
 } // end namespace taptenc
