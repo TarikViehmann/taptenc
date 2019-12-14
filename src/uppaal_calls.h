@@ -10,10 +10,14 @@
 
 #include "constants.h"
 #include "timed-automata/timed_automata.h"
+#include <chrono>
 #include <string>
+#include <vector>
 
 namespace taptenc {
 namespace uppaalcalls {
+/** Unit of time measurement. */
+typedef ::std::chrono::duration<long, std::milli> timedelta;
 /** Default query string. */
 constexpr char QUERY_STR[]{"E<> sys_direct.AqueryA"};
 constexpr char TAPTENC_TEMP_XML[]{"taptenc_temp"};
@@ -40,9 +44,12 @@ std::string getEnvVar(std::string const &key);
  *
  * @param file_name name of xml system file without .xml
  * @param query_str query string suitable for uppaal
+ *
+ * @return time measures fo the two calls to verifyta and the one call to
+ *         tracer
  */
-void solve(::std::string file_name = TAPTENC_TEMP_XML,
-           ::std::string query_str = QUERY_STR);
+::std::vector<timedelta> solve(::std::string file_name = TAPTENC_TEMP_XML,
+                               ::std::string query_str = QUERY_STR);
 
 /**
  * Call the verifyta solver and the tracer from the utap lib to solve a query
@@ -51,9 +58,12 @@ void solve(::std::string file_name = TAPTENC_TEMP_XML,
  * @param sys automata system to solve the query for
  * @param file_name name of xml system file without .xml
  * @param query_str query string sutiable for uppaal
+ *
+ * @return time measures fo the two calls to verifyta and the one call to
+ *         tracer
  */
-void solve(const AutomataSystem &sys,
-           ::std::string file_name = TAPTENC_TEMP_XML,
-           ::std::string query_str = QUERY_STR);
+::std::vector<timedelta> solve(const AutomataSystem &sys,
+                               ::std::string file_name = TAPTENC_TEMP_XML,
+                               ::std::string query_str = QUERY_STR);
 } // end namespace uppaalcalls
 } // end namespace taptenc

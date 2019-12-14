@@ -42,30 +42,35 @@ Automaton generatePerceptionTA();
 /**
  * Generates a communication platform TA to model simple machine communication.
  *
+ * @param machine name of the machine that should be communicated with
  * @return communication platform TA
  */
-Automaton generateCommTA();
+Automaton generateCommTA(::std::string machine);
 
 /**
  * Generates constraints for the perception TA (see generatePerceptionTA()).
  *
+ * @param perception_taautomaton that models the camera, icp and puck check
  * @return constraint activation mapping for the perception TA
  */
-::std::vector<::std::unique_ptr<EncICInfo>> generatePerceptionConstraints(
-    const Automaton &perception_ta,
-    const ::std::unordered_set<::std::string> &pa_names);
+::std::vector<::std::unique_ptr<EncICInfo>>
+generatePerceptionConstraints(const Automaton &perception_ta);
 
 /**
  * Generates constraints for the communication TA (see generateCommTA()).
  *
+ * @param comm_ta automaton that models the communication with machines
+ * @param machine name of machine that is handled by the component
+ *
  * @return constraint activation mapping for the communication TA
  */
 ::std::vector<::std::unique_ptr<EncICInfo>>
-generateCommConstraints(const Automaton &comm_ta);
+generateCommConstraints(const Automaton &comm_ta, ::std::string machine);
 
 /**
  * Generates constraints for the calibration TA (see generateCommTA()).
  *
+ * @param calib_ta automaton that models the axis calibration
  * @return constraint activation mapping for the calibration TA
  */
 ::std::vector<::std::unique_ptr<EncICInfo>>

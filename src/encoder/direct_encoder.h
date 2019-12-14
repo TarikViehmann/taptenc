@@ -132,6 +132,7 @@ private:
 
 public:
   size_t getPlanTAIndex();
+  DirectEncoder copy();
 
   /**
    * Encode an until chain.
@@ -323,6 +324,8 @@ public:
    */
   DirectEncoder(AutomataSystem &s, const ::std::vector<PlanAction> &plan,
                 const int base_pos = 0);
+
+  DirectEncoder() = default;
 
   /**
    * Converts the PlanOrderedTLs representation of the encoding to an automata
