@@ -360,6 +360,9 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     ub_acc = safeAddition(ub_acc, specs->bounds.upper_bound);
     std::size_t context_start = context.first;
     std::size_t context_end = context.first + context.second;
+    // std::cout << "until chain context " << context_start << "," <<
+    // context_end
+    //           << std::endl;
     std::string context_pa_start =
         *(po_tls.pa_order.get()->begin() + context_start);
     std::string context_pa_end =
@@ -457,6 +460,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   std::size_t constraint_start =
       start_pa_entry - po_tls.pa_order.get()->begin();
   std::size_t context_end = context.first + context.second;
+  // std::cout << "context: " << context_start << "," << context_end << std::endl;
   std::string context_pa_start =
       *(po_tls.pa_order.get()->begin() + context_start);
   std::string context_pa_end = *(po_tls.pa_order.get()->begin() + context_end);
