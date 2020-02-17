@@ -460,7 +460,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   std::size_t constraint_start =
       start_pa_entry - po_tls.pa_order.get()->begin();
   std::size_t context_end = context.first + context.second;
-  // std::cout << "context: " << context_start << "," << context_end << std::endl;
+  // std::cout << "context: " << context_start << "," << context_end <<
+  // std::endl;
   std::string context_pa_start =
       *(po_tls.pa_order.get()->begin() + context_start);
   std::string context_pa_end = *(po_tls.pa_order.get()->begin() + context_end);
