@@ -29,6 +29,15 @@ using std::string;
 using std::unordered_map;
 namespace taptenc {
 
+std::ostream& operator<<(std::ostream& os, const SpecialClocksInfo &g) {
+  os << (g.global_clock.first.second ? "(" : "[") << g.global_clock.first.first
+	   << ", "
+     << g.global_clock.second.first << (g.global_clock.second.second ? ")" : "]")
+		 << " + [0, "
+     << g.max_delay.first << (g.max_delay.second ? ")" : "]");
+	return os;
+}
+
 SpecialClocksInfo
 UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
   unordered_map<string, timepoint> ids;
@@ -491,9 +500,6 @@ bool UTAPTraceParser::parseTraceInfo(const std::string &file) {
   std::fstream fileStream;
   std::string currentReadLine;
   fileStream.open(file, std::fstream::in); // open the file in Input mode
-  cout << "----------------------------------" << endl;
-  cout << "---------Final Plan---------------" << endl;
-  cout << "----------------------------------" << endl;
   if (getline(fileStream, currentReadLine)) {
     if (currentReadLine.size() > 5) {
       if (currentReadLine.substr(0, 5) == "State") {

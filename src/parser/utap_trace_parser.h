@@ -9,6 +9,7 @@
 #include "../timed-automata/timed_automata.h"
 #include "../utils.h"
 #include <string>
+#include <ostream>
 #include <unordered_map>
 
 namespace taptenc {
@@ -24,6 +25,7 @@ typedef ::std::pair<taptenc::timepoint, bool> dbm_entry_t;
 struct specialClocksInfo {
   ::std::pair<dbm_entry_t, dbm_entry_t> global_clock;
   dbm_entry_t max_delay;
+	friend std::ostream& operator<<(std::ostream& os, const specialClocksInfo &g);
 };
 typedef specialClocksInfo SpecialClocksInfo;
 
