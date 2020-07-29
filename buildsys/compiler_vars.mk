@@ -3,36 +3,12 @@
 
 BUILD := debug
 
-COMPILER=gcc
-
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEP_DIR)/$*.Td
 POSTCOMPILE = mv -f $(DEP_DIR)/$*.Td $(DEP_DIR)/$*.d && touch $@
 
-CXX.gcc := /bin/g++
-CC.gcc := /bin/gcc
-LD.gcc := /bin/g++
-AR.gcc := /bin/ar
-
-CXX.clang := /bin/clang++
-CC.clang := /bin/clang
-LD.clang := /bin/clang++
-AR.clang := /bin/ar
-
-CXX := ${CXX.${COMPILER}}
-CC := ${CC.${COMPILER}}
-LD := ${LD.${COMPILER}}
-AR := ${AR.${COMPILER}}
-
-CXXFLAGS.gcc.debug := -Og -fstack-protector-all
-CXXFLAGS.gcc.release := -O3 -march=native -DNDEBUG
-CXXFLAGS.gcc := -pthread -std=gnu++14 -march=native -W{all,extra,error} -g -fmessage-length=0 ${CXXFLAGS.gcc.${BUILD}}
-
-CXXFLAGS.clang.debug := -O0 -fstack-protector-all
-CXXFLAGS.clang.release := -O3 -march=native -DNDEBUG
-CXXFLAGS.clang := -pthread -std=gnu++14 -march=native -W{all,extra,error} -g -fmessage-length=0 ${CXXFLAGS.clang.${BUILD}}
-
-CXXFLAGS := ${CXXFLAGS.${COMPILER}}
-CFLAGS := ${CFLAGS.${COMPILER}}
+CXXFLAGS.debug := -Og -fstack-protector-all
+CXXFLAGS.release := -O3 -march=native -DNDEBUG
+CXXFLAGS := -pthread -std=gnu++14 -march=native -W{all,extra,error} -g -fmessage-length=0 ${CXXFLAGS.${BUILD}}
 
 LDFLAGS.debug :=
 LDFLAGS.release :=
