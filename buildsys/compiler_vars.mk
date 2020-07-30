@@ -13,7 +13,7 @@ CXXFLAGS := -pthread -std=gnu++14 -W{all,extra,error} -fmessage-length=0 ${CXXFL
 LDFLAGS.debug :=
 LDFLAGS.release :=
 LDFLAGS := -pthread ${LDFLAGS.${BUILD}}
-LDLIBS := -ldl -lc
+LDLIBS :=
 ifeq ($(WITH_UTAP),1)
 LDLIBS := $(LDLIBS) -L/usr/local/lib -lutap -lxml2
 endif
