@@ -8,7 +8,7 @@ POSTCOMPILE = mv -f $(DEP_DIR)/$*.Td $(DEP_DIR)/$*.d && touch $@
 
 CXXFLAGS.debug := -Og -fstack-protector-all
 CXXFLAGS.release := -O3 -march=native -DNDEBUG
-CXXFLAGS := -pthread -std=gnu++14 -march=native -W{all,extra,error} -g -fmessage-length=0 ${CXXFLAGS.${BUILD}}
+CXXFLAGS := -pthread -std=gnu++14 -W{all,extra,error} -g -fmessage-length=0 ${CXXFLAGS.${BUILD}}
 
 LDFLAGS.debug :=
 LDFLAGS.release :=
