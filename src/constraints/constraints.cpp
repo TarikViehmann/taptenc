@@ -165,6 +165,10 @@ differenceCC::differenceCC(::std::shared_ptr<Clock> arg_minuend,
 
 // Bounds
 
+bounds::bounds()
+: bounds(0, std::numeric_limits<timepoint>::max())
+{}
+
 bounds::bounds(timepoint l, timepoint u) {
   l_op = ComparisonOp::LTE;
   r_op = u == ::std::numeric_limits<timepoint>::max() ? ComparisonOp::LT
@@ -203,6 +207,18 @@ ConjunctionCC bounds::createConstraintBoundsSat(
   }
   return ConjunctionCC(*below_upper_bound.get(), *lower_bound_reached.get());
 }
+
+bool bounds::operator == (const bounds &other) {
+  return this->l_op == other.l_op
+         && this->r_op == other.r_op
+         && this->lower_bound == other.lower_bound
+         && this->upper_bound == other.upper_bound;
+}
+
+bool bounds::operator != (const bounds &other) {
+	return !(*this == other);
+}
+
 // Action Name
 actionName::actionName(::std::string id,
                        const ::std::vector<::std::string> &args)
