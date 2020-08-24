@@ -496,10 +496,19 @@ timed_trace_t UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
   std::vector<SpecialClocksInfo> trace_timings = getTraceTimings();
   timed_trace_t res;
   assert(trace_timings.size() == trace_ta.transitions.size() + 1);
+  // the last transition goes to fin, hence we skip it
   for (size_t i = 0; i < trace_ta.transitions.size() - 1; i++) {
     GroundedActionTime curr_action_grounding;
+    // global clock lower bound of the symbolic state after the transition
+    // gives the earliest possible action start
     curr_action_grounding.earliest_start =
         (trace_timings.begin() + i + 1)->global_clock.first.first;
+    // max delay of the symbolic state before the transition describes
+    // how much time may elapse while not taking the transition without
+    // breaking any constraint.
+    // Using this together with the difference of global clock lower bound
+    // values of the next symbolic state and the previous one gives the
+    // possible delay added on top of the earliest action start
     curr_action_grounding.max_delay =
         (trace_timings.begin() + i)->max_delay.first +
         (trace_timings.begin() + i)->global_clock.first.first -
