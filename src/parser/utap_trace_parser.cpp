@@ -29,13 +29,17 @@ using std::string;
 using std::unordered_map;
 namespace taptenc {
 
-std::ostream& operator<<(std::ostream& os, const SpecialClocksInfo &g) {
+std::ostream &operator<<(std::ostream &os, const SpecialClocksInfo &g) {
   os << (g.global_clock.first.second ? "(" : "[") << g.global_clock.first.first
-	   << ", "
-     << g.global_clock.second.first << (g.global_clock.second.second ? ")" : "]")
-		 << " + [0, "
+     << ", " << g.global_clock.second.first
+     << (g.global_clock.second.second ? ")" : "]") << " + [0, "
      << g.max_delay.first << (g.max_delay.second ? ")" : "]");
-	return os;
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const GroundedActionTime &g) {
+  os << g.earliest_start << " (+ " << g.max_delay << ")";
+  return os;
 }
 
 SpecialClocksInfo
@@ -375,12 +379,11 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
   if (global_clock_it != trace_ta.clocks.end()) {
     for (size_t trans_offset = 0; trans_offset <= delay_pos; trans_offset++) {
       auto ta_trans_it = trace_ta.transitions.begin() + trans_offset;
-      timepoint execute_at = (parsed_trace.begin() + trans_offset)
-                                 ->first.global_clock.second.first;
+      timepoint execute_at =
+          (parsed_trace.begin() + trans_offset)->first.earliest_start;
       if (trans_offset == delay_pos) {
-        execute_at = (parsed_trace.begin() + trans_offset)
-                         ->first.global_clock.first.first +
-                     delay;
+        execute_at =
+            (parsed_trace.begin() + trans_offset)->first.earliest_start + delay;
       }
       ta_trans_it->guard = std::make_unique<ConjunctionCC>(
           *ta_trans_it->guard.get(),
@@ -400,7 +403,15 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
     std::vector<SpecialClocksInfo> timings = getTraceTimings();
     assert(timings.size() == parsed_trace.size() + 1);
     for (size_t i = delay_pos; i < parsed_trace.size(); i++) {
-      (parsed_trace.begin() + i)->first = *(timings.begin() + i);
+      // (parsed_trace.begin() + i)->first = *(timings.begin() + i);
+      GroundedActionTime curr_action_grounding;
+      curr_action_grounding.earliest_start =
+          (timings.begin() + i + 1)->global_clock.first.first;
+      curr_action_grounding.max_delay =
+          (timings.begin() + i)->max_delay.first +
+          (timings.begin() + i)->global_clock.first.first -
+          curr_action_grounding.earliest_start;
+      (parsed_trace.begin() + i)->first = curr_action_grounding;
     }
     return parsed_trace;
   } else {
@@ -485,9 +496,17 @@ timed_trace_t UTAPTraceParser::getTimedTrace(const Automaton &base_ta,
   std::vector<SpecialClocksInfo> trace_timings = getTraceTimings();
   timed_trace_t res;
   assert(trace_timings.size() == trace_ta.transitions.size() + 1);
-  for (size_t i = 0; i < trace_ta.transitions.size(); i++) {
+  for (size_t i = 0; i < trace_ta.transitions.size() - 1; i++) {
+    GroundedActionTime curr_action_grounding;
+    curr_action_grounding.earliest_start =
+        (trace_timings.begin() + i + 1)->global_clock.first.first;
+    curr_action_grounding.max_delay =
+        (trace_timings.begin() + i)->max_delay.first +
+        (trace_timings.begin() + i)->global_clock.first.first -
+        curr_action_grounding.earliest_start;
+
     res.push_back(std::make_pair(
-        *(trace_timings.begin() + i),
+        curr_action_grounding,
         getActionsFromTraceTrans(*(trace_ta.transitions.begin() + i), base_ta,
                                  plan_ta)));
   }

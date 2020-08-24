@@ -25,9 +25,20 @@ typedef ::std::pair<taptenc::timepoint, bool> dbm_entry_t;
 struct specialClocksInfo {
   ::std::pair<dbm_entry_t, dbm_entry_t> global_clock;
   dbm_entry_t max_delay;
-	friend std::ostream& operator<<(std::ostream& os, const specialClocksInfo &g);
+  friend std::ostream &operator<<(std::ostream &os, const specialClocksInfo &g);
 };
 typedef specialClocksInfo SpecialClocksInfo;
+
+/**
+ * Wrapper for plan action timings.
+ */
+struct groundedActionTime {
+  taptenc::timepoint earliest_start;
+  taptenc::timepoint max_delay;
+  friend std::ostream &operator<<(std::ostream &os,
+                                  const groundedActionTime &g);
+};
+typedef groundedActionTime GroundedActionTime;
 
 /**
  * Different bounds representation, where [clock1,clock2] -> (i,true) means
@@ -42,7 +53,7 @@ typedef ::std::unordered_map<::std::pair<::std::string, ::std::string>,
  * started after the time constraints are met.
  */
 typedef ::std::vector<
-    ::std::pair<SpecialClocksInfo, ::std::vector<::std::string>>>
+    ::std::pair<groundedActionTime, ::std::vector<::std::string>>>
     timed_trace_t;
 
 class UTAPTraceParser {
