@@ -22,7 +22,8 @@ enum ICType {
   NoOp,
   /** have been in a set of targets satates within some time bounds */
   Past,
-  /** during \a pa always be in a set of target states */
+  /** during \a pa always be in a set of target states
+   *  (obsolete, use \a chainInfo instead) */
   Invariant,
   /**
    * be in one set of target states first, then within some time bounds reach
@@ -60,7 +61,7 @@ struct encICInfo {
   ::std::string name;
   /** Type of the information */
   ICType type;
-  /** Action, that trigger the activatoins */
+  /** Action, that trigger the activatoins (disjunct) */
   ::std::vector<ActionName> activations;
   encICInfo(::std::string arg_name, ICType arg_type,
             const ::std::vector<ActionName> &arg_activations)

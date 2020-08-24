@@ -226,6 +226,12 @@ struct bounds {
   ComparisonOp r_op;
   timepoint lower_bound;
   timepoint upper_bound;
+
+  /**
+   * Creates default bounds (l = 0, u = tmax)
+   */
+  bounds();
+
   /**
    * Creates non-strct bounds.
    *
@@ -261,6 +267,9 @@ struct bounds {
    */
   ConjunctionCC
   createConstraintBoundsSat(const ::std::shared_ptr<Clock> &clock_ptr) const;
+
+  bool operator == (const bounds &other);
+  bool operator != (const bounds &other);
 };
 typedef struct bounds Bounds;
 
