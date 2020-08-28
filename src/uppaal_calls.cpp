@@ -11,6 +11,7 @@
 #include "timed-automata/timed_automata.h"
 #include "utils.h"
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -78,9 +79,11 @@ std::string exec(const char *cmd) {
 ::std::vector<timedelta> solve(std::string file_name, std::string query_str) {
   std::vector<timedelta> res;
   std::ofstream myfile;
+  std::filesystem::remove(file_name + ".q");
   myfile.open(file_name + ".q", std::ios_base::trunc);
   myfile << query_str;
   myfile.close();
+  std::filesystem::remove(file_name + ".if");
   std::string call_get_if = "UPPAAL_COMPILE_ONLY=1 " +
                             getEnvVar("VERIFYTA_DIR") + "/verifyta " +
                             file_name + ".xml - > " + file_name + ".if";
@@ -92,6 +95,7 @@ std::string exec(const char *cmd) {
   std::string call_get_trace = getEnvVar("VERIFYTA_DIR") +
                                "/verifyta -t 2  -f " + file_name + " -Y " +
                                file_name + ".xml " + file_name + ".q";
+  std::filesystem::remove(file_name + "-1.xtr");
   t1 = std::chrono::high_resolution_clock::now();
   // std::system(call_get_trace.c_str());
   std::string output_str = exec(call_get_trace.c_str());
@@ -102,6 +106,7 @@ std::string exec(const char *cmd) {
 
     t1 = std::chrono::high_resolution_clock::now();
     deleteEmptyLines(file_name + "-1.xtr");
+    std::filesystem::remove(file_name + ".trace");
     std::string call_make_trace_readable = "tracer " + file_name + ".if " +
                                            file_name + "-1.xtr > " + file_name +
                                            ".trace";
