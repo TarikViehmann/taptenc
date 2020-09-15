@@ -65,7 +65,7 @@ state::state(const state &other) {
 }
 state::state(state &&other) noexcept {
   id = std::move(other.id);
-  inv = std::move(other.inv->createCopy());
+  inv = other.inv->createCopy();
   urgent = std::move(other.urgent);
   initial = std::move(other.initial);
 }
