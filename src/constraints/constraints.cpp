@@ -182,7 +182,7 @@ bounds::bounds(timepoint l, timepoint u, ComparisonOp arg_l_op,
   assert(arg_l_op == ComparisonOp::LT || arg_l_op == ComparisonOp::LTE);
   assert(arg_r_op == ComparisonOp::LT || arg_r_op == ComparisonOp::LTE);
   assert(arg_r_op == ComparisonOp::LT ||
-         upper_bound != std::numeric_limits<timepoint>::max());
+         u != std::numeric_limits<timepoint>::max());
   l_op = arg_l_op;
   r_op = arg_r_op;
   lower_bound = l;

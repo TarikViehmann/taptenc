@@ -101,6 +101,9 @@ enum CCType {
 struct clockConstraint {
   /** Holds the real type concrete object type. */
   CCType type;
+
+  virtual ~clockConstraint() = default;
+
   /** Copies interface to allow clock constraint copies extended by more
    * constraints during encoding.
    */

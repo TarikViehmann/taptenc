@@ -159,9 +159,7 @@ UTAPTraceParser::determineSpecialClockBounds(dbm_t differences) {
     trace_to_ta_ids.insert(std::make_pair(ta_state_id, source_state_it->id));
     trace_ta.states.push_back(ta_state);
   } else {
-    std::cout
-        << "UTAPTraceParser addStateToTraceTA: Error, source state not found: "
-        << state_id << std::endl;
+    throw std::runtime_error("UTAPTraceParser addStateToTraceTA: Error, source state not found: " + state_id);
   }
   return ta_state_id;
 }
