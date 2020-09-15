@@ -45,8 +45,8 @@ std::string getEnvVar(std::string const &key);
  * @param file_name name of xml system file without .xml
  * @param query_str query string suitable for uppaal
  *
- * @return time measures fo the two calls to verifyta and the one call to
- *         tracer
+ * @return time measures for the two calls to verifyta and if the query is
+ *         satisfied then also for the call to tracer
  */
 ::std::vector<timedelta> solve(::std::string file_name = TAPTENC_TEMP_XML,
                                ::std::string query_str = QUERY_STR);
@@ -59,8 +59,8 @@ std::string getEnvVar(std::string const &key);
  * @param file_name name of xml system file without .xml
  * @param query_str query string sutiable for uppaal
  *
- * @return time measures fo the two calls to verifyta and the one call to
- *         tracer
+ * @return time measures for the two calls to verifyta and if the query is
+ *         satisfied then also for the call to tracer
  */
 ::std::vector<timedelta> solve(const AutomataSystem &sys,
                                ::std::string file_name = TAPTENC_TEMP_XML,
