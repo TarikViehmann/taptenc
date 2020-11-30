@@ -191,7 +191,7 @@ bounds::bounds(timepoint l, timepoint u, ComparisonOp arg_l_op,
 
 ConjunctionCC bounds::createConstraintBoundsSat(
     const ::std::shared_ptr<Clock> &clock_ptr) const {
-  bool lower_bounded = (lower_bound == 0 && l_op == ComparisonOp::LTE);
+  bool lower_bounded = (lower_bound != 0 || l_op == ComparisonOp::LTE);
   bool upper_bounded = (upper_bound != std::numeric_limits<int>::max());
   std::unique_ptr<ClockConstraint> below_upper_bound =
       std::make_unique<TrueCC>(TrueCC());
