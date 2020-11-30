@@ -185,13 +185,12 @@ void PlanOrderedTLs::createTransitionsToWindow(
           res = encoderutils::createCopyTransitionsBetweenTAs(
               source_entry.second.ta, dest_entry->second.ta,
               dest_entry->second.ta.states, guard, update, "");
+          target_filter.filterTransitionsInPlace(res, dest_entry->first, false);
           if (add_succ_trans) {
             std::vector<Transition> res_succ =
                 encoderutils::createSuccessorTransitionsBetweenTAs(
                     base_ta, source_entry.second.ta, dest_entry->second.ta,
                     source_entry.second.ta.states, guard, update);
-            target_filter.filterTransitionsInPlace(res, dest_entry->first,
-                                                   false);
             target_filter.filterTransitionsInPlace(res_succ, dest_entry->first,
                                                    false);
             source_entry.second.trans_out.insert(
