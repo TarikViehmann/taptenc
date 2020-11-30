@@ -593,8 +593,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   std::string constraint_end_pa =
       *(po_tls.pa_order.get()->begin() + constraint_end);
   // formulate constraints based on the given bounds
-  bool lower_bounded = (info.specs.bounds.lower_bound == 0 &&
-                        info.specs.bounds.l_op == ComparisonOp::LTE);
+  bool lower_bounded = (info.specs.bounds.lower_bound != 0 ||
+                        info.specs.bounds.l_op != ComparisonOp::LTE);
   bool upper_bounded =
       (info.specs.bounds.upper_bound != std::numeric_limits<int>::max());
   ComparisonCC guard_upper_bound_crossed(
