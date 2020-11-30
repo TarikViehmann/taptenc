@@ -604,7 +604,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
       info.specs.bounds.createConstraintBoundsSat(clock_ptr);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
   Filter target_filter(info.specs.targets);
-  curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
+  curr_window = po_tls.createWindow(context_pa_start, constraint_end_pa,
                                     base_filter, op_name);
   OrigMap orig_id = po_tls.createOrigMapping("");
   OrigMap to_orig = po_tls.createOrigMapping(op_name);
@@ -621,15 +621,14 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   }
   po_tls.createTransitionsToWindow(
       s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
-      context_pa_start, context_pa_end, target_filter, TrueCC(), {clock_ptr},
+      context_pa_start, constraint_end_pa, target_filter, TrueCC(), {clock_ptr},
       add_succ_trans);
-  std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
-      po_tls.tls.get()->find(last_pa)->second,
-      curr_window.tls.get()->find(last_pa)->second, to_orig, TrueCC());
-  for (auto &tl_entry : po_tls.tls.get()->find(last_pa)->second) {
+      po_tls.tls.get()->find(constraint_end_pa)->second,
+      curr_window.tls.get()->find(constraint_end_pa)->second, to_orig, TrueCC());
+  for (auto &tl_entry : po_tls.tls.get()->find(constraint_end_pa)->second) {
     PlanOrderedTLs::removeTransitionsToNextTl(tl_entry.second.trans_out,
-                                              last_pa);
+                                              constraint_end_pa);
   }
   if (lower_bounded) {
     TimeLine *last_tl;
