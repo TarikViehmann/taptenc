@@ -640,7 +640,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
     for (auto &last_entry : *last_tl) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
           last_entry.second.trans_out, constraint_end_pa,
-          target_filter.getFilter(), guard_constraint_sat, {}, "");
+          base_filter.getFilter(), guard_constraint_sat, {}, "");
     }
   }
   po_tls.mergeWindow(*(curr_window.tls.get()), true);
