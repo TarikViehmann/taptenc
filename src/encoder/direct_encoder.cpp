@@ -161,6 +161,12 @@ DirectEncoder::calculateContext(const TargetSpecs &specs,
                               pa - plan.begin() - offset_index);
       }
     }
+    if (offset_index > end_index) {
+      throw std::runtime_error("conflict between platform constraint and plan \
+					constraint. The Transformation cannot work.");
+      // offset_index--;
+      // return std::make_pair(offset_index, end_index - offset_index);
+    }
     return std::make_pair(offset_index, end_index - offset_index);
   } else {
 
