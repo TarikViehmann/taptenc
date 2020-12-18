@@ -141,7 +141,12 @@ comparisonCC::comparisonCC(::std::shared_ptr<Clock> arg_clock,
 }
 
 ::std::string comparisonCC::toString() const {
-  return clock->id + computils::toString(comp) + std::to_string(constant);
+  if (constant == std::numeric_limits<int>::max() ||
+      (constant == 0 && comp == ComparisonOp::GTE)) {
+    return "";
+  } else {
+    return clock->id + computils::toString(comp) + std::to_string(constant);
+  }
 }
 
 // DifferenceCC
