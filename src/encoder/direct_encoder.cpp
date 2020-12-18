@@ -156,12 +156,9 @@ DirectEncoder::calculateContext(const TargetSpecs &specs,
       if (ub_acc < lb_offset) {
         offset_index++;
       }
-      if (lb_acc >= safeAddition(specs.bounds.upper_bound, ub_offset) ||
-          pa - plan.begin() == end_index) {
-        return std::make_pair(offset_index, pa - plan.begin() - offset_index);
-      }
-      if (pa - plan.begin() == end_index) {
-        break;
+      if (lb_acc >= safeAddition(specs.bounds.upper_bound, ub_offset)) {
+        return std::make_pair(std::min(offset_index, (int)plan.size() - 1),
+                              pa - plan.begin() - offset_index);
       }
     }
     return std::make_pair(offset_index, end_index - offset_index);
