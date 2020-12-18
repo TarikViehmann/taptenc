@@ -474,6 +474,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   ConjunctionCC guard_constraint_sat =
       info.specs.bounds.createConstraintBoundsSat(clock_ptr);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
+  encode_counter++;
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
                                     base_filter, op_name);
@@ -603,6 +604,7 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   ConjunctionCC guard_constraint_sat =
       info.specs.bounds.createConstraintBoundsSat(clock_ptr);
   std::string op_name = info.name + "F" + std::to_string(encode_counter);
+  encode_counter++;
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, constraint_end_pa,
                                     base_filter, op_name);
