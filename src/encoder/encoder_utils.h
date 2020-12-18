@@ -19,6 +19,10 @@ namespace taptenc {
  * Contains utility functions to modify automatas.
  */
 namespace encoderutils {
+
+enum SuccessorTransitionOptions { NONE, FROM_SOURCE, TO_TARGET };
+using SuccTransOpts = SuccessorTransitionOptions;
+
 /**
  * Adds a fresh clock pointer to a set, if no existing pointer leads to a clock
  * with the same id.
@@ -80,11 +84,13 @@ Automaton mergeAutomata(const ::std::vector<Automaton> &automata,
  *        Only the state id suffix after constants::BASE_SEP is matched.
  * @param guard guard on the created transitions
  * @param update update on the created transitions
+ * @param filter_options if true, filter applies to destinations (in \a dest)
+ *                        else it applies to sources (\a source)
  */
 ::std::vector<Transition> createSuccessorTransitionsBetweenTAs(
     const Automaton &base, const Automaton &source, const Automaton &dest,
     const ::std::vector<State> &filter, const ClockConstraint &guard,
-    const update_t &update);
+    const update_t &update, SuccTransOpts filter_options = SuccTransOpts::NONE);
 
 /**
  * Adds transitions to the trap state.

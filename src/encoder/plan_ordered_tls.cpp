@@ -145,7 +145,8 @@ void PlanOrderedTLs::createTransitionsToWindow(
     const Automaton &base_ta, TimeLines &dest_tls,
     const std::unordered_map<std::string, std::string> &map_to_orig,
     std::string start_pa, std::string end_pa, const Filter &target_filter,
-    const ClockConstraint &guard, const update_t &update, bool add_succ_trans) {
+    const ClockConstraint &guard, const update_t &update,
+    encoderutils::SuccTransOpts add_succ_trans) {
   auto start_pa_entry =
       std::find(pa_order.get()->begin(), pa_order.get()->end(), start_pa);
   if (start_pa_entry == pa_order.get()->end()) {
@@ -186,17 +187,15 @@ void PlanOrderedTLs::createTransitionsToWindow(
               source_entry.second.ta, dest_entry->second.ta,
               dest_entry->second.ta.states, guard, update, "");
           target_filter.filterTransitionsInPlace(res, dest_entry->first, false);
-          if (add_succ_trans) {
-            std::vector<Transition> res_succ =
-                encoderutils::createSuccessorTransitionsBetweenTAs(
-                    base_ta, source_entry.second.ta, dest_entry->second.ta,
-                    source_entry.second.ta.states, guard, update);
-            target_filter.filterTransitionsInPlace(res_succ, dest_entry->first,
-                                                   false);
-            source_entry.second.trans_out.insert(
-                source_entry.second.trans_out.end(), res_succ.begin(),
-                res_succ.end());
-          }
+          std::vector<Transition> res_succ =
+              encoderutils::createSuccessorTransitionsBetweenTAs(
+                  base_ta, source_entry.second.ta, dest_entry->second.ta,
+                  target_filter.getFilter(), guard, update, add_succ_trans);
+          target_filter.filterTransitionsInPlace(res_succ, dest_entry->first,
+                                                 false);
+          source_entry.second.trans_out.insert(
+              source_entry.second.trans_out.end(), res_succ.begin(),
+              res_succ.end());
           source_entry.second.trans_out.insert(
               source_entry.second.trans_out.end(), res.begin(), res.end());
         }
@@ -388,9 +387,10 @@ Automaton PlanOrderedTLs::collapseTL(const TimeLine &tl, std::string tl_name,
   return encoderutils::mergeAutomata(automata, interconnections, tl_name);
 }
 
-TimeLine PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
-                                           const Automaton &ta_to_insert,
-                                           bool add_succ_trans) {
+TimeLine
+PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
+                                  const Automaton &ta_to_insert,
+                                  encoderutils::SuccTransOpts add_succ_trans) {
   TimeLine product_tas;
   for (const auto &ta_state : source_ta.states) {
     Automaton state_ta(std::vector<State>(), std::vector<Transition>(),
@@ -498,7 +498,8 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
           other_tl->second, other_tl->first, outgoing);
       for (const auto &entry : curr_tl.second) {
         Automaton merged_res_ta = PlanOrderedTLs::productTA(
-            entry.second.ta, merged_other_ta, entry.first, false);
+            entry.second.ta, merged_other_ta, entry.first,
+            encoderutils::SuccTransOpts::NONE);
         // what about outgoing trans?!!?!?!?!?!?
         std::vector<Transition> product_trans_out;
         for (const auto &this_ic_trans : entry.second.trans_out) {
@@ -555,8 +556,10 @@ PlanOrderedTLs::mergePlanOrderedTLs(const PlanOrderedTLs &other) const {
   return res;
 }
 
-Automaton PlanOrderedTLs::productTA(const Automaton &ta1, const Automaton &ta2,
-                                    std::string name, bool add_succ_trans) {
+Automaton
+PlanOrderedTLs::productTA(const Automaton &ta1, const Automaton &ta2,
+                          std::string name,
+                          encoderutils::SuccTransOpts add_succ_trans) {
 
   TimeLine product_tas = replaceStatesByTA(ta1, ta2, add_succ_trans);
   std::vector<Automaton> res_tas;

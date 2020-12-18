@@ -155,18 +155,40 @@ encoderutils::mergeAutomata(const ::std::vector<Automaton> &automata,
 ::std::vector<Transition> encoderutils::createSuccessorTransitionsBetweenTAs(
     const Automaton &base, const Automaton &source, const Automaton &dest,
     const ::std::vector<State> &filter, const ClockConstraint &guard,
-    const update_t &update) {
+    const update_t &update, SuccTransOpts filter_options) {
   std::vector<Transition> res_transitions;
+  bool filter_incoming;
+  switch (filter_options) {
+  case SuccTransOpts::NONE:
+    return res_transitions;
+    break;
+  case SuccTransOpts::FROM_SOURCE:
+    filter_incoming = false;
+    break;
+  case SuccTransOpts::TO_TARGET:
+    filter_incoming = true;
+    break;
+  default:
+    std::cout << "encoderutils::createSuccessorTransitionsBetweenTAs: Warning, "
+                 "unhandled options."
+              << std::endl;
+    return res_transitions;
+  }
   for (const auto &trans : base.transitions) {
-    auto search =
-        std::find_if(filter.begin(), filter.end(), [trans](const State &s) {
+    auto search = std::find_if(
+        filter.begin(), filter.end(), [trans, filter_incoming](const State &s) {
           return Filter::getSuffix(s.id, constants::BASE_SEP) ==
-                 Filter::getSuffix(trans.source_id, constants::BASE_SEP);
+                 Filter::getSuffix(
+                     (filter_incoming ? trans.dest_id : trans.source_id),
+                     constants::BASE_SEP);
         });
     if (search != filter.end()) {
-      auto source_state =
-          std::find_if(source.states.begin(), source.states.end(),
-                       [search](const State &s) { return s.id == search->id; });
+      auto source_state = std::find_if(
+          source.states.begin(), source.states.end(),
+          [search, trans](const State &s) {
+            return Filter::getSuffix(s.id, constants::BASE_SEP) ==
+                   Filter::getSuffix(trans.source_id, constants::BASE_SEP);
+          });
       auto dest_state = std::find_if(
           dest.states.begin(), dest.states.end(), [trans](const State &s) {
             return Filter::getSuffix(s.id, constants::BASE_SEP) ==

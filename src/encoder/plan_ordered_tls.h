@@ -4,6 +4,7 @@
  * \author: (2019) Tarik Viehmann
  */
 #pragma once
+#include "encoder_utils.h"
 #include "filter.h"
 #include "timed_automata.h"
 #include <memory>
@@ -35,14 +36,14 @@ private:
    * Constructs a product TA by replacing each state of one TA by anoter TA.
    * @param source_ta TA where states should be replaced
    * @param ta_to_insert TA that gets inserted to all states of source_ta
-   * @param add_succ_trans if true, adds transitions that simultaniously
+   * @param add_succ_trans option to add transitions that simultaneously
    *                       change states in source_ta and ta_to_insert
    * @return TimeLine representation of the product, with one entry containing
    *         ta_to_insert for each state of source_ta
    */
   static TimeLine replaceStatesByTA(const Automaton &source_ta,
                                     const Automaton &ta_to_insert,
-                                    bool add_succ_trans);
+                                    encoderutils::SuccTransOpts add_succ_trans);
 
 public:
   /** Unique access to a TimeLines instance. */
@@ -164,14 +165,14 @@ public:
    *        that should be reached
    * @param guard guard to add on the created transitions
    * @param update update to add on the created transitions
-   * @param add_succ_trans if true, also adds successor transitions
+   * @param add_succ_trans options to add successor transitions
    */
   void createTransitionsToWindow(
       const Automaton &base_ta, TimeLines &dest_tls,
       const ::std::unordered_map<std::string, ::std::string> &map_to_orig,
       ::std::string start_pa, ::std::string end_pa, const Filter &target_filter,
       const ClockConstraint &guard, const update_t &update,
-      bool add_succ_trans);
+      encoderutils::SuccTransOpts add_succ_trans);
 
   /**
    * Merges a timeline window into tls.
@@ -204,12 +205,13 @@ public:
    * @param ta1 first ta of the product
    * @param ta2 second ta of the product
    * @param name name of the product ta
-   * @param add_succ_trans if true, adds transitions that simultaniously
+   * @param add_succ_trans options to add transitions that simultaniously
    *                       change states in ta1 and ta2
    * @return Product ta of ta1 and ta2 by replacing each state of ta1
    *         by a copy of ta2
    */
   static Automaton productTA(const Automaton &ta1, const Automaton &ta2,
-                             ::std::string name, bool add_succ_trans);
+                             ::std::string name,
+                             encoderutils::SuccTransOpts add_succ_trans);
 };
 } // end namespace taptenc

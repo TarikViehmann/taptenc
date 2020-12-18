@@ -345,8 +345,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
   }
   // trivial target states do not require successor transitions, neither
   // incoming, nor outgoing ones
-  bool prev_add_succ_trans = true;
-  bool add_succ_trans = true;
+  SuccTransOpts add_succ_trans = SuccTransOpts::TO_TARGET;
   // encode the until chain from left to right
   for (auto specs = info.specs_list.begin(); specs != info.specs_list.end();
        ++specs) {
@@ -354,7 +353,6 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     prev_window.tls = std::move(curr_window.tls);
     prev_to_orig = curr_to_orig;
     curr_to_orig.clear();
-    prev_add_succ_trans = add_succ_trans;
     // curr_window.tls->clear();
     // determine context (window begin and end)
     std::pair<int, int> context =
@@ -406,15 +404,14 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     curr_to_orig = orig_tls.createOrigMapping(op_name);
     to_orig.insert(prev_to_orig.begin(), prev_to_orig.end());
     to_orig.insert(curr_to_orig.begin(), curr_to_orig.end());
-    add_succ_trans = true;
+    add_succ_trans = SuccTransOpts::TO_TARGET;
     if (target_filter.getFilter().size() == base_filter.getFilter().size()) {
-      add_succ_trans = false;
+      add_succ_trans = SuccTransOpts::NONE;
     }
     prev_window.createTransitionsToWindow(
         s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
         context_pa_start, context_pa_end, base_filter,
-        prev_window_guard_constraint_sat, {clock_ptr},
-        add_succ_trans || prev_add_succ_trans);
+        prev_window_guard_constraint_sat, {clock_ptr}, add_succ_trans);
     // add transitions back to original TLs
     if (specs + 1 == info.specs_list.end()) {
       std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
@@ -435,7 +432,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
 
 void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
                                  const UnaryInfo &info, int base_index,
-                                 bool add_succ_trans) {
+                                 SuccTransOpts add_succ_trans) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
   auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
                                   po_tls.pa_order.get()->end(), pa);
@@ -531,7 +528,7 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
   std::size_t context_end = context.first + context.second;
   std::size_t constraint_start =
       start_pa_entry - po_tls.pa_order.get()->begin();
-  encodeFuture(s, pa, info.toUnary(), base_index, true);
+  encodeFuture(s, pa, info.toUnary(), base_index, SuccTransOpts::TO_TARGET);
   for (size_t i = constraint_start; i <= context_end; i++) {
     auto pa_tl = po_tls.tls->find(*(po_tls.pa_order.get()->begin() + i));
     if (pa_tl != po_tls.tls->end()) {
@@ -562,7 +559,7 @@ void DirectEncoder::encodeUntil(AutomataSystem &s, const std::string pa,
 
 void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
                                const UnaryInfo &info, int base_index,
-                               bool add_succ_trans) {
+                               SuccTransOpts add_succ_trans) {
   Filter base_filter = Filter(s.instances[base_index].first.states);
   auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
                                   po_tls.pa_order.get()->end(), pa);
@@ -667,7 +664,7 @@ void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
   std::size_t context_end = context.first;
   std::size_t constraint_end =
       start_pa_entry - po_tls.pa_order.get()->begin() - 1;
-  encodePast(s, pa, info.toUnary(), base_index, true);
+  encodePast(s, pa, info.toUnary(), base_index, SuccTransOpts::FROM_SOURCE);
   // Ensure the TA stays in the pre_target state until activation pa is reached
   for (size_t i = context_start; i <= constraint_end; i++) {
     auto pa_tl = po_tls.tls->find(*(po_tls.pa_order.get()->begin() + i));
