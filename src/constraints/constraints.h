@@ -271,8 +271,8 @@ struct bounds {
   ConjunctionCC
   createConstraintBoundsSat(const ::std::shared_ptr<Clock> &clock_ptr) const;
 
-  bool operator == (const bounds &other);
-  bool operator != (const bounds &other);
+  bool operator==(const bounds &other);
+  bool operator!=(const bounds &other);
 };
 typedef struct bounds Bounds;
 
