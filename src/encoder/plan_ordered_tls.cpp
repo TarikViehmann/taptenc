@@ -212,10 +212,11 @@ void PlanOrderedTLs::createTransitionsToWindow(
                         t.guard = addConstraint(*t.guard.get(), *g.get());
                         t.update = addUpdate(t.update, update);
                       });
+        target_filter.filterTransitionsInPlace(succ_trans_out,
+                                               dest_entry->first, false);
         source_entry.second.trans_out.insert(
             source_entry.second.trans_out.end(), succ_trans_out.begin(),
             succ_trans_out.end());
-        // TODO: apply Target filter
       }
     }
     i++;
