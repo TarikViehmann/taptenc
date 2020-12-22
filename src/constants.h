@@ -8,6 +8,7 @@ constexpr char BASE_SEP{'Z'};
 constexpr char COMPONENT_SEP{'C'};
 constexpr char ACTION_SEP{'B'};
 constexpr char SYNC_SEP{'S'};
+constexpr char ACTIVATION_SEP{'F'};
 // for finding constraint activations
 constexpr char OPEN_BRACKET{'I'};
 constexpr char VAR_SEP{'J'};

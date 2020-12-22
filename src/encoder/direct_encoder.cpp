@@ -23,6 +23,36 @@
 using namespace taptenc;
 using namespace encoderutils;
 
+int DirectEncoder::newClockIndex(const std::string &constraint_name,
+                                 int context_start, int context_end) {
+  std::set<int> conflicting_uses;
+  auto prev_enc_info = constraint_clock_info.find(constraint_name);
+  ClockContext new_clock_usage;
+  new_clock_usage.context_start = context_start;
+  new_clock_usage.context_end = context_end;
+  if (prev_enc_info != constraint_clock_info.end()) {
+    for (const ClockContext &c : prev_enc_info->second) {
+      if (!(c.context_start > context_end || context_start > c.context_end)) {
+        conflicting_uses.insert(c.clock_index);
+      }
+    }
+    std::set<int> candidates;
+    std::vector<int> unused_indices;
+    std::generate_n(std::inserter(candidates, candidates.begin()),
+                    constraint_clock_info.size() + 1,
+                    [i = 0]() mutable { return i++; });
+    std::set_difference(candidates.begin(), candidates.end(),
+                        conflicting_uses.begin(), conflicting_uses.end(),
+                        std::inserter(unused_indices, unused_indices.begin()));
+    new_clock_usage.clock_index = unused_indices[0];
+    prev_enc_info->second.push_back(new_clock_usage);
+  } else {
+    new_clock_usage.clock_index = 0;
+    constraint_clock_info[constraint_name] = {new_clock_usage};
+  }
+  return new_clock_usage.clock_index;
+}
+
 void DirectEncoder::generateBaseTimeLine(AutomataSystem &s,
                                          const int base_index,
                                          const int plan_index) {
@@ -288,9 +318,6 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
               << std::endl;
   }
   Filter base_filter = Filter(s.instances[base_index].first.states);
-  std::string clock = "clX" + info.name;
-  std::shared_ptr<Clock> clock_ptr =
-      encoderutils::addClock(s.globals.clocks, clock);
   auto start_pa_entry = std::find(po_tls.pa_order.get()->begin(),
                                   po_tls.pa_order.get()->end(), start_pa);
   if (start_pa_entry == po_tls.pa_order.get()->end()) {
@@ -305,6 +332,13 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
               << end_pa << std::endl;
     return;
   }
+  std::string clock =
+      "clX" + info.name +
+      std::to_string(newClockIndex(
+          info.name, start_pa_entry - po_tls.pa_order.get()->begin(),
+          end_pa_entry - po_tls.pa_order.get()->begin() - 1));
+  std::shared_ptr<Clock> clock_ptr =
+      encoderutils::addClock(s.globals.clocks, clock);
   int lb_acc = 0;
   int ub_acc = 0;
   // TLs before encoding the Until Chain
@@ -377,7 +411,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
         specs->bounds.upper_bound);
     ConjunctionCC guard_constraint_sat =
         specs->bounds.createConstraintBoundsSat(clock_ptr);
-    std::string op_name = info.name + "F" + std::to_string(encode_counter);
+    std::string op_name =
+        info.name + constants::ACTIVATION_SEP + std::to_string(encode_counter);
     encode_counter++;
     Filter target_filter(specs->targets);
     curr_window = orig_tls.createWindow(context_pa_start, context_pa_end,
@@ -449,19 +484,17 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
   for (const auto &pa : *(po_tls.pa_order.get())) {
     curr_window.pa_order.get()->push_back(pa);
   }
-  // maps to obtain the original tl entry id given the prefix of
-  // new window prefix id
-  std::string clock = "clX" + info.name;
-  std::shared_ptr<Clock> clock_ptr =
-      encoderutils::addClock(s.globals.clocks, clock);
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "");
   std::size_t context_start = context.first;
   std::size_t constraint_start =
       start_pa_entry - po_tls.pa_order.get()->begin();
   std::size_t context_end = context.first + context.second;
-  // std::cout << "context: " << context_start << "," << context_end <<
-  // std::endl;
+  // determine clock to use
+  int clock_index = newClockIndex(info.name, context_start, context_end);
+  std::string clock = "clX" + info.name + std::to_string(clock_index);
+  std::shared_ptr<Clock> clock_ptr =
+      encoderutils::addClock(s.globals.clocks, clock);
   std::string context_pa_start =
       *(po_tls.pa_order.get()->begin() + context_start);
   std::string context_pa_end = *(po_tls.pa_order.get()->begin() + context_end);
@@ -473,7 +506,8 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
       info.specs.bounds.upper_bound);
   ConjunctionCC guard_constraint_sat =
       info.specs.bounds.createConstraintBoundsSat(clock_ptr);
-  std::string op_name = info.name + "F" + std::to_string(encode_counter);
+  std::string op_name =
+      info.name + constants::ACTIVATION_SEP + std::to_string(encode_counter);
   encode_counter++;
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, context_pa_end,
@@ -577,11 +611,6 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   for (const auto &pa : *(po_tls.pa_order.get())) {
     curr_window.pa_order.get()->push_back(pa);
   }
-  // maps to obtain the original tl entry id given the prefix of
-  // new window prefix id
-  std::string clock = "clX" + info.name;
-  std::shared_ptr<Clock> clock_ptr =
-      encoderutils::addClock(s.globals.clocks, clock);
   // determine context (window begin and end)
   std::pair<int, int> context = calculateContext(info.specs, pa, "", false);
   std::size_t context_end = context.first;
@@ -593,6 +622,11 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   std::string context_pa_end = *(po_tls.pa_order.get()->begin() + context_end);
   std::string constraint_end_pa =
       *(po_tls.pa_order.get()->begin() + constraint_end);
+  // determine clock to use
+  int clock_index = newClockIndex(info.name, context_start, context_end);
+  std::string clock = "clX" + info.name + std::to_string(clock_index);
+  std::shared_ptr<Clock> clock_ptr =
+      encoderutils::addClock(s.globals.clocks, clock);
   // formulate constraints based on the given bounds
   bool lower_bounded = (info.specs.bounds.lower_bound != 0 ||
                         info.specs.bounds.l_op != ComparisonOp::LTE);
@@ -603,7 +637,8 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
       info.specs.bounds.upper_bound);
   ConjunctionCC guard_constraint_sat =
       info.specs.bounds.createConstraintBoundsSat(clock_ptr);
-  std::string op_name = info.name + "F" + std::to_string(encode_counter);
+  std::string op_name =
+      info.name + constants::ACTIVATION_SEP + std::to_string(encode_counter);
   encode_counter++;
   Filter target_filter(info.specs.targets);
   curr_window = po_tls.createWindow(context_pa_start, constraint_end_pa,

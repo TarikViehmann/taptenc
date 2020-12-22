@@ -11,6 +11,7 @@
 #include "encoder_utils.h"
 #include "filter.h"
 #include "plan_ordered_tls.h"
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -58,6 +59,15 @@ typedef ::std::unordered_map<::std::string, ::std::string> OrigMap;
  */
 class DirectEncoder {
 private:
+  /**
+   * unternal struct to manage clocks in overlapping contexts
+   */
+  struct clockContext {
+    int context_start;
+    int context_end;
+    int clock_index;
+  };
+  typedef struct clockContext ClockContext;
   /** The datastructure to represent the encoding.*/
   PlanOrderedTLs po_tls;
   /**
@@ -72,11 +82,21 @@ private:
   size_t plan_ta_index;
   /**
    * Counts the number of encoded constraints.
-   *
-   * Used to ensure unique clock names to avoid problems when one constraint
-   * fires multiple times during a plan with overlapping active window.
    */
   size_t encode_counter = 0;
+  /**
+   * Remember all encoded constraints to avoid overlapping contexts using
+   * the same clocks while not introducing new clocks unless necessary.
+   *
+   * maps from constraint names to the info on all encoded occurrences of the
+   * constraint.
+   */
+  ::std::map<::std::string, ::std::vector<ClockContext>> constraint_clock_info;
+  /**
+   * get a fresh clock index that does not conflict with previous encodings.
+   */
+  int newClockIndex(const ::std::string &constraint_name, int context_start,
+                    int context_end);
   /**
    * Creates a product TA between platform TA and plan TA.
    *
