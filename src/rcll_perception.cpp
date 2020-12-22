@@ -86,7 +86,7 @@ Automaton generateSyncPlanAutomaton(
       sync_op = Filter::getPrefix(prev_state->id, constants::PA_SEP);
       guard = std::make_unique<TrueCC>();
     } else {
-      update.insert(clock_ptr);
+      update.insert({clock_ptr, 0});
       guard = std::make_unique<ComparisonCC>(clock_ptr, ComparisonOp::GT, 30);
     }
     plan_transitions.push_back(Transition(

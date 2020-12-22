@@ -19,6 +19,7 @@ constexpr char START_PA[]{"AstartA"};
 constexpr char END_PA[]{"AendA"};
 constexpr char QUERY[]{"AqueryA"};
 constexpr char PLAN_TA_NAME[]{"AplanA"};
+constexpr char INITIAL_STATE[]{"AinitA"};
 constexpr char REL_PLAN_CLOCK[]{"ArelclockA"};
 constexpr char GLOBAL_CLOCK[]{"AglobalclockA"};
 constexpr char CC_CONJUNCTION[]{"&amp;&amp;"};

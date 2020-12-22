@@ -18,19 +18,53 @@
 
 using namespace taptenc;
 
-::std::shared_ptr<Clock> encoderutils::addClock(update_t &update,
+Transition encoderutils::encodeInitialClockValues(Automaton &a,
+                                                  const update_t &update) {
+  auto old_initial_state =
+      std::find_if(a.states.begin(), a.states.end(),
+                   [](const State &s) { return s.initial; });
+  auto globalclock = addClock(a.clocks, constants::GLOBAL_CLOCK);
+  if (old_initial_state != a.states.end()) {
+    old_initial_state->initial = false;
+    Transition res = Transition(constants::INITIAL_STATE, old_initial_state->id,
+                                "", TrueCC(), update, "");
+
+    a.transitions.push_back(res);
+    a.states.push_back(State(constants::INITIAL_STATE,
+                             ComparisonCC(globalclock, ComparisonOp::LTE, 0),
+                             false, true));
+    return res;
+  } else {
+    throw std::runtime_error("No initial state found");
+  }
+}
+
+::std::shared_ptr<Clock> encoderutils::addClock(clocks_t &update,
                                                 const ::std::string clock_id) {
   auto clock_search =
       std::find_if(update.begin(), update.end(), [clock_id](const auto &cl) {
         return clock_id == cl.get()->id;
       });
   if (clock_search != update.end()) {
-    // std::cout << "encoderutils: clock name already in use: " << clock_id
-    //           << std::endl;
     return *clock_search;
   } else {
     auto clock_res = std::make_shared<Clock>(clock_id);
     update.insert(clock_res);
+    return clock_res;
+  }
+}
+
+::std::shared_ptr<Clock> encoderutils::addClock(update_t &update,
+                                                const ::std::string clock_id) {
+  auto clock_search =
+      std::find_if(update.begin(), update.end(), [clock_id](const auto &cl) {
+        return clock_id == cl.first.get()->id;
+      });
+  if (clock_search != update.end()) {
+    return clock_search->first;
+  } else {
+    auto clock_res = std::make_shared<Clock>(clock_id);
+    update.insert({clock_res, 0});
     return clock_res;
   }
 }
@@ -90,7 +124,7 @@ encoderutils::generatePlanAutomaton(const ::std::vector<PlanAction> &plan,
         computils::reverseOp(full_plan[pa_index + 1].absolute_time.l_op),
         full_plan[pa_index].absolute_time.lower_bound);
     ConjunctionCC guard(rel_guard, abs_guard);
-    update.insert(cpa);
+    update.insert({cpa, 0});
     plan_transitions.push_back(Transition(prev_state->id, it->id, it->id, guard,
                                           update, sync_op, false));
     i++;

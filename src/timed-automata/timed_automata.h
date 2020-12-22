@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../constraints/constraints.h"
+#include <map>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -42,7 +43,9 @@ struct state {
 };
 typedef struct state State;
 
-typedef ::std::set<::std::shared_ptr<Clock>> update_t;
+typedef ::std::set<::std::shared_ptr<Clock>> clocks_t;
+typedef ::std::initializer_list<::std::shared_ptr<Clock>> empty_update_t;
+typedef ::std::map<::std::shared_ptr<Clock>, int> update_t;
 
 struct transition {
   ::std::string source_id;
@@ -52,6 +55,10 @@ struct transition {
   update_t update;
   ::std::string sync;
   bool passive; // true: receiver of sync (?), false: emmitter of sync (!)
+  transition(::std::string arg_source_id, ::std::string arg_dest_id,
+             std::string arg_action, const ClockConstraint &guard,
+             const empty_update_t &arg_update, ::std::string arg_sync,
+             bool arg_passive = false);
   transition(::std::string arg_source_id, ::std::string arg_dest_id,
              std::string arg_action, const ClockConstraint &guard,
              const update_t &arg_update, ::std::string arg_sync,
@@ -77,6 +84,8 @@ struct transition {
    */
   static update_t updateFromString(const ::std::string &update,
                                    const update_t &clocks);
+  static update_t updateFromClocks(const clocks_t &clocks);
+  static clocks_t clocksFromUpdate(const update_t &clocks);
   /** Ordering operator determined by comparing string representations. */
   bool operator<(const transition &r) const;
 };
@@ -86,6 +95,7 @@ struct automaton {
   ::std::vector<State> states;
   ::std::vector<Transition> transitions;
   ::std::set<::std::shared_ptr<Clock>> clocks;
+  ::std::map<::std::shared_ptr<Clock>, int> initial_values;
   ::std::vector<::std::string> bool_vars;
   ::std::string prefix;
 

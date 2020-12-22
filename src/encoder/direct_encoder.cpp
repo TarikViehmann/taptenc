@@ -431,7 +431,8 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
         for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
           PlanOrderedTLs::modifyTransitionsToNextTl(
               prev_pa_entry.second.trans_out, prev_pa,
-              target_filter.getFilter(), TrueCC(), {clock_ptr}, "", op_name);
+              target_filter.getFilter(), TrueCC(), {{clock_ptr, 0}}, "",
+              op_name);
         }
       }
     }
@@ -446,7 +447,7 @@ void DirectEncoder::encodeUntilChain(AutomataSystem &s, const ChainInfo &info,
     prev_window.createTransitionsToWindow(
         s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
         context_pa_start, context_pa_end, base_filter,
-        prev_window_guard_constraint_sat, {clock_ptr}, add_succ_trans);
+        prev_window_guard_constraint_sat, {{clock_ptr, 0}}, add_succ_trans);
     // add transitions back to original TLs
     if (specs + 1 == info.specs_list.end()) {
       std::string last_pa = *(po_tls.pa_order.get()->begin() + context_end);
@@ -519,7 +520,7 @@ void DirectEncoder::encodeFuture(AutomataSystem &s, const std::string pa,
     for (auto &prev_pa_entry : po_tls.tls.get()->find(prev_pa)->second) {
       PlanOrderedTLs::modifyTransitionsToNextTl(
           prev_pa_entry.second.trans_out, prev_pa, base_filter.getFilter(),
-          TrueCC(), {clock_ptr}, "");
+          TrueCC(), {{clock_ptr, 0}}, "");
     }
   }
   OrigMap orig_id = po_tls.createOrigMapping("");
@@ -658,11 +659,12 @@ void DirectEncoder::encodePast(AutomataSystem &s, const std::string pa,
   }
   po_tls.createTransitionsToWindow(
       s.instances[base_index].first, *(curr_window.tls.get()), to_orig,
-      context_pa_start, constraint_end_pa, target_filter, TrueCC(), {clock_ptr},
-      add_succ_trans);
+      context_pa_start, constraint_end_pa, target_filter, TrueCC(),
+      {{clock_ptr, 0}}, add_succ_trans);
   PlanOrderedTLs::addOutgoingTransOfOrigTL(
       po_tls.tls.get()->find(constraint_end_pa)->second,
-      curr_window.tls.get()->find(constraint_end_pa)->second, to_orig, TrueCC());
+      curr_window.tls.get()->find(constraint_end_pa)->second, to_orig,
+      TrueCC());
   for (auto &tl_entry : po_tls.tls.get()->find(constraint_end_pa)->second) {
     PlanOrderedTLs::removeTransitionsToNextTl(tl_entry.second.trans_out,
                                               constraint_end_pa);
@@ -760,7 +762,8 @@ void DirectEncoder::encodeSince(AutomataSystem &s, const std::string pa,
 size_t DirectEncoder::getPlanTAIndex() { return plan_ta_index; }
 
 AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
-                                                SystemVisInfo &s_vis) {
+                                                SystemVisInfo &s_vis,
+                                                const update_t &clock_inits) {
   // Check if all outgoing transitions actually connect existing states
   // Currently in rare cases a transition is not cleaned up properly during
   // encoding, if the endpoints are manipulated.
@@ -837,8 +840,10 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
       }
     }
   }
-  res.instances.push_back(
-      std::make_pair(mergeAutomata(automata, interconnections, "direct"), ""));
+  Automaton final_ta = mergeAutomata(automata, interconnections, "direct");
+  Transition init_clock_trans =
+      encoderutils::encodeInitialClockValues(final_ta, clock_inits);
+  res.instances.push_back({final_ta, ""});
   return res;
 }
 /**

@@ -362,11 +362,13 @@ public:
    * @param s automata system containing the platform model and plan automaton
    * @param s_vis instance to store the visual information associated with the
    *              output automata system
+   * @param clock_inits initial values for clocks to start the encoding with
    * @return automata system containing the automata that contains all encoding
    *         information
    */
   AutomataSystem createFinalSystem(const AutomataSystem &s,
-                                   SystemVisInfo &s_vis);
+                                   SystemVisInfo &s_vis,
+                                   const update_t &clock_inits = {});
   /**
    * Create a DirectEncoder Instance containing a merged encoding of this and
    * the argument encoding.

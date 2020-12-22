@@ -35,6 +35,10 @@ using SuccTransOpts = SuccessorTransitionOptions;
 ::std::shared_ptr<Clock> addClock(update_t &update,
                                   const ::std::string clock_id);
 
+::std::shared_ptr<Clock> addClock(clocks_t &update,
+                                  const ::std::string clock_id);
+
+Transition encodeInitialClockValues(Automaton &a, const update_t &update);
 /**
  * Merges multiple automata together, states with identical names are melted
  * together.

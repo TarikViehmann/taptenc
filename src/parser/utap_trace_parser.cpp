@@ -283,7 +283,9 @@ void UTAPTraceParser::parseTransition(std::string &currentReadLine) {
     trace_ta_dest_id = addStateToTraceTA(dest_id);
     trace_ta.transitions.push_back(Transition(
         trace_ta_source_id, trace_ta_dest_id, "", UnparsedCC(guard_str),
-        Transition::updateFromString(update_str, trace_ta.clocks), sync_str));
+        Transition::updateFromString(
+            update_str, Transition::updateFromClocks(trace_ta.clocks)),
+        sync_str));
   }
 }
 
@@ -314,9 +316,11 @@ UTAPTraceParser::getActionsFromTraceTrans(const Transition &trans,
                  update_str.find(t.updateToString()) != string::npos;
         });
     if (pa_trans == plan_ta.transitions.end()) {
-      cout << "ERROR:  cannot find plan ta transition: " << pa_source_id
-           << " -> " << pa_dest_id << " {" << guard_str << "; " << sync_str
-           << "; " << update_str << "}" << endl;
+      if (pa_source_id != constants::INITIAL_STATE) {
+        cout << "ERROR:  cannot find plan ta transition: " << pa_source_id
+             << " -> " << pa_dest_id << " {" << guard_str << "; " << sync_str
+             << "; " << update_str << "}" << endl;
+      }
     } else if (pa_trans->action != "") {
       res.push_back(pa_trans->action);
     } else {
@@ -340,9 +344,11 @@ UTAPTraceParser::getActionsFromTraceTrans(const Transition &trans,
       });
   if (base_trans == base_ta.transitions.end()) {
     if (base_source_id != base_dest_id) {
-      cout << "ERROR:  cannot find base ta transition: " << base_source_id
-           << " -> " << base_dest_id << " {" << guard_str << "; " << sync_str
-           << "; " << update_str << "}" << endl;
+      if (base_source_id != constants::INITIAL_STATE) {
+        cout << "ERROR:  cannot find base ta transition: " << base_source_id
+             << " -> " << base_dest_id << " {" << guard_str << "; " << sync_str
+             << "; " << update_str << "}" << endl;
+      }
     }
   } else {
     std::vector<std::string> action_vec =
@@ -454,7 +460,7 @@ timed_trace_t UTAPTraceParser::applyDelay(size_t delay_pos, timepoint delay) {
         }
         // reset clocks on transition
         for (const auto &cl_up : ta_trans->update) {
-          curr_clock_values[cl_up] = std::make_pair(0, false);
+          curr_clock_values[cl_up.first] = std::make_pair(0, false);
         }
         // update the dbm
         for (const auto &cl : trace_ta.clocks) {

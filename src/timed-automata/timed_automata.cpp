@@ -123,6 +123,19 @@ transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
   guard = arg_guard.createCopy();
 }
 
+transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
+                       std::string arg_action, const ClockConstraint &arg_guard,
+                       const empty_update_t &arg_update, ::std::string arg_sync,
+                       bool arg_passive)
+    : source_id(arg_source_id), dest_id(arg_dest_id), action(arg_action),
+      sync(arg_sync), passive(arg_passive) {
+  guard = arg_guard.createCopy();
+  std::transform(
+      arg_update.begin(), arg_update.end(),
+      std::inserter(update, update.begin()),
+      [](const std::shared_ptr<Clock> &arg) { return std::make_pair(arg, 0); });
+}
+
 ::std::string transition::updateToString() const {
   std::string res;
   bool is_first_iteration = true;
@@ -132,9 +145,25 @@ transition::transition(::std::string arg_source_id, ::std::string arg_dest_id,
     } else {
       is_first_iteration = false;
     }
-    res += clock_ptr.get()->id + " = 0";
+    res += clock_ptr.first.get()->id + " = " + std::to_string(clock_ptr.second);
   }
   return res;
+}
+
+update_t transition::updateFromClocks(const clocks_t &clocks) {
+  update_t update;
+  std::transform(
+      clocks.begin(), clocks.end(), std::inserter(update, update.begin()),
+      [](const std::shared_ptr<Clock> &arg) { return std::make_pair(arg, 0); });
+  return update;
+}
+
+clocks_t transition::clocksFromUpdate(const update_t &update) {
+  clocks_t clocks;
+  std::transform(update.begin(), update.end(),
+                 std::inserter(clocks, clocks.begin()),
+                 [](const auto &arg) { return arg.first; });
+  return clocks;
 }
 
 update_t transition::updateFromString(const ::std::string &update,
@@ -144,10 +173,10 @@ update_t transition::updateFromString(const ::std::string &update,
   size_t next_assignment_pos = update_str.find("=");
   while (next_assignment_pos != std::string::npos) {
     std::string curr_clock = trim(update_str.substr(0, next_assignment_pos));
-    auto clock_ptr_it = std::find_if(clocks.begin(), clocks.end(),
-                                     [curr_clock](const auto &clock_ptr) {
-                                       return clock_ptr.get()->id == curr_clock;
-                                     });
+    auto clock_ptr_it = std::find_if(
+        clocks.begin(), clocks.end(), [curr_clock](const auto &clock_ptr) {
+          return clock_ptr.first.get()->id == curr_clock;
+        });
     if (clock_ptr_it != clocks.end()) {
       res.insert(*clock_ptr_it);
     } else {

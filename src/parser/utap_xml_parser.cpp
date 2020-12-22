@@ -186,7 +186,7 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
                       << " THIS IS NOT SUPPORTED and will lead to errors."
                       << std::endl;
           }
-          curr_clocks.insert(std::make_shared<Clock>(curr_clock));
+          curr_clocks.insert({std::make_shared<Clock>(curr_clock), 0});
         }
       } else {
         std::cout << "UTAPSystemParser readXMLSystem: process declarations "
@@ -220,7 +220,7 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
       for (const auto &symb : symbols) {
         if (symb.getName() != "1") {
           curr_updates.insert(
-              encoderutils::addClock(curr_clocks, symb.getName()));
+              {encoderutils::addClock(curr_clocks, symb.getName()), 0});
         }
       }
       transitions.push_back(
@@ -229,7 +229,8 @@ AutomataSystem utapxmlparser::readXMLSystem(::std::string filename) {
                      curr_updates, tr.sync.toString()));
     }
     Automaton curr_ta(states, transitions, t.uid.getName(), false);
-    curr_ta.clocks.insert(curr_clocks.begin(), curr_clocks.end());
+    clocks_t clocks = Transition::clocksFromUpdate(curr_clocks);
+    curr_ta.clocks.insert(clocks.begin(), clocks.end());
     res.instances.push_back(std::make_pair(curr_ta, ""));
   }
   auto vars = input_system.getGlobals().variables;

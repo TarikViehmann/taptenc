@@ -58,7 +58,7 @@ void ModularEncoder::encodeFuture(AutomataSystem &s,
     addInvariants(sat, sat.states, below_upper_bound);
   }
   std::vector<Transition> base_to_sat = createCopyTransitionsBetweenTAs(
-      base_copy, sat, base_copy.states, TrueCC(), {clock_ptr}, opsync);
+      base_copy, sat, base_copy.states, TrueCC(), {{clock_ptr, 0}}, opsync);
   std::vector<Transition> sat_to_base = createCopyTransitionsBetweenTAs(
       sat, base_copy, sat_filter.getFilter(), guard_constraint_sat, {}, "");
   std::vector<Transition> interconnections;
@@ -108,7 +108,7 @@ void ModularEncoder::encodePast(AutomataSystem &s, std::vector<State> &targets,
     addInvariants(remainder, remainder.states, below_upper_bound);
   }
   std::vector<Transition> base_to_sat = createCopyTransitionsBetweenTAs(
-      base_copy, sat, bc_filter.getFilter(), TrueCC(), {clock_ptr}, "");
+      base_copy, sat, bc_filter.getFilter(), TrueCC(), {{clock_ptr, 0}}, "");
   std::vector<Transition> sat_to_rem = createSuccessorTransitionsBetweenTAs(
       s.instances[base_index].first, sat, remainder, sat.states, TrueCC(), {});
   std::vector<Transition> rem_to_base = createCopyTransitionsBetweenTAs(
