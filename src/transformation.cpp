@@ -141,63 +141,53 @@ DirectEncoder transformation::createDirectEncoding(
   return enc;
 }
 
-
-timed_trace_t transformation::transform_plan(const std::vector<PlanAction> &plan, const std::vector<Automaton> &platform_models, const Constraints &platform_constraints) {
-	assert(platform_models.size() == platform_constraints.size());
-	XMLPrinter printer;
-    DirectEncoder merge_enc;
-	  AutomataSystem merged_system;
-    Automaton product_ta = platform_models[0];
+timed_trace_t
+transformation::transform_plan(const std::vector<PlanAction> &plan,
+                               const std::vector<Automaton> &platform_models,
+                               const Constraints &platform_constraints,
+                               const update_t &clock_inits) {
+  assert(platform_models.size() == platform_constraints.size());
+  XMLPrinter printer;
+  DirectEncoder merge_enc;
+  AutomataSystem merged_system;
+  Automaton product_ta = platform_models[0];
+  AutomataSystem base_system;
+  Automaton plan_ta = product_ta;
+  for (long unsigned int j = 0; j < platform_models.size(); j++) {
     AutomataSystem base_system;
-		Automaton plan_ta = platform_models[0];
-		std::cout << platform_models.size() << std::endl;
-    for (long unsigned int j = 0; j < platform_models.size(); j++) {
-      AutomataSystem base_system;
-      base_system.instances.push_back(std::make_pair(platform_models[j], ""));
-			// encode the j-th platform ta
-      DirectEncoder curr_encoder =
-          transformation::createDirectEncoding(base_system, plan, platform_constraints[j]);
-        if (j > 0) {
-          product_ta = PlanOrderedTLs::productTA(product_ta, platform_models[j],
-                                                 "product", true);
-			// merge the encoding of the j-th platform ta into the full encoding
-			std::cout << "start merging of the " << j << "-th encoding" << std::endl;
-        merge_enc = merge_enc.mergeEncodings(curr_encoder);
-			std::cout << "done" << std::endl;
-        } else {
-				// init the full encoding with the instances of the first encoding
-        merged_system.instances = base_system.instances;
-				merge_enc = curr_encoder.copy();
-				plan_ta = base_system.instances[curr_encoder.getPlanTAIndex()].first;
-      }
-			// extract all clocks from the transformed system
-      SystemVisInfo tmp_vis_info;
-      AutomataSystem direct_system =
-          curr_encoder.createFinalSystem(base_system, tmp_vis_info);
-				std::cout << "curr " << j << " num states:"
-             << direct_system.instances[0].first.states.size()
-             << std::endl;
-      merged_system.globals.clocks.insert(direct_system.globals.clocks.begin(),
-                                          direct_system.globals.clocks.end());
+    base_system.instances.push_back(std::make_pair(platform_models[j], ""));
+    // encode the j-th platform ta
+    DirectEncoder curr_encoder = transformation::createDirectEncoding(
+        base_system, plan, platform_constraints[j]);
+    if (j > 0) {
+      product_ta =
+          PlanOrderedTLs::productTA(product_ta, platform_models[j], "product",
+                                    encoderutils::SuccTransOpts::FROM_SOURCE);
+      // merge the encoding of the j-th platform ta into the full encoding
+      merge_enc = merge_enc.mergeEncodings(curr_encoder);
+    } else {
+      // init the full encoding with the instances of the first encoding
+      merged_system.instances = base_system.instances;
+      merge_enc = curr_encoder.copy();
+      plan_ta = base_system.instances[curr_encoder.getPlanTAIndex()].first;
     }
-			std::cout << "finished loop" << std::endl;
-      SystemVisInfo merged_system_vis_info;
-			// finalize the encoding and obtain the visual information for printing
-        AutomataSystem final_merged_system =
-            merge_enc.createFinalSystem(merged_system, merged_system_vis_info);
-			  std::cout << "start printing" << std::endl;
-				std::cout << "merged num states:"
-             << final_merged_system.instances[0].first.states.size()
-             << std::endl;
-				// print encoded ta to xml
-        printer.print(final_merged_system, merged_system_vis_info,
-                      "merged.xml");
-				// solve the encoded reachability problem
-        auto uppaal_time = uppaalcalls::solve("merged");
-        UTAPTraceParser trace_parser = UTAPTraceParser(final_merged_system);
-        // retrieve the solution trace
-        trace_parser.parseTraceInfo("merged.trace");
-        return trace_parser.getTimedTrace(
-            product_ta,
-            plan_ta);
+    // extract all clocks from the transformed system
+    SystemVisInfo tmp_vis_info;
+    AutomataSystem direct_system =
+        curr_encoder.createFinalSystem(base_system, tmp_vis_info);
+    merged_system.globals.clocks.insert(direct_system.globals.clocks.begin(),
+                                        direct_system.globals.clocks.end());
+  }
+  SystemVisInfo merged_system_vis_info;
+  // finalize the encoding and obtain the visual information for printing
+  AutomataSystem final_merged_system = merge_enc.createFinalSystem(
+      merged_system, merged_system_vis_info, clock_inits);
+  // print encoded ta to xml
+  printer.print(final_merged_system, merged_system_vis_info, "merged.xml");
+  // solve the encoded reachability problem
+  auto uppaal_time = uppaalcalls::solve("merged");
+  UTAPTraceParser trace_parser = UTAPTraceParser(final_merged_system);
+  // retrieve the solution trace
+  trace_parser.parseTraceInfo("merged.trace");
+  return trace_parser.getTimedTrace(product_ta, plan_ta);
 }
