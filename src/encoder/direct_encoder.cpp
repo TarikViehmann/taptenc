@@ -832,7 +832,8 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
   for (const auto &curr_tl : *(po_tls.tls.get())) {
     for (const auto &curr_copy : curr_tl.second) {
       if (curr_copy.first == constants::QUERY ||
-          curr_copy.second.trans_out.size() > 0) {
+          curr_copy.second.trans_out.size() > 0 ||
+          curr_copy.first == toPrefix("", "", constants::START_PA)) {
         automata.push_back(curr_copy.second.ta);
         interconnections.insert(interconnections.end(),
                                 curr_copy.second.trans_out.begin(),
