@@ -199,6 +199,23 @@ void PlanOrderedTLs::createTransitionsToWindow(
           source_entry.second.trans_out.insert(
               source_entry.second.trans_out.end(), res.begin(), res.end());
         }
+        // create successor transitions for simultaneously advancing two
+        // constraints
+        std::string dest_tl_prefix = Filter::getPrefix(
+            Filter::getSuffix(dest_entry->first, constants::TL_SEP),
+            constants::CONSTRAINT_SEP);
+        auto succ_trans_out =
+            addToPrefixOnTransitions(source_entry.second.trans_out,
+                                     dest_tl_prefix, true, false, false, true);
+        std::for_each(succ_trans_out.begin(), succ_trans_out.end(),
+                      [g = guard.createCopy(), update](Transition &t) {
+                        t.guard = addConstraint(*t.guard.get(), *g.get());
+                        t.update = addUpdate(t.update, update);
+                      });
+        source_entry.second.trans_out.insert(
+            source_entry.second.trans_out.end(), succ_trans_out.begin(),
+            succ_trans_out.end());
+        // TODO: apply Target filter
       }
     }
     i++;
@@ -278,15 +295,19 @@ void PlanOrderedTLs::addOutgoingTransOfOrigTL(const TimeLine &orig_tl,
 
 std::vector<Transition> PlanOrderedTLs::addToPrefixOnTransitions(
     const std::vector<Transition> &trans, std::string to_add,
-    bool on_inner_trans, bool on_outgoing_trans) {
+    bool on_inner_trans, bool on_outgoing_trans, bool add_to_source,
+    bool add_to_dest) {
   std::vector<Transition> res;
   for (const auto &tr : trans) {
     bool is_inner = Filter::getPrefix(tr.source_id, constants::TL_SEP) ==
                     Filter::getPrefix(tr.dest_id, constants::TL_SEP);
     if ((is_inner && on_inner_trans) || (!is_inner && on_outgoing_trans)) {
-      res.push_back(Transition(encoderutils::addToPrefix(tr.source_id, to_add),
-                               encoderutils::addToPrefix(tr.dest_id, to_add),
-                               tr.action, *tr.guard.get(), tr.update, tr.sync));
+      res.push_back(Transition(
+          add_to_source ? encoderutils::addToPrefix(tr.source_id, to_add)
+                        : tr.source_id,
+          add_to_dest ? encoderutils::addToPrefix(tr.dest_id, to_add)
+                      : tr.dest_id,
+          tr.action, *tr.guard.get(), tr.update, tr.sync));
     }
   }
   return res;

@@ -89,12 +89,15 @@ public:
    * @param on_inner_trans if false do not copy inner transitions of a timeline
    * @param on_outgoing_trans if false do not copy outgoing transitions of a
    *        timeline
+   * @param add_to_source if false do not add prefix to source states
+   * @param add_to_dest if false do not add prefix to dest states
    * @return copied transitions with added prefix
    */
   static ::std::vector<Transition>
   addToPrefixOnTransitions(const ::std::vector<Transition> &trans,
                            ::std::string prefix, bool on_inner_trans = true,
-                           bool on_outgoing_trans = true);
+                           bool on_outgoing_trans = true,
+                           bool add_to_source = true, bool add_to_dest = true);
 
   /**
    * Adds guards, updates and sync annotations to outgoing transitions.
