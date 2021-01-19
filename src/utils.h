@@ -187,6 +187,13 @@ void replaceStringInPlace(::std::string &subject, const ::std::string &search,
  */
 ::std::vector<::std::string> splitBySep(::std::string s, char sep);
 
+/**
+ * convert back the substituted special chars in a string defined in constants.h
+ *
+ * @param s string to substitute special chars from
+ * @return \a s but with substituted special chars
+ */
+::std::string subBackSpecialChars(const ::std::string &s);
 } // end namespace taptenc
 
 namespace std {

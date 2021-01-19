@@ -122,3 +122,11 @@ void taptenc::replaceStringInPlace(::std::string &subject,
   }
   return res;
 }
+
+::std::string taptenc::subBackSpecialChars(const ::std::string &s) {
+  std::string res = s;
+  std::replace(res.begin(), res.end(), constants::OPEN_BRACKET, '(');
+  std::replace(res.begin(), res.end(), constants::CLOSED_BRACKET, ')');
+  std::replace(res.begin(), res.end(), constants::VAR_SEP, ',');
+  return res;
+}
