@@ -768,6 +768,22 @@ AutomataSystem DirectEncoder::createFinalSystem(const AutomataSystem &s,
   for (auto curr_pa = po_tls.pa_order.get()->begin();
        curr_pa != po_tls.pa_order.get()->end(); ++curr_pa) {
     for (auto &tl : (*po_tls.tls.get())[*curr_pa]) {
+      std::vector<Transition> pruned_trans_inner;
+      for (auto &trans : tl.second.ta.transitions) {
+        auto find_source = std::find_if(
+            tl.second.ta.states.begin(), tl.second.ta.states.end(),
+            [trans](const State &s) { return s.id == trans.source_id; });
+        auto find_dest = std::find_if(
+            tl.second.ta.states.begin(), tl.second.ta.states.end(),
+            [trans](const State &s) { return s.id == trans.dest_id; });
+        if (find_source == tl.second.ta.states.end() ||
+            find_dest == tl.second.ta.states.end()) {
+          continue;
+        } else {
+          pruned_trans_inner.push_back(trans);
+        }
+      }
+      tl.second.ta.transitions = pruned_trans_inner;
       std::vector<Transition> pruned_trans_out;
       for (auto &trans : tl.second.trans_out) {
         auto find_source = std::find_if(

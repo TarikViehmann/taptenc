@@ -492,9 +492,9 @@ PlanOrderedTLs::replaceStatesByTA(const Automaton &source_ta,
         }
       }
     } else {
-      std::cout << "PlanOrderedTLs replaceStatesByTA: error while "
-                   "connecting this states, associated automata not found"
-                << std::endl;
+      // std::cout << "PlanOrderedTLs replaceStatesByTA: error while "
+      //              "connecting this states, associated automata not found"
+      //           << std::endl;
     }
   }
 
