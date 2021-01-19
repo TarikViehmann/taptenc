@@ -34,6 +34,90 @@ getStateItById(const std::vector<State> &states, std::string id) {
                       [id](const State &s) { return s.id == id; });
 }
 
+namespace benchmarkutils {
+std::string variable(std::string name) {
+  return std::string() + constants::VAR_PREFIX + name;
+}
+} // namespace benchmarkutils
+using namespace benchmarkutils;
+
+Automaton householdmodels::generateHouseholdTA() {
+  vector<State> states;
+  vector<Transition> transitions;
+  std::shared_ptr<Clock> hh_clock = std::make_shared<Clock>("cl");
+  states.push_back(State("idle", TrueCC(), false, true));
+  states.push_back(
+      State("aligning", ComparisonCC(hh_clock, ComparisonOp::LTE, 2)));
+  states.push_back(
+      State("looking_down", ComparisonCC(hh_clock, ComparisonOp::LTE, 2)));
+  states.push_back(State("known_grasp", TrueCC()));
+  states.push_back(State("unknown_grasp", TrueCC()));
+  states.push_back(
+      State("looking_up", ComparisonCC(hh_clock, ComparisonOp::LTE, 2)));
+  states.push_back(
+      State("backing_off", ComparisonCC(hh_clock, ComparisonOp::LTE, 2)));
+  transitions.push_back(
+      Transition("idle", "aligning", "align", TrueCC(), {hh_clock}, "", true));
+  transitions.push_back(Transition("aligning", "known_grasp", "no_op",
+                                   ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
+                                   {}, "", true));
+  transitions.push_back(Transition("aligning", "looking_down", "no_op",
+                                   ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
+                                   {}, "", true));
+  transitions.push_back(Transition("looking_down", "unknown_grasp", "no_op",
+                                   ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
+                                   {}, "", true));
+  transitions.push_back(Transition("unknown_grasp", "looking_up", "look_up",
+                                   TrueCC(), {hh_clock}, "", true));
+  transitions.push_back(Transition("known_grasp", "backing_off", "back_off",
+                                   TrueCC(), {hh_clock}, "", true));
+  transitions.push_back(Transition("looking_up", "backing_off", "back_off",
+                                   ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
+                                   {}, "", true));
+  transitions.push_back(Transition("backing_off", "idle", "back_off",
+                                   ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
+                                   {}, "", true));
+  Automaton test(states, transitions, "main", false);
+
+  test.clocks.insert(
+      {hh_clock, std::make_shared<Clock>(constants::GLOBAL_CLOCK)});
+  return test;
+}
+
+vector<unique_ptr<EncICInfo>>
+householdmodels::generateHouseholdConstraints(const Automaton &hh_ta) {
+  vector<State> idle_filter({hh_ta.states[0]});
+  vector<State> known_grasp_filter({hh_ta.states[3]});
+  vector<State> unknown_grasp_filter({hh_ta.states[4]});
+
+  Bounds full_bounds(0, numeric_limits<int>::max());
+
+  // ---------------------- Until Chain -------------------------------------
+  vector<unique_ptr<EncICInfo>> hh_constraints;
+  // remain idle while driving
+  hh_constraints.emplace_back(make_unique<ChainInfo>(
+      "remain_idle", ICType::UntilChain,
+      vector<ActionName>({ActionName("goto", {variable("s"), variable("t")})}),
+      vector<TargetSpecs>{TargetSpecs(full_bounds, idle_filter)},
+      vector<ActionName>({ActionName("wait", {})})));
+  // be aligned and look down while performing unknown grasping tasks
+  hh_constraints.emplace_back(make_unique<ChainInfo>(
+      "remain_idle", ICType::UntilChain,
+      vector<ActionName>(
+          {ActionName("pick_up", {variable("c"), variable("p")}),
+           ActionName("put_down", {variable("c"), variable("p")})}),
+      vector<TargetSpecs>{TargetSpecs(full_bounds, unknown_grasp_filter)},
+      vector<ActionName>({ActionName("wait", {})})));
+  // be aligned  while performing known grasping tasks
+  hh_constraints.emplace_back(make_unique<ChainInfo>(
+      "remain_idle", ICType::UntilChain,
+      vector<ActionName>({ActionName(
+          "put_in_dishwasher", {variable("c"), variable("s"), variable("p")})}),
+      vector<TargetSpecs>{TargetSpecs(full_bounds, known_grasp_filter)},
+      vector<ActionName>({ActionName("wait", {})})));
+  return hh_constraints;
+}
+
 Automaton rcllmodels::generateCalibrationTA() {
   vector<State> states;
   vector<Transition> transitions;

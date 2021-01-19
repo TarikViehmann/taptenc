@@ -12,6 +12,28 @@
 #include <vector>
 
 namespace taptenc {
+/**
+ * Utility functions to create hand-crafted benchmarks from the household
+ * domain.
+ */
+namespace householdmodels {
+/**
+ * Generates a platform TA to model the need to align and move the robot head
+ * to perform grasping tasks.
+ *
+ * @return household platform TA
+ */
+Automaton generateHouseholdTA();
+/**
+ * Generates constraints for the household TA.
+ *
+ * @param hh_ta automaton that models the household robot
+ * @return constraint activation mapping for the household TA
+ */
+::std::vector<::std::unique_ptr<EncICInfo>>
+generateHouseholdConstraints(const Automaton &hh_ta);
+
+} // end namespace householdmodels
 
 /**
  * Utility functions to create hand-crafted benchmarks from the RCLL domain.
