@@ -21,7 +21,6 @@ PlanAction parseAction(const std::string &currline) {
   // get "(<action-name>" and drop the opening bracket
   std::string action_name =
       rest_of_line.substr(0, eow).substr(1, std::string::npos);
-  std::cout << "action name: " << action_name << std::endl;
   // skip action name
   rest_of_line = rest_of_line.substr(eow + 1);
   std::vector<std::string> action_args;
