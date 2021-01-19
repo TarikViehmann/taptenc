@@ -68,10 +68,18 @@ std::vector<PlanAction> tfdplanparser::readSequentialPlan(::std::string file) {
   std::string currentReadLine;
   fileStream.open(file, std::fstream::in); // open the file in Input mode
   while (getline(fileStream, currentReadLine)) {
-    if (getline(fileStream, currentReadLine)) {
-      res.push_back(tfdplanparserutils::parseAction(currentReadLine));
-    }
+    res.push_back(tfdplanparserutils::parseAction(currentReadLine));
   }
   fileStream.close();
+  return res;
+}
+
+std::vector<PlanAction>
+tfdplanparser::insertWaitActions(const std::vector<PlanAction> &input) {
+  std::vector<PlanAction> res;
+  for (const PlanAction &x : input) {
+    res.push_back(x);
+    res.push_back(PlanAction(ActionName("wait", {}), Bounds(), Bounds()));
+  }
   return res;
 }
