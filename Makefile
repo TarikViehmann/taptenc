@@ -41,6 +41,6 @@ check:
 	find ${BASE_DIR}/ -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' -o -iname '*.hpp'     | xargs clang-format -style=LLVM -i -fallback-style=none
 
 scripts:
-	$(foreach var,$(SCRIPTS), @ln -s -f $(SCRIPT_DIR)/$(var) $(BUILD_DIR)/$(var))
+	$(foreach var,$(SCRIPTS), ln -s -f $(SCRIPT_DIR)/$(var) $(BUILD_DIR)/$(var);)
 
 .PHONY : check scripts clean all $(SRC_DIRS)
