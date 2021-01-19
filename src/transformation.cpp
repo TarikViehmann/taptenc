@@ -86,7 +86,8 @@ DirectEncoder transformation::createDirectEncoding(
                 });
             bool match_found = info->activations_end.end() != epa_trigger;
             if (match_found) {
-              if (epa_trigger->args.size() != pa_trigger->args.size()) {
+              if (epa_trigger->id == pa_trigger->id &&
+                  epa_trigger->args.size() != pa_trigger->args.size()) {
                 // std::cout << "wrong argument length" << std::endl;
                 // they only really match if they have the same number of args
                 // this is not true in the general case, but for benchmarks
