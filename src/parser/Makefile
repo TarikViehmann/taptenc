@@ -1,2 +1,2 @@
-SRCS := utap_trace_parser.cpp utap_xml_parser.cpp
+SRCS := utap_trace_parser.cpp utap_xml_parser.cpp tfd_plan_parser.cpp
 include ../../buildsys/rules.mk
