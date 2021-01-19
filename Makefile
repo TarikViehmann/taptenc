@@ -9,7 +9,7 @@ WITH_UTAP := 1
 include $(BUILDSYS_DIR)/path.mk
 include $(BUILDSYS_DIR)/compiler_vars.mk
 exes := # Executables to build.
-
+SCRIPTS = $(notdir $(wildcard ${SCRIPT_DIR}/*.bash))
 
 exes += rcll_perception
 exes += simple_test
@@ -19,17 +19,15 @@ objects.simple_test = $(NON_EXEC_OBJS) simple_test.o
 objects.rcll_perception = $(NON_EXEC_OBJS) rcll_perception.o
 objects.household = $(NON_EXEC_OBJS) household.o
 
-all : $(SRC_DIRS) ${exes:%=${BUILD_DIR}/%} # Build all exectuables.
+all : scripts $(SRC_DIRS) ${exes:%=${BUILD_DIR}/%} # Build all exectuables.
 
 $(SRC_DIRS):
-	$(info $(BUILDSYS_DIR))
-	$(info $(BASE_DIR))
 	$(MAKE) -C $@
 
 .SECONDEXPANSION:
 ${exes:%=${BUILD_DIR}/%} : ${BUILD_DIR}/% : $$(addprefix ${LIB_DIR}/,$${objects.$$*}) Makefile | ${BUILD_DIR}
 	$(strip ${LINK.EXE})
-	$(info $(strip ${LINK.EXE}))
+	#$(info $(strip ${LINK.EXE}))
 
 # Create the build directory on demand.
 ${BUILD_DIR} :
@@ -42,4 +40,7 @@ clean :
 check:
 	find ${BASE_DIR}/ -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' -o -iname '*.hpp'     | xargs clang-format -style=LLVM -i -fallback-style=none
 
-.PHONY : check clean all $(SRC_DIRS)
+scripts:
+	$(foreach var,$(SCRIPTS), @ln -s -f $(SCRIPT_DIR)/$(var) $(BUILD_DIR)/$(var))
+
+.PHONY : check scripts clean all $(SRC_DIRS)
