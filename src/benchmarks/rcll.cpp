@@ -382,7 +382,7 @@ int main(int argc, char **argv) {
   int num_platform_components = 1;
   std::string output_file = "solution.txt";
   int plan_length = 10;
-  if (argc > 2) {
+  if (argc > 1) {
     for (int i = 0; i < argc - 1; ++i) {
       if (i == 0) {
         num_platform_components = stoi(string(argv[i + 1]));
@@ -422,34 +422,46 @@ int main(int argc, char **argv) {
       rcllmodels::generateCommConstraints(platform_tas[4], "cs1"));
   platform_constraints.emplace_back(
       rcllmodels::generateCommConstraints(platform_tas[5], "cs2"));
-  // erase all components that are not used
-  int to_remove = 6 - num_platform_components;
-  system_names.erase(system_names.end() - to_remove, system_names.end());
-  platform_tas.erase(platform_tas.end() - to_remove, platform_tas.end());
-  platform_constraints.erase(platform_constraints.end() - to_remove,
-                             platform_constraints.end());
-
   // init plan
   vector<PlanAction> plan = generatePlan(plan_length);
-  auto res = taptenc::transformation::transform_plan(plan, platform_tas,
-                                                     platform_constraints);
-  ofstream myfile(output_file);
-  if (myfile.is_open()) {
-    for (const auto &entry : res) {
-      for (const auto &act : entry.second) {
-        if (act.find("wait") == string::npos &&
-            act.find("no_op") == string::npos) {
-          std::string action = subBackSpecialChars(act);
-          action = action.substr(
-              0, action.find_first_of(string(1, constants::PA_SEP)));
-          myfile << entry.first.earliest_start << ": " << action << endl;
+  // erase all components that are not used
+  int to_remove = 6 - num_platform_components;
+  if (to_remove < 6) {
+    system_names.erase(system_names.end() - to_remove, system_names.end());
+    platform_tas.erase(platform_tas.end() - to_remove, platform_tas.end());
+    platform_constraints.erase(platform_constraints.end() - to_remove,
+                               platform_constraints.end());
+    auto res = taptenc::transformation::transform_plan(plan, platform_tas,
+                                                       platform_constraints);
+    ofstream myfile(output_file);
+    if (myfile.is_open()) {
+      for (const auto &entry : res) {
+        for (const auto &act : entry.second) {
+          if (act.find("wait") == string::npos &&
+              act.find("no_op") == string::npos) {
+            std::string action = subBackSpecialChars(act);
+            action = action.substr(
+                0, action.find_first_of(string(1, constants::PA_SEP)));
+            myfile << entry.first.earliest_start << ": " << action << endl;
+          }
         }
       }
+      myfile.close();
+    } else {
+      cout << "Unable to open output file";
+      return -2;
     }
-    myfile.close();
   } else {
-    cout << "Unable to open output file";
-    return -2;
+    std::cout << "invalid number of platform models. all platform models are "
+                 "checked separately"
+              << std::endl;
+    for (int i = 0; i < 6; i++) {
+      std::cout << "component " << i << ":" << std::endl;
+      vector<vector<unique_ptr<EncICInfo>>> constraints;
+      constraints.emplace_back(std::move(platform_constraints[i]));
+      auto res = taptenc::transformation::transform_plan(
+          plan, {platform_tas[i]}, constraints);
+    }
   }
   auto t2 = std::chrono::high_resolution_clock::now();
   std::cout
