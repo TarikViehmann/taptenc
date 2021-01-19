@@ -230,8 +230,8 @@ Automaton rcllmodels::generateCommTA(::std::string machine) {
   return comm_ta;
 }
 
-vector<unique_ptr<EncICInfo>> rcllmodels::generatePerceptionConstraints(
-    const Automaton &perception_ta) {
+vector<unique_ptr<EncICInfo>>
+rcllmodels::generatePerceptionConstraints(const Automaton &perception_ta) {
   unordered_set<string> cam_off_exceptions{"pick", "put", "endpick", "endput"};
   vector<State> pic_filter;
   vector<State> vision_filter;
@@ -353,7 +353,7 @@ vector<unique_ptr<EncICInfo>> rcllmodels::generatePerceptionConstraints(
 
 vector<unique_ptr<EncICInfo>>
 rcllmodels::generateCommConstraints(const Automaton &comm_ta,
-                                            ::std::string machine) {
+                                    ::std::string machine) {
   vector<State> comm_not_prepared_filter(
       {comm_ta.states[0], comm_ta.states[1]});
 
