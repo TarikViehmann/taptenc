@@ -13,9 +13,11 @@ exes := # Executables to build.
 
 exes += rcll_perception
 exes += simple_test
-
-objects.simple_test = $(filter-out ${exes:=.o},$(notdir $(wildcard ${LIB_DIR}/*.o))) simple_test.o
-objects.rcll_perception = $(filter-out ${exes:=.o},$(notdir $(wildcard ${LIB_DIR}/*.o))) rcll_perception.o
+exes += household
+NON_EXEC_OBJS = $(filter-out ${exes:=.o},$(notdir $(wildcard ${LIB_DIR}/*.o)))
+objects.simple_test = $(NON_EXEC_OBJS) simple_test.o
+objects.rcll_perception = $(NON_EXEC_OBJS) rcll_perception.o
+objects.household = $(NON_EXEC_OBJS) household.o
 
 all : $(SRC_DIRS) ${exes:%=${BUILD_DIR}/%} # Build all exectuables.
 
