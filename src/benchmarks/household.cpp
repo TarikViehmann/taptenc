@@ -1,3 +1,8 @@
+/** \file
+ * Benchmark taptenc on the household robot domain.
+ *
+ * \author (2021) Tarik Viehmann
+ */
 #include "constraints.h"
 #include "encoders.h"
 #include "platform_model_generator.h"
@@ -16,6 +21,7 @@ using namespace taptenc::householdmodels;
 using namespace std;
 
 int main(int argc, char **argv) {
+  auto t1 = std::chrono::high_resolution_clock::now();
   string planfile;
   string solutionfile;
   if (argc != 3) {
@@ -63,5 +69,10 @@ int main(int argc, char **argv) {
     cout << "Unable to open output file";
     return -2;
   }
+  auto t2 = std::chrono::high_resolution_clock::now();
+  std::cout
+      << "total time taptenc: "
+      << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+      << " (ms)" << std::endl;
   return 0;
 }
