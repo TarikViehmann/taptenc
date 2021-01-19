@@ -119,27 +119,6 @@ createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
   return enc;
 }
 
-// CompactEncoder
-// createCompactEncoding(AutomataSystem &system, const AutomataGlobals g,
-//                       unordered_map<string, vector<State>> &targets, Bounds
-//                       b) {
-//   CompactEncoder enc;
-//   for (const auto chan : g.channels) {
-//     auto search = targets.find(chan.name);
-//     if (search != targets.end()) {
-//       if (chan.name.substr(0, 5) == "snoop") {
-//         enc.encodeNoOp(system, search->second, chan.name);
-//       }
-//       if (chan.name.substr(0, 5) == "spast") {
-//         enc.encodePast(system, search->second, chan.name, b);
-//       }
-//       if (chan.name.substr(0, 8) == "sfinally") {
-//         enc.encodeFuture(system, search->second, chan.name, b);
-//       }
-//     }
-//   }
-//   return enc;
-// }
 
 std::string idToMachineStr(int i) {
   if (i == -1)
@@ -185,25 +164,16 @@ Bounds addGoto(::std::vector<PlanAction> &plan, int curr_pos, int dest_pos,
   Bounds goto_bounds(30, 45);
   Bounds end_bounds(0, 30);
   Bounds res_abs_bounds = abs_bounds;
-  // std::cout << res_abs_bounds.lower_bound << "," <<
-  // res_abs_bounds.upper_bound
-  //           << std::endl;
   if (curr_pos != dest_pos) {
     plan.push_back(
         PlanAction(ActionName("startgoto", {idToMachineStr(curr_pos),
                                             idToMachineStr(dest_pos)}),
                    res_abs_bounds, goto_bounds));
     res_abs_bounds = addBounds(res_abs_bounds, goto_bounds);
-    // std::cout << res_abs_bounds.lower_bound << "," <<
-    // res_abs_bounds.upper_bound
-    //           << std::endl;
     plan.push_back(PlanAction(ActionName("endgoto", {idToMachineStr(curr_pos),
                                                      idToMachineStr(dest_pos)}),
                               res_abs_bounds, end_bounds));
     res_abs_bounds = addBounds(res_abs_bounds, end_bounds);
-    // std::cout << res_abs_bounds.lower_bound << "," <<
-    // res_abs_bounds.upper_bound
-    //           << std::endl;
   }
   return res_abs_bounds;
 }
@@ -393,19 +363,20 @@ Bounds addGoto(::std::vector<PlanAction> &plan, int curr_pos, int dest_pos,
   return plan;
 }
 int main(int argc, char **argv) {
-  /* initialize random seed: */
-  srand(time(NULL));
   if (uppaalcalls::getEnvVar("VERIFYTA_DIR") == "") {
     cout << "ERROR: VERIFYTA_DIR not set!" << endl;
     return -1;
   }
-  int jay = 0;
+	int seed = 0;
+	bool seed_set = false;
+  int num_platform_components = 1;
   int num_runs_per_category = 1;
   int plan_length = 10;
   if (argc > 2) {
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 0; i < argc-1; ++i) {
+			std::cout << i << std::endl;
       if (i == 0) {
-        jay = stoi(string(argv[i + 1]));
+        num_platform_components = stoi(string(argv[i + 1]));
       }
       if (i == 1) {
         num_runs_per_category = stoi(string(argv[i + 1]));
@@ -413,10 +384,16 @@ int main(int argc, char **argv) {
       if (i == 2) {
         plan_length = stoi(string(argv[i + 1]));
       }
+      if (i == 3) {
+        seed = stoi(string(argv[i + 1]));
+				seed_set = true;
+      }
     }
   }
-  cout << "component: " << jay << " over " << num_runs_per_category
+  cout << "components: " << num_platform_components << " over " << num_runs_per_category
        << " of plans with length " << plan_length << std::endl;
+  /* initialize random seed: */
+  seed_set? srand(seed) : srand(time(NULL));
   // Init the Automata:
   vector<string> system_names({"sys_perc", "sys_calib", "sys_comm_rs1",
                                "sys_comm_rs2", "sys_comm_cs1", "sys_comm_cs2"});
@@ -440,6 +417,11 @@ int main(int argc, char **argv) {
       rcllmodels::generateCommConstraints(platform_tas[4], "cs1"));
   platform_constraints.emplace_back(
       rcllmodels::generateCommConstraints(platform_tas[5], "cs2"));
+	// erase all components that are not used
+	int to_remove = 6 - num_platform_components;
+	system_names.erase(system_names.end() - to_remove, system_names.end());
+	platform_tas.erase(platform_tas.end() - to_remove, platform_tas.end());
+	platform_constraints.erase(platform_constraints.end() - to_remove, platform_constraints.end());
 
   XMLPrinter printer;
   vector<uppaalcalls::timedelta> time_observed;
@@ -456,97 +438,5 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// 	AutomataSystem merged_system;
-  //   DirectEncoder merge_enc;
-  //   Automaton product_ta = PlanOrderedTLs::productTA(
-  //       platform_tas[0], platform_tas[1], "product", true);
-  //   for (int j = 0; j < 6; j++) {
-  //     auto t1 = std::chrono::high_resolution_clock::now();
-  //     AutomataSystem base_system;
-  //     base_system.instances.push_back(make_pair(platform_tas[j], ""));
-  //     DirectEncoder curr_encoder =
-  //         transformation::createDirectEncoding(base_system, plan, platform_constraints[j]);
-  //     SystemVisInfo direct_system_vis_info;
-  //     SystemVisInfo merged_system_vis_info;
-  //     AutomataSystem direct_system =
-  //         curr_encoder.createFinalSystem(base_system, direct_system_vis_info);
-  //     merged_system.globals.clocks.insert(direct_system.globals.clocks.begin(),
-  //                                         direct_system.globals.clocks.end());
-  //     printer.print(direct_system, direct_system_vis_info,
-  //                   system_names[j] + "_" + to_string(k) + ".xml");
-  //     cout << system_names[j] << "_" << k
-  //          << " num states:" << direct_system.instances[0].first.states.size()
-  //          << std::endl;
-  //     auto t2 = std::chrono::high_resolution_clock::now();
-  //     vector<uppaalcalls::timedelta> uppaal_time =
-  //         uppaalcalls::solve(system_names[j] + "_" + to_string(k));
-  //     time_observed.insert(time_observed.end(), uppaal_time.begin(),
-  //                          uppaal_time.end());
-  //     time_observed.push_back(
-  //         std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1));
-  //     auto t3 = std::chrono::high_resolution_clock::now();
-  //     UTAPTraceParser trace_parser(direct_system);
-  //     trace_parser.parseTraceInfo(system_names[j] + "_" + to_string(k) +
-  //                                 ".trace");
-  //     auto res = trace_parser.getTimedTrace(
-  //         platform_tas[j],
-  //         base_system.instances[curr_encoder.getPlanTAIndex()].first);
-  //     auto t4 = std::chrono::high_resolution_clock::now();
-  //     time_observed.push_back(
-  //         std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3));
-  //       auto merge_t1 = std::chrono::high_resolution_clock::now();
-	// 	    if (j > 0) {
-	// 	    if (j > 1) {
-  //         product_ta = PlanOrderedTLs::productTA(product_ta, platform_tas[j],
-  //                                                "product", true);
-  //       }
-  //       merge_enc = merge_enc.mergeEncodings(curr_encoder);
-  //
-	// 			AutomataSystem final_merged_system =
-  //           merge_enc.createFinalSystem(merged_system, merged_system_vis_info);
-  //       printer.print(final_merged_system, merged_system_vis_info,
-  //                     "merged_to_" + to_string(j) + "_" + to_string(k) +
-  //                         ".xml");
-  //       auto merge_t2 = std::chrono::high_resolution_clock::now();
-  //       cout << "merged_to_" + to_string(j) << "_" << k << " num states:"
-  //            << final_merged_system.instances[0].first.states.size()
-  //            << std::endl;
-  //       uppaal_time = uppaalcalls::solve("merged_to_" + to_string(j) + "_" +
-  //                                        to_string(k));
-  //       time_observed.insert(time_observed.end(), uppaal_time.begin(),
-  //                            uppaal_time.end());
-  //       time_observed.push_back(
-  //           std::chrono::duration_cast<std::chrono::milliseconds>(merge_t2 -
-  //                                                                 merge_t1));
-  //       auto merge_t3 = std::chrono::high_resolution_clock::now();
-  //       trace_parser = UTAPTraceParser(final_merged_system);
-  //       trace_parser.parseTraceInfo("merged_to_" + to_string(j) + "_" +
-  //                                   to_string(k) + ".trace");
-  //       res = trace_parser.getTimedTrace(
-  //           product_ta,
-  //           base_system.instances[curr_encoder.getPlanTAIndex()].first);
-  //       auto merge_t4 = std::chrono::high_resolution_clock::now();
-  //       time_observed.push_back(
-  //           std::chrono::duration_cast<std::chrono::milliseconds>(merge_t4 -
-  //                                                                 merge_t3));
-  //     }
-	//     else {
-  //       merged_system.instances = base_system.instances;
-  //        merge_enc = curr_encoder.copy();
-  //     }
-  //
-  //     cout << "time: " << j << " of " << k << std::endl;
-	// 		for (const auto &tdel : time_observed) {
-  //       int next_instance_counter = 0;
-  //       if (next_instance_counter == 5) {
-  //         std::cout << std::endl;
-  //         next_instance_counter = 0;
-  //       }
-  //       std::cout << tdel.count() << " ";
-  //       next_instance_counter++;
-  //     }
-  //     cout << endl << "end time: " << j << " of " << k << std::endl;
-	// 	}
-  // }
   return 0;
 }
