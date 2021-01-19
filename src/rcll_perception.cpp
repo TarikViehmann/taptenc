@@ -4,8 +4,8 @@
 #include "plan_ordered_tls.h"
 #include "platform_model_generator.h"
 #include "printer.h"
-#include "transformation.h"
 #include "timed_automata.h"
+#include "transformation.h"
 #include "uppaal_calls.h"
 #include "utap_trace_parser.h"
 #include "utap_xml_parser.h"
@@ -118,7 +118,6 @@ createModularEncoding(AutomataSystem &system, const AutomataGlobals g,
   }
   return enc;
 }
-
 
 std::string idToMachineStr(int i) {
   if (i == -1)
@@ -367,14 +366,14 @@ int main(int argc, char **argv) {
     cout << "ERROR: VERIFYTA_DIR not set!" << endl;
     return -1;
   }
-	int seed = 0;
-	bool seed_set = false;
+  int seed = 0;
+  bool seed_set = false;
   int num_platform_components = 1;
   int num_runs_per_category = 1;
   int plan_length = 10;
   if (argc > 2) {
-    for (int i = 0; i < argc-1; ++i) {
-			std::cout << i << std::endl;
+    for (int i = 0; i < argc - 1; ++i) {
+      std::cout << i << std::endl;
       if (i == 0) {
         num_platform_components = stoi(string(argv[i + 1]));
       }
@@ -386,24 +385,23 @@ int main(int argc, char **argv) {
       }
       if (i == 3) {
         seed = stoi(string(argv[i + 1]));
-				seed_set = true;
+        seed_set = true;
       }
     }
   }
-  cout << "components: " << num_platform_components << " over " << num_runs_per_category
-       << " of plans with length " << plan_length << std::endl;
+  cout << "components: " << num_platform_components << " over "
+       << num_runs_per_category << " of plans with length " << plan_length
+       << std::endl;
   /* initialize random seed: */
-  seed_set? srand(seed) : srand(time(NULL));
+  seed_set ? srand(seed) : srand(time(NULL));
   // Init the Automata:
   vector<string> system_names({"sys_perc", "sys_calib", "sys_comm_rs1",
                                "sys_comm_rs2", "sys_comm_cs1", "sys_comm_cs2"});
-  vector<Automaton> platform_tas({rcllmodels::generatePerceptionTA(),
-                                  rcllmodels::generateCalibrationTA(),
-                                  rcllmodels::generateCommTA("rs1"),
-                                  rcllmodels::generateCommTA("rs2"),
-                                  rcllmodels::generateCommTA("cs1"),
-                                  rcllmodels::generateCommTA("cs2")});
-	// Init the constraints
+  vector<Automaton> platform_tas(
+      {rcllmodels::generatePerceptionTA(), rcllmodels::generateCalibrationTA(),
+       rcllmodels::generateCommTA("rs1"), rcllmodels::generateCommTA("rs2"),
+       rcllmodels::generateCommTA("cs1"), rcllmodels::generateCommTA("cs2")});
+  // Init the constraints
   vector<vector<unique_ptr<EncICInfo>>> platform_constraints;
   platform_constraints.emplace_back(
       rcllmodels::generatePerceptionConstraints(platform_tas[0]));
@@ -417,26 +415,28 @@ int main(int argc, char **argv) {
       rcllmodels::generateCommConstraints(platform_tas[4], "cs1"));
   platform_constraints.emplace_back(
       rcllmodels::generateCommConstraints(platform_tas[5], "cs2"));
-	// erase all components that are not used
-	int to_remove = 6 - num_platform_components;
-	system_names.erase(system_names.end() - to_remove, system_names.end());
-	platform_tas.erase(platform_tas.end() - to_remove, platform_tas.end());
-	platform_constraints.erase(platform_constraints.end() - to_remove, platform_constraints.end());
+  // erase all components that are not used
+  int to_remove = 6 - num_platform_components;
+  system_names.erase(system_names.end() - to_remove, system_names.end());
+  platform_tas.erase(platform_tas.end() - to_remove, platform_tas.end());
+  platform_constraints.erase(platform_constraints.end() - to_remove,
+                             platform_constraints.end());
 
   XMLPrinter printer;
   vector<uppaalcalls::timedelta> time_observed;
   for (int k = 0; k < num_runs_per_category; k++) {
-		// init plan
+    // init plan
     vector<PlanAction> plan = generatePlan(plan_length);
-		auto res = taptenc::transformation::transform_plan(plan, platform_tas, platform_constraints);
-		for ( const auto &entry : res ) {
-		  std::cout << entry.first << " : ";
-		 for (const auto &act : entry.second) {
-			   std::cout	<< act << " ";
-		 }
-		 std::cout << std::endl;
-		}
-	}
+    auto res = taptenc::transformation::transform_plan(plan, platform_tas,
+                                                       platform_constraints);
+    for (const auto &entry : res) {
+      std::cout << entry.first << " : ";
+      for (const auto &act : entry.second) {
+        std::cout << act << " ";
+      }
+      std::cout << std::endl;
+    }
+  }
 
   return 0;
 }

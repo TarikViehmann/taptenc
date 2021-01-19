@@ -8,8 +8,8 @@
 #include "../constraints/constraints.h"
 #include "../timed-automata/timed_automata.h"
 #include "../utils.h"
-#include <string>
 #include <ostream>
+#include <string>
 #include <unordered_map>
 
 namespace taptenc {

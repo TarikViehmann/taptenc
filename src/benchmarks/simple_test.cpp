@@ -1,3 +1,8 @@
+/** \file
+ * Generic simple test for taptenc.
+ *
+ * \author (2021) Tarik Viehmann
+ */
 #include "constants.h"
 #include "encoders.h"
 #include "filter.h"

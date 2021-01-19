@@ -18,8 +18,6 @@
 #include <unordered_set>
 #include <vector>
 
-#define CONTEXT 2
-
 using namespace taptenc;
 using namespace encoderutils;
 
