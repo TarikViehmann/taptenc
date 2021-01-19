@@ -34,7 +34,7 @@ getStateItById(const std::vector<State> &states, std::string id) {
                       [id](const State &s) { return s.id == id; });
 }
 
-Automaton benchmarkgenerator::generateCalibrationTA() {
+Automaton rcllmodels::generateCalibrationTA() {
   vector<State> states;
   vector<Transition> transitions;
   std::shared_ptr<Clock> cal_clock = std::make_shared<Clock>("cal");
@@ -67,7 +67,7 @@ Automaton benchmarkgenerator::generateCalibrationTA() {
   return test;
 }
 
-Automaton benchmarkgenerator::generatePerceptionTA() {
+Automaton rcllmodels::generatePerceptionTA() {
   vector<State> states;
   vector<Transition> transitions;
   std::shared_ptr<Clock> cam_clock = std::make_shared<Clock>("cam");
@@ -122,7 +122,7 @@ Automaton benchmarkgenerator::generatePerceptionTA() {
   return test;
 }
 
-Automaton benchmarkgenerator::generateCommTA(::std::string machine) {
+Automaton rcllmodels::generateCommTA(::std::string machine) {
   vector<State> comm_states;
   vector<Transition> comm_transitions;
   std::shared_ptr<Clock> send_clock = std::make_shared<Clock>("send");
@@ -146,7 +146,7 @@ Automaton benchmarkgenerator::generateCommTA(::std::string machine) {
   return comm_ta;
 }
 
-vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
+vector<unique_ptr<EncICInfo>> rcllmodels::generatePerceptionConstraints(
     const Automaton &perception_ta) {
   unordered_set<string> cam_off_exceptions{"pick", "put", "endpick", "endput"};
   vector<State> pic_filter;
@@ -268,7 +268,7 @@ vector<unique_ptr<EncICInfo>> benchmarkgenerator::generatePerceptionConstraints(
 }
 
 vector<unique_ptr<EncICInfo>>
-benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta,
+rcllmodels::generateCommConstraints(const Automaton &comm_ta,
                                             ::std::string machine) {
   vector<State> comm_not_prepared_filter(
       {comm_ta.states[0], comm_ta.states[1]});
@@ -314,7 +314,7 @@ benchmarkgenerator::generateCommConstraints(const Automaton &comm_ta,
 }
 
 vector<unique_ptr<EncICInfo>>
-benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
+rcllmodels::generateCalibrationConstraints(const Automaton &calib_ta) {
   vector<State> no_calib_filter({calib_ta.states[0], calib_ta.states[1],
                                  calib_ta.states[2], calib_ta.states[3],
                                  calib_ta.states[4]});
@@ -397,7 +397,7 @@ benchmarkgenerator::generateCalibrationConstraints(const Automaton &calib_ta) {
 }
 
 vector<unique_ptr<EncICInfo>>
-benchmarkgenerator::generatePositionConstraints(const Automaton &pos_ta) {
+rcllmodels::generatePositionConstraints(const Automaton &pos_ta) {
   vector<unique_ptr<EncICInfo>> pos_constraints;
   vector<State> moving_filter;
   vector<State> standing_filter;
@@ -405,7 +405,7 @@ benchmarkgenerator::generatePositionConstraints(const Automaton &pos_ta) {
   auto moving_state = getStateItById(pos_ta.states, "moving");
   if (standing_state == pos_ta.states.end() ||
       moving_state == pos_ta.states.end()) {
-    std::cout << "benchmarkgenerator generatePositionConstraints: cannot find "
+    std::cout << "rcllmodels generatePositionConstraints: cannot find "
                  "constraint relevant states"
               << std::endl;
     return pos_constraints;

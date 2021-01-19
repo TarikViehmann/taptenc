@@ -420,26 +420,26 @@ int main(int argc, char **argv) {
   // Init the Automata:
   vector<string> system_names({"sys_perc", "sys_calib", "sys_comm_rs1",
                                "sys_comm_rs2", "sys_comm_cs1", "sys_comm_cs2"});
-  vector<Automaton> platform_tas({benchmarkgenerator::generatePerceptionTA(),
-                                  benchmarkgenerator::generateCalibrationTA(),
-                                  benchmarkgenerator::generateCommTA("rs1"),
-                                  benchmarkgenerator::generateCommTA("rs2"),
-                                  benchmarkgenerator::generateCommTA("cs1"),
-                                  benchmarkgenerator::generateCommTA("cs2")});
+  vector<Automaton> platform_tas({rcllmodels::generatePerceptionTA(),
+                                  rcllmodels::generateCalibrationTA(),
+                                  rcllmodels::generateCommTA("rs1"),
+                                  rcllmodels::generateCommTA("rs2"),
+                                  rcllmodels::generateCommTA("cs1"),
+                                  rcllmodels::generateCommTA("cs2")});
 	// Init the constraints
   vector<vector<unique_ptr<EncICInfo>>> platform_constraints;
   platform_constraints.emplace_back(
-      benchmarkgenerator::generatePerceptionConstraints(platform_tas[0]));
+      rcllmodels::generatePerceptionConstraints(platform_tas[0]));
   platform_constraints.emplace_back(
-      benchmarkgenerator::generateCalibrationConstraints(platform_tas[1]));
+      rcllmodels::generateCalibrationConstraints(platform_tas[1]));
   platform_constraints.emplace_back(
-      benchmarkgenerator::generateCommConstraints(platform_tas[2], "rs1"));
+      rcllmodels::generateCommConstraints(platform_tas[2], "rs1"));
   platform_constraints.emplace_back(
-      benchmarkgenerator::generateCommConstraints(platform_tas[3], "rs2"));
+      rcllmodels::generateCommConstraints(platform_tas[3], "rs2"));
   platform_constraints.emplace_back(
-      benchmarkgenerator::generateCommConstraints(platform_tas[4], "cs1"));
+      rcllmodels::generateCommConstraints(platform_tas[4], "cs1"));
   platform_constraints.emplace_back(
-      benchmarkgenerator::generateCommConstraints(platform_tas[5], "cs2"));
+      rcllmodels::generateCommConstraints(platform_tas[5], "cs2"));
 
   XMLPrinter printer;
   vector<uppaalcalls::timedelta> time_observed;

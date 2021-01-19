@@ -16,7 +16,7 @@ namespace taptenc {
 /**
  * Utility functions to create hand-crafted benchmarks from the RCLL domain.
  */
-namespace benchmarkgenerator {
+namespace rcllmodels {
 
 /**
  * Generates a calibration platform TA to model the need to recalibrate
@@ -86,5 +86,5 @@ generateCalibrationConstraints(const Automaton &calib_ta);
  */
 ::std::vector<::std::unique_ptr<EncICInfo>>
 generatePositionConstraints(const Automaton &pos_ta);
-} // end namespace benchmarkgenerator
+} // end namespace rcllmodels
 } // end namespace taptenc
