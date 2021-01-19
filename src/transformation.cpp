@@ -184,6 +184,9 @@ transformation::transform_plan(const std::vector<PlanAction> &plan,
   // finalize the encoding and obtain the visual information for printing
   AutomataSystem final_merged_system = merge_enc.createFinalSystem(
       merged_system, merged_system_vis_info, clock_inits);
+  std::cout << "num_states: "
+            << final_merged_system.instances[0].first.states.size()
+            << std::endl;
   // print encoded ta to xml
   printer.print(final_merged_system, merged_system_vis_info, "merged.xml");
   // solve the encoded reachability problem
