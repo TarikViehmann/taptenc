@@ -236,7 +236,7 @@ struct bounds {
   bounds();
 
   /**
-   * Creates non-strct bounds.
+   * Creates non-strict bounds.
    *
    * @param l lower bound
    * @param u upper bound
@@ -244,7 +244,7 @@ struct bounds {
   bounds(timepoint l, timepoint u);
 
   /**
-   * Creates bounds with user defined comparison operatos.
+   * Creates bounds with user defined comparison operator.
    *
    * Only valid bounds can be created. Bounds are invalid if their operators are
    * neither ComparisonOp::LT nor ComparisonOp::LTE or if the upper bound is
