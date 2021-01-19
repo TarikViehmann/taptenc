@@ -1,5 +1,11 @@
 lib/
 bin/
+*.q
+*.if
+*.trace
+*.xtr
+*.swp
+*.xml
 *.cflags
 *.config
 *.creator
