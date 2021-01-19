@@ -188,6 +188,13 @@ transformation::transform_plan(const std::vector<PlanAction> &plan,
   printer.print(final_merged_system, merged_system_vis_info, "merged.xml");
   // solve the encoded reachability problem
   auto uppaal_time = uppaalcalls::solve("merged");
+  std::vector<std::string> times = {"intermediate format", "model checking",
+                                    "tracer"};
+  int i = 0;
+  for (const auto &t : uppaal_time) {
+    std::cout << times[i] << ": " << t.count() << " (ms)" << std::endl;
+    i++;
+  }
   UTAPTraceParser trace_parser = UTAPTraceParser(final_merged_system);
   // retrieve the solution trace
   trace_parser.parseTraceInfo("merged.trace");
