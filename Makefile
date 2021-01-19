@@ -10,13 +10,13 @@ include $(BUILDSYS_DIR)/path.mk
 include $(BUILDSYS_DIR)/compiler_vars.mk
 exes := # Executables to build.
 
-#exes += my_benchmark
-#objects.my_benchmark = my_benchmark.o filter.o utils.o compact_encoder.o modular_encoder.o direct_encoder.o encoder.o constraints.o vis_info.o xta_printer.o xml_printer.o timed_automata.o
 
 exes += rcll_perception
-objects.rcll_perception = $(notdir $(wildcard ${LIB_DIR}/*.o))
-$(info ${objects.rcll_perception})
-#rcll_perception.o utap_trace_parser.o filter.o utils.o compact_encoder.o modular_encoder.o direct_encoder.o constraints.o vis_info.o xta_printer.o xml_printer.o timed_automata.o plan_ordered_tls.o encoder_utils.o
+exes += simple_test
+
+objects.simple_test = $(filter-out ${exes:=.o},$(notdir $(wildcard ${LIB_DIR}/*.o))) simple_test.o
+objects.rcll_perception = $(filter-out ${exes:=.o},$(notdir $(wildcard ${LIB_DIR}/*.o))) rcll_perception.o
+
 all : $(SRC_DIRS) ${exes:%=${BUILD_DIR}/%} # Build all exectuables.
 
 $(SRC_DIRS):
