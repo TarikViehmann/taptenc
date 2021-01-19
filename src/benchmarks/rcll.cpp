@@ -1,3 +1,8 @@
+/** \file
+ * Benchmark taptenc on the rcll domain.
+ *
+ * \author (2021) Tarik Viehmann
+ */
 #include "constants.h"
 #include "encoders.h"
 #include "filter.h"
@@ -362,6 +367,12 @@ Bounds addGoto(::std::vector<PlanAction> &plan, int curr_pos, int dest_pos,
   return plan;
 }
 int main(int argc, char **argv) {
+  auto t1 = std::chrono::high_resolution_clock::now();
+  cout << "usage: ./rcll <number of platform models (1-6, default 1)>\n"
+       << "\t<plan-length, default 10>\n"
+       << "\t<output file name, default \"solution.txt\">\n"
+       << "\t<random seed integer (for plan generaton, "
+       << "default uses fresh seed time(NULL))>" << std::endl;
   if (uppaalcalls::getEnvVar("VERIFYTA_DIR") == "") {
     cout << "ERROR: VERIFYTA_DIR not set!" << endl;
     return -1;
@@ -369,19 +380,18 @@ int main(int argc, char **argv) {
   int seed = 0;
   bool seed_set = false;
   int num_platform_components = 1;
-  int num_runs_per_category = 1;
+  std::string output_file = "solution.txt";
   int plan_length = 10;
   if (argc > 2) {
     for (int i = 0; i < argc - 1; ++i) {
-      std::cout << i << std::endl;
       if (i == 0) {
         num_platform_components = stoi(string(argv[i + 1]));
       }
       if (i == 1) {
-        num_runs_per_category = stoi(string(argv[i + 1]));
+        plan_length = stoi(string(argv[i + 1]));
       }
       if (i == 2) {
-        plan_length = stoi(string(argv[i + 1]));
+        output_file = (string(argv[i + 1]));
       }
       if (i == 3) {
         seed = stoi(string(argv[i + 1]));
@@ -389,9 +399,6 @@ int main(int argc, char **argv) {
       }
     }
   }
-  cout << "components: " << num_platform_components << " over "
-       << num_runs_per_category << " of plans with length " << plan_length
-       << std::endl;
   /* initialize random seed: */
   seed_set ? srand(seed) : srand(time(NULL));
   // Init the Automata:
@@ -422,21 +429,32 @@ int main(int argc, char **argv) {
   platform_constraints.erase(platform_constraints.end() - to_remove,
                              platform_constraints.end());
 
-  XMLPrinter printer;
-  vector<uppaalcalls::timedelta> time_observed;
-  for (int k = 0; k < num_runs_per_category; k++) {
-    // init plan
-    vector<PlanAction> plan = generatePlan(plan_length);
-    auto res = taptenc::transformation::transform_plan(plan, platform_tas,
-                                                       platform_constraints);
+  // init plan
+  vector<PlanAction> plan = generatePlan(plan_length);
+  auto res = taptenc::transformation::transform_plan(plan, platform_tas,
+                                                     platform_constraints);
+  ofstream myfile(output_file);
+  if (myfile.is_open()) {
     for (const auto &entry : res) {
-      std::cout << entry.first << " : ";
       for (const auto &act : entry.second) {
-        std::cout << act << " ";
+        if (act.find("wait") == string::npos &&
+            act.find("no_op") == string::npos) {
+          std::string action = subBackSpecialChars(act);
+          action = action.substr(
+              0, action.find_first_of(string(1, constants::PA_SEP)));
+          myfile << entry.first.earliest_start << ": " << action << endl;
+        }
       }
-      std::cout << std::endl;
     }
+    myfile.close();
+  } else {
+    cout << "Unable to open output file";
+    return -2;
   }
-
+  auto t2 = std::chrono::high_resolution_clock::now();
+  std::cout
+      << "total time taptenc: "
+      << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+      << " (ms)" << std::endl;
   return 0;
 }
