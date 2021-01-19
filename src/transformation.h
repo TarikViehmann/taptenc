@@ -7,19 +7,20 @@
 
 #pragma once
 
-#include <vector>
-#include <memory>
+#include "constraints.h"
+#include "enc_interconnection_info.h"
 #include "encoders.h"
 #include "timed_automata.h"
-#include "enc_interconnection_info.h"
-#include "constraints.h"
 #include "utap_trace_parser.h"
+#include <memory>
+#include <vector>
 
 namespace taptenc {
 namespace transformation {
 typedef std::vector<std::vector<std::unique_ptr<EncICInfo>>> Constraints;
 /**
- * Apply the direct encoding to a given automata system consisting of all platform TAs and the plan TA.
+ * Apply the direct encoding to a given automata system consisting of all
+ * platform TAs and the plan TA.
  *
  * @param direct_system the system containing the platform TAs and the plan TAs
  * @param plan the plan used to create the plan TA from the \a direct_system

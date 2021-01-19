@@ -66,7 +66,6 @@ std::string exec(const char *cmd) {
   return result;
 }
 
-
 ::std::vector<timedelta> solve(const AutomataSystem &sys, std::string file_name,
                                std::string query_str) {
   XMLPrinter printer;
@@ -74,7 +73,6 @@ std::string exec(const char *cmd) {
   printer.print(sys, sys_vis_info, file_name + ".xml");
   return solve(file_name, query_str);
 }
-
 
 ::std::vector<timedelta> solve(std::string file_name, std::string query_str) {
   std::vector<timedelta> res;
@@ -100,8 +98,7 @@ std::string exec(const char *cmd) {
   // std::system(call_get_trace.c_str());
   std::string output_str = exec(call_get_trace.c_str());
   t2 = std::chrono::high_resolution_clock::now();
-  res.push_back(
-      std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1));
+  res.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1));
   if (output_str.find("formula is satisfied")) {
 
     t1 = std::chrono::high_resolution_clock::now();

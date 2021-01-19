@@ -1,27 +1,27 @@
 #include "transformation.h"
-#include "vis_info.h"
 #include "encoders.h"
 #include "plan_ordered_tls.h"
+#include "printer.h"
 #include "uppaal_calls.h"
 #include "utap_trace_parser.h"
 #include "utap_xml_parser.h"
-#include "printer.h"
+#include "vis_info.h"
 #include <algorithm>
-#include <iostream>
 #include <cassert>
+#include <iostream>
 #include <stdexcept>
 
 using namespace taptenc;
 
-
 DirectEncoder transformation::createDirectEncoding(
     AutomataSystem &direct_system, const std::vector<PlanAction> &plan,
-    const std::vector<std::unique_ptr<EncICInfo>> &constraints, int plan_index) {
+    const std::vector<std::unique_ptr<EncICInfo>> &constraints,
+    int plan_index) {
   DirectEncoder enc(direct_system, plan);
   for (const auto &gamma : constraints) {
     for (auto pa = direct_system.instances[plan_index].first.states.begin();
          pa != direct_system.instances[plan_index].first.states.end(); ++pa) {
-			std::string pa_op = pa->id;
+      std::string pa_op = pa->id;
       if (pa->id != constants::START_PA && pa->id != constants::END_PA) {
         pa_op = Filter::getPrefix(pa->id, constants::PA_SEP);
       } else {
@@ -69,7 +69,7 @@ DirectEncoder transformation::createDirectEncoding(
           for (auto epa = pa + 1;
                epa != direct_system.instances[plan_index].first.states.end();
                ++epa) {
-						std::string epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
+            std::string epa_op = Filter::getPrefix(epa->id, constants::PA_SEP);
             auto eplan_action_it = std::find_if(
                 plan.begin(), plan.end(), [epa_op](const auto &act) {
                   return act.name.toString() == epa_op;
@@ -101,7 +101,8 @@ DirectEncoder transformation::createDirectEncoding(
                     if (pa_trigger->args[j] == epa_trigger->args[i] &&
                         eplan_action_it->name.args[i] !=
                             plan_action_it->name.args[j]) {
-                      // std::cout << "missmatch found: " << pa_trigger->args[j] << "
+                      // std::cout << "missmatch found: " << pa_trigger->args[j]
+                      // << "
                       // "
                       //           << epa_trigger->args[i] << std::endl;
                       // std::cout << eplan_action_it->name.args[i] << " vs "
