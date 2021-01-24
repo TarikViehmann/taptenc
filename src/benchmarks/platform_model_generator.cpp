@@ -61,9 +61,9 @@ Automaton householdmodels::generateHouseholdTA() {
   transitions.push_back(Transition("aligning", "known_grasp", "no_op",
                                    ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
                                    {}, "", true));
-  transitions.push_back(Transition("aligning", "looking_down", "no_op",
+  transitions.push_back(Transition("aligning", "looking_down", "look_at",
                                    ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
-                                   {}, "", true));
+                                   {hh_clock}, "", true));
   transitions.push_back(Transition("looking_down", "unknown_grasp", "no_op",
                                    ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
                                    {}, "", true));
@@ -73,8 +73,8 @@ Automaton householdmodels::generateHouseholdTA() {
                                    TrueCC(), {hh_clock}, "", true));
   transitions.push_back(Transition("looking_up", "backing_off", "back_off",
                                    ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
-                                   {}, "", true));
-  transitions.push_back(Transition("backing_off", "idle", "back_off",
+                                   {hh_clock}, "", true));
+  transitions.push_back(Transition("backing_off", "idle", "no_op",
                                    ComparisonCC(hh_clock, ComparisonOp::GTE, 2),
                                    {}, "", true));
   Automaton test(states, transitions, "main", false);
