@@ -28,7 +28,7 @@ for file in ${path}/problem_*;
 	planout=${solution_folder}/tfd_output_${testno}.txt
 	taptencout=${solution_folder}/taptenc_output_${testno}.txt
 	touch ${solution}
-	if timeout 60 ${PLANNER}/plan ${path}/domain_strips_no_platform.pddl ${file} ${solution} > $planout;
+	if timeout 300 ${PLANNER}/plan ${path}/domain_strips_no_platform.pddl ${file} ${solution} > $planout;
 		then
 			cd ${taptenc_path}
 			${taptenc_path}/household ${solution} ${solution_folder}/transformed_${testno}.txt > $taptencout;
@@ -42,7 +42,7 @@ for file in ${path}/problem_*;
 	solution=${solution_folder}/direct_solution_${testno}.txt
 	planout=${solution_folder}/direct_tfd_output_${testno}.txt
 	echo $skip_direct_planning
-	if [ $skip_direct_planning == 1 ] || ! timeout 60 ${PLANNER}/plan ${path}/domain_strips.pddl ${file} ${solution} > $planout ;
+	if [ $skip_direct_planning == 1 ] || ! timeout 300 ${PLANNER}/plan ${path}/domain_strips.pddl ${file} ${solution} > $planout ;
 	then
 			# no need to plan in the complex domain on bigger instances
 			# when it already timed out on smaller ones
