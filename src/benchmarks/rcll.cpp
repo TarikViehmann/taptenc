@@ -399,8 +399,19 @@ int main(int argc, char **argv) {
       }
     }
   }
+    std::cout << "num models " << num_platform_components
+              << "plan length " << plan_length
+              << std::endl;
   /* initialize random seed: */
-  seed_set ? srand(seed) : srand(time(NULL));
+	auto default_seed = time(NULL);
+	std::cout << "seed: ";
+  if(seed_set) {
+		srand(seed);
+		std::cout << seed << std::endl;
+	} else {
+	 srand(default_seed);
+	 std::cout << default_seed << std::endl;
+	}
   // Init the Automata:
   vector<string> system_names({"sys_perc", "sys_calib", "sys_comm_rs1",
                                "sys_comm_rs2", "sys_comm_cs1", "sys_comm_cs2"});
@@ -456,11 +467,17 @@ int main(int argc, char **argv) {
                  "checked separately"
               << std::endl;
     for (int i = 0; i < 6; i++) {
+  auto t3 = std::chrono::high_resolution_clock::now();
       std::cout << "component " << i << ":" << std::endl;
       vector<vector<unique_ptr<EncICInfo>>> constraints;
       constraints.emplace_back(std::move(platform_constraints[i]));
       auto res = taptenc::transformation::transform_plan(
           plan, {platform_tas[i]}, constraints);
+  auto t4 = std::chrono::high_resolution_clock::now();
+  std::cout
+      << "total time component " << i <<  ": "
+      << std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count()
+      << " (ms)" << std::endl;
     }
   }
   auto t2 = std::chrono::high_resolution_clock::now();
